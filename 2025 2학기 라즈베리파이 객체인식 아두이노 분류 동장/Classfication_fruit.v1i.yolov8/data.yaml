@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 3
+names: ['nuts-bad0.25', 'nuts-bad0.5', 'nuts-good']
+
+roboflow:
+  workspace: test-gbuqg
+  project: classfication_fruit
+  version: 1
+  license: Public Domain
+  url: https://universe.roboflow.com/test-gbuqg/classfication_fruit/dataset/1

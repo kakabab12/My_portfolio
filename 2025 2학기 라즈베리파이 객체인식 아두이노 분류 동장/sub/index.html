@@ -1,0 +1,196 @@
+
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로봇팔 작업 관리자</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* (스타일은 이전과 동일) */
+        :root { --accent-color: #00BFFF; --background-color: #1a1c20; --card-color: rgba(43, 48, 53, 0.7); }
+        body { font-family: 'Poppins', sans-serif; background-color: var(--background-color); font-size: 0.9rem; }
+        .container-fluid { max-width: 1800px; }
+        .card { background-color: var(--card-color); border: none; border-top: 3px solid var(--accent-color); border-radius: 8px; backdrop-filter: blur(10px); transition: all 0.3s ease-in-out; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); }
+        .card-header { background-color: transparent; border-bottom: 1px solid rgba(255, 255, 255, 0.1); font-weight: 600; color: var(--accent-color); }
+        .main-title { font-weight: 600; color: #fff; text-shadow: 0 0 10px var(--accent-color); }
+        .progress-bar { background-color: var(--accent-color); transition: width 0.5s ease-in-out; }
+        .nav-tabs .nav-link.active { background-color: var(--card-color); color: #fff; border-color: rgba(255, 255, 255, 0.1); border-bottom-color: transparent; }
+        .log-table-wrapper { height: 250px; overflow-y: auto; }
+        .table th, .table td { text-align: center; vertical-align: middle; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid my-4">
+        <h1 class="text-center mb-4 main-title">로봇팔 작업 관리자</h1>
+
+        <div class="row">
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header">실시간 스트림</div>
+                    <div class="card-body p-0 d-flex align-items-center">
+                        <img src="{{ url_for('video_feed') }}" width="100%" style="border-radius: 0 0 8px 8px;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                 <div class="card">
+                    <div class="card-header">시스템 성능</div>
+                    <div class="card-body">
+                        <span>CPU</span>
+                        <div class="progress mb-2" role="progressbar"><div class="progress-bar" id="cpu-progress" style="width: 0%">0%</div></div>
+                        <span>Memory</span>
+                        <div class="progress mb-3" role="progressbar"><div class="progress-bar" id="mem-progress" style="width: 0%">0%</div></div>
+                        <div class="d-flex justify-content-between"><strong>카메라 FPS:</strong><span id="fps-display" class="fw-bold" style="color: var(--accent-color);">0.00</span></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">수동 제어</div>
+                    <div class="card-body text-center p-2">
+                        <div class="btn-group w-100">
+                            <button class="btn btn-outline-primary" onclick="sendCommand('PICK')">PICK</button>
+                            <button class="btn btn-outline-info" onclick="sendCommand('PLACE')">PLACE</button>
+                            <button class="btn btn-outline-danger" onclick="sendCommand('STOP')">STOP</button>
+                        </div>
+                        <p class="mt-2 mb-0 text-body-secondary">마지막 명령: <span id="last-command" class="fw-bold">-</span></p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" id="logTabs" role="tablist">
+                            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#detection-pane" type="button">탐지 내역</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#action-pane" type="button">동작 내역</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#system-pane" type="button">시스템 로그</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#trend-pane" type="button">생산량 통계</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#defect-pane" type="button">불량률 현황</button></li>
+                        </ul>
+                    </div>
+                    <div class="card-body tab-content p-0">
+                        <div class="tab-pane fade show active" id="detection-pane"><div class="log-table-wrapper"><table class="table table-dark table-striped table-sm mb-0"><thead><tr><th>시간</th><th>클래스</th><th>정확도</th><th>좌표</th></tr></thead><tbody id="detection-log-body"></tbody></table></div></div>
+                        <div class="tab-pane fade" id="action-pane"><div class="log-table-wrapper"><table class="table table-dark table-striped table-sm mb-0"><thead><tr><th>시간</th><th>동작</th><th>결과</th></tr></thead><tbody id="action-log-body"></tbody></table></div></div>
+                        <div class="tab-pane fade" id="system-pane"><div class="log-table-wrapper"><table class="table table-dark table-striped table-sm mb-0"><thead><tr><th>시간</th><th>CPU(%)</th><th>MEM(%)</th><th>FPS</th></tr></thead><tbody id="system-log-body"></tbody></table></div></div>
+                        <div class="tab-pane fade p-2" id="trend-pane"><canvas id="productionChart" height="230"></canvas></div>
+                        <div class="tab-pane fade p-2" id="defect-pane"><canvas id="defectChart" height="230"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="mt-5 py-3 text-center text-body-secondary">
+        <p class="mb-0"><strong>Project Team:</strong> 김한민 &middot; 김재우 &middot; 김봉만 &middot; 이지용 &middot; 장민기</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        Chart.defaults.color = '#dee2e6'; Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+        
+        // 생산량 통계 차트
+        const productionChart = new Chart(document.getElementById('productionChart'), { type: 'line', data: { labels: [], datasets: [{ label: '총 생산량', data: [], borderColor: 'var(--accent-color)', fill: false, tension: 0.3 }] } });
+        
+        // ########## 불량률 차트가 추가되었습니다 ##########
+        const defectChart = new Chart(document.getElementById('defectChart'), { 
+            type: 'doughnut', 
+            data: { 
+                labels: ['정상', '불량'], 
+                datasets: [{ 
+                    data: [1, 0], 
+                    backgroundColor: ['#198754', '#dc3545'], // Green, Red
+                    borderWidth: 0 
+                }] 
+            } 
+        });
+        
+        // 경고 상태 추적 변수
+        let isAlertActive = false;
+
+        // 수동 제어 함수
+        function sendCommand(command) {
+            const lastCommandEl = document.getElementById('last-command');
+            lastCommandEl.innerText = `${command} 전송 중...`;
+            fetch('/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: command })
+            }).then(res => res.json()).then(data => {
+                if (data.status === 'success') { lastCommandEl.innerText = data.command; } 
+                else { lastCommandEl.innerText = "전송 실패"; }
+            }).catch(error => { lastCommandEl.innerText = "연결 오류"; });
+        }
+
+        // 데이터 업데이트 함수
+        function updateData() {
+            fetch('/data')
+            .then(response => response.json())
+            .then(data => {
+                const stats = data.stats;
+                document.getElementById('cpu-progress').style.width = `${stats.cpu}%`;
+                document.getElementById('cpu-progress').innerText = `${stats.cpu.toFixed(1)}%`;
+                document.getElementById('mem-progress').style.width = `${stats.memory}%`;
+                document.getElementById('mem-progress').innerText = `${stats.memory.toFixed(1)}%`;
+                document.getElementById('fps-display').innerText = stats.fps.toFixed(2);
+                
+                const detectionTbody = document.getElementById('detection-log-body');
+                const actionTbody = document.getElementById('action-log-body');
+                const systemTbody = document.getElementById('system-log-body');
+
+                detectionTbody.innerHTML = '';
+                data.detection_log.slice().reverse().forEach(log => {
+                    detectionTbody.innerHTML += `<tr><td>${log.time}</td><td>${log.class}</td><td>${log.conf}</td><td>(${log.coords[0]},${log.coords[1]})</td></tr>`;
+                });
+
+                actionTbody.innerHTML = '';
+                data.action_log.slice().reverse().forEach(log => {
+                    const resultClass = log.result === 'SUCCESS' ? 'text-success' : 'text-danger';
+                    actionTbody.innerHTML += `<tr><td>${log.time}</td><td>${log.action}</td><td class="fw-bold ${resultClass}">${log.result}</td></tr>`;
+                });
+                
+                systemTbody.innerHTML = '';
+                data.system_log.slice().reverse().forEach(log => {
+                    systemTbody.innerHTML += `<tr><td>${log.time}</td><td>${log.cpu.toFixed(1)}</td><td>${log.mem.toFixed(1)}</td><td>${log.fps}</td></tr>`;
+                });
+
+                // ########## 불량률 계산 및 차트/경고 로직이 추가되었습니다 ##########
+                const totalActions = data.action_log.length;
+                const defectActions = data.action_log.filter(log => log.result === 'FAIL').length;
+                const goodActions = totalActions - defectActions;
+                const defectRate = totalActions > 0 ? (defectActions / totalActions * 100) : 0;
+                
+                // 불량률 차트 업데이트
+                defectChart.data.datasets[0].data = [goodActions, defectActions];
+                defectChart.update();
+
+                // 불량률 경고
+                if (defectRate > 10 && !isAlertActive) {
+                    isAlertActive = true;
+                    alert('!!!!!!!!--- 경고: 불량률이 10%를 초과했습니다 ! ---!!!!!!');
+                } else if (defectRate <= 10 && isAlertActive) {
+                    isAlertActive = false;
+                }
+                // ###############################################################
+
+                // 생산량 추이 차트 업데이트
+                const timeLabel = new Date().toLocaleTimeString();
+                if (productionChart.data.labels.length > 20) {
+                    productionChart.data.labels.shift();
+                    productionChart.data.datasets[0].data.shift();
+                }
+                productionChart.data.labels.push(timeLabel);
+                productionChart.data.datasets[0].data.push(totalActions);
+                productionChart.update();
+            });
+        }
+        
+        setInterval(updateData, 2000);
+        document.addEventListener('DOMContentLoaded', updateData);
+    </script>
+</body>
+</html>
+

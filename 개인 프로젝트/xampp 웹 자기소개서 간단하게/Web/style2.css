@@ -1,0 +1,27 @@
+.color-red {
+  color: red;
+}
+
+.color-blue {
+  color: blue;
+}
+
+.bg-yellow {
+  background-color: yellow;
+}
+
+.bg-light {
+  background-color: #e0f7fa;
+}
+
+.small {
+  font-size: 12px;
+}
+
+.large {
+  font-size: 24px;
+}
+
+.search-links {
+  margin-top: 30px;
+}

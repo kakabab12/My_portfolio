@@ -1,0 +1,392 @@
+python3 clean_model.py 
+RecursiveScriptModule(
+  original_name=DetectionModel
+  (model): RecursiveScriptModule(
+    original_name=Sequential
+    (0): RecursiveScriptModule(
+      original_name=Conv
+      (conv): RecursiveScriptModule(original_name=Conv2d)
+      (act): RecursiveScriptModule(original_name=SiLU)
+    )
+    (1): RecursiveScriptModule(
+      original_name=Conv
+      (conv): RecursiveScriptModule(original_name=Conv2d)
+      (act): RecursiveScriptModule(original_name=SiLU)
+    )
+    (2): RecursiveScriptModule(
+      original_name=C3
+      (cv1): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv2): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv3): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (m): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+      )
+    )
+    (3): RecursiveScriptModule(
+      original_name=Conv
+      (conv): RecursiveScriptModule(original_name=Conv2d)
+      (act): RecursiveScriptModule(original_name=SiLU)
+    )
+    (4): RecursiveScriptModule(
+      original_name=C3
+      (cv1): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv2): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv3): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (m): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+        (1): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+      )
+    )
+    (5): RecursiveScriptModule(
+      original_name=Conv
+      (conv): RecursiveScriptModule(original_name=Conv2d)
+      (act): RecursiveScriptModule(original_name=SiLU)
+    )
+    (6): RecursiveScriptModule(
+      original_name=C3
+      (cv1): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv2): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv3): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (m): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+        (1): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+        (2): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+      )
+    )
+    (7): RecursiveScriptModule(
+      original_name=Conv
+      (conv): RecursiveScriptModule(original_name=Conv2d)
+      (act): RecursiveScriptModule(original_name=SiLU)
+    )
+    (8): RecursiveScriptModule(
+      original_name=C3
+      (cv1): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv2): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv3): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (m): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+      )
+    )
+    (9): RecursiveScriptModule(
+      original_name=SPPF
+      (cv1): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv2): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (m): RecursiveScriptModule(original_name=MaxPool2d)
+    )
+    (10): RecursiveScriptModule(
+      original_name=Conv
+      (conv): RecursiveScriptModule(original_name=Conv2d)
+      (act): RecursiveScriptModule(original_name=SiLU)
+    )
+    (11): RecursiveScriptModule(original_name=Upsample)
+    (12): RecursiveScriptModule(original_name=Concat)
+    (13): RecursiveScriptModule(
+      original_name=C3
+      (cv1): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv2): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv3): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (m): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+      )
+    )
+    (14): RecursiveScriptModule(
+      original_name=Conv
+      (conv): RecursiveScriptModule(original_name=Conv2d)
+      (act): RecursiveScriptModule(original_name=SiLU)
+    )
+    (15): RecursiveScriptModule(original_name=Upsample)
+    (16): RecursiveScriptModule(original_name=Concat)
+    (17): RecursiveScriptModule(
+      original_name=C3
+      (cv1): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv2): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv3): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (m): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+      )
+    )
+    (18): RecursiveScriptModule(
+      original_name=Conv
+      (conv): RecursiveScriptModule(original_name=Conv2d)
+      (act): RecursiveScriptModule(original_name=SiLU)
+    )
+    (19): RecursiveScriptModule(original_name=Concat)
+    (20): RecursiveScriptModule(
+      original_name=C3
+      (cv1): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv2): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv3): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (m): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+      )
+    )
+    (21): RecursiveScriptModule(
+      original_name=Conv
+      (conv): RecursiveScriptModule(original_name=Conv2d)
+      (act): RecursiveScriptModule(original_name=SiLU)
+    )
+    (22): RecursiveScriptModule(original_name=Concat)
+    (23): RecursiveScriptModule(
+      original_name=C3
+      (cv1): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv2): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (cv3): RecursiveScriptModule(
+        original_name=Conv
+        (conv): RecursiveScriptModule(original_name=Conv2d)
+        (act): RecursiveScriptModule(original_name=SiLU)
+      )
+      (m): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=Bottleneck
+          (cv1): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+          (cv2): RecursiveScriptModule(
+            original_name=Conv
+            (conv): RecursiveScriptModule(original_name=Conv2d)
+            (act): RecursiveScriptModule(original_name=SiLU)
+          )
+        )
+      )
+    )
+    (24): RecursiveScriptModule(
+      original_name=Detect
+      (m): RecursiveScriptModule(
+        original_name=ModuleList
+        (0): RecursiveScriptModule(original_name=Conv2d)
+        (1): RecursiveScriptModule(original_name=Conv2d)
+        (2): RecursiveScriptModule(original_name=Conv2d)
+      )
+    )
+  )
+)
