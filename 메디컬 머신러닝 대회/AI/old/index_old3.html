@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SurgicalAI — 수술 예측 시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #080E1A;
+  --bg2:    #0F1825;
+  --bg3:    #162032;
+  --border: rgba(255,255,255,0.07);
+  --green:  #00E5A0;
+  --blue:   #3B9EFF;
+  --yellow: #FFB547;
+  --red:    #FF5A5A;
+  --text:   #EEF0F6;
+  --muted:  #5A6680;
+  --light:  #8A96B0;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+html{ scroll-behavior:smooth; }
+body{
+  font-family:'DM Sans', 'Noto Sans KR', sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* HEADER */
+header{
+  position:sticky; top:0; z-index:100;
+  background:rgba(8,14,26,0.85);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  padding:0 2rem;
+  height:64px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.logo{
+  font-family:'Syne', sans-serif;
+  font-size:20px; font-weight:800;
+  letter-spacing:-0.5px;
+  color:#fff;
+}
+.logo em{ color:var(--green); font-style:normal; }
+.status-dot{
+  display:flex; align-items:center; gap:8px;
+  font-size:13px; color:var(--muted);
+}
+.dot-live{
+  width:8px; height:8px; border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 0 3px rgba(0,229,160,0.2);
+  animation:pulse-live 2s ease-in-out infinite;
+}
+@keyframes pulse-live{
+  0%,100%{ box-shadow:0 0 0 3px rgba(0,229,160,0.2); }
+  50%{ box-shadow:0 0 0 6px rgba(0,229,160,0.05); }
+}
+
+/* HERO */
+.hero{
+  text-align:center;
+  padding:4rem 1.5rem 2.5rem;
+}
+.hero-tag{
+  display:inline-block;
+  font-size:11px; font-weight:600;
+  letter-spacing:2px; text-transform:uppercase;
+  color:var(--green);
+  border:1px solid rgba(0,229,160,0.3);
+  border-radius:50px; padding:5px 16px;
+  margin-bottom:1.25rem;
+}
+.hero h1{
+  font-family:'Syne', sans-serif;
+  font-size:clamp(28px, 5vw, 48px);
+  font-weight:800; line-height:1.15;
+  letter-spacing:-1px;
+  margin-bottom:0.75rem;
+}
+.hero h1 span{ color:var(--green); }
+.hero p{ font-size:15px; color:var(--light); max-width:480px; margin:0 auto; }
+
+/* FORM */
+.wrap{ max-width:900px; margin:0 auto; padding:0 1.5rem 4rem; }
+
+.glass{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:2rem;
+  margin-bottom:1.25rem;
+}
+.sec-label{
+  font-size:10px; font-weight:600;
+  letter-spacing:2px; text-transform:uppercase;
+  color:var(--muted);
+  margin-bottom:1.25rem;
+  display:flex; align-items:center; gap:10px;
+}
+.sec-label::after{
+  content:'';
+  flex:1; height:1px;
+  background:var(--border);
+}
+
+.fg{ display:grid; gap:1rem; }
+.fg2{ grid-template-columns:1fr 1fr; }
+.fg3{ grid-template-columns:1fr 1fr 1fr; }
+
+.field label{
+  display:block;
+  font-size:11px; font-weight:500;
+  color:var(--muted);
+  letter-spacing:0.5px;
+  margin-bottom:7px;
+}
+.field input, .field select{
+  width:100%;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:11px 14px;
+  font-size:14px;
+  font-family:'DM Sans','Noto Sans KR',sans-serif;
+  color:var(--text);
+  appearance:none;
+  transition:border-color .2s, background .2s;
+}
+.field input:focus, .field select:focus{
+  outline:none;
+  border-color:rgba(0,229,160,0.5);
+  background:rgba(0,229,160,0.04);
+}
+.field input::placeholder{ color:var(--muted); }
+
+/* PREDICT BTN */
+.btn-area{ text-align:center; padding:1rem 0 0.5rem; }
+.btn-predict{
+  position:relative;
+  display:inline-flex; align-items:center; gap:12px;
+  padding:16px 56px;
+  background:var(--green);
+  color:#080E1A;
+  border:none; border-radius:50px;
+  font-size:16px; font-weight:700;
+  font-family:'DM Sans','Noto Sans KR',sans-serif;
+  cursor:pointer;
+  transition:all .2s;
+  box-shadow:0 0 40px rgba(0,229,160,0.3);
+  overflow:hidden;
+}
+.btn-predict::before{
+  content:'';
+  position:absolute; inset:0;
+  background:rgba(255,255,255,0);
+  transition:background .2s;
+}
+.btn-predict:hover{ transform:translateY(-2px); box-shadow:0 0 60px rgba(0,229,160,0.45); }
+.btn-predict:hover::before{ background:rgba(255,255,255,0.1); }
+.btn-predict:active{ transform:translateY(0); }
+.btn-predict:disabled{ background:var(--bg3); color:var(--muted); box-shadow:none; cursor:not-allowed; }
+
+/* LOADING */
+.loading{ display:none; text-align:center; padding:3rem; }
+.loading.on{ display:block; }
+.load-ring{
+  width:48px; height:48px;
+  border:2px solid var(--border);
+  border-top-color:var(--green);
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+  margin:0 auto 1rem;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.load-txt{ font-size:14px; color:var(--muted); }
+
+/* ERROR */
+.err-box{
+  display:none;
+  background:rgba(255,90,90,0.08);
+  border:1px solid rgba(255,90,90,0.2);
+  border-radius:12px;
+  padding:1rem 1.25rem;
+  font-size:13px; color:var(--red);
+  margin:1rem 0;
+}
+.err-box.on{ display:block; }
+
+/* RESULTS */
+.results{ display:none; }
+.results.on{
+  display:block;
+  animation:fadeUp .5s ease;
+}
+@keyframes fadeUp{
+  from{ opacity:0; transform:translateY(20px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+
+/* RESULT HEADER */
+.result-header{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:1.25rem;
+  padding:1.25rem 1.75rem;
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:16px;
+}
+.rh-label{ font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; }
+.rh-val{ font-size:22px; font-weight:600; font-family:'Syne',sans-serif; }
+
+/* MAIN RESULTS GRID */
+.res-grid{ display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.25rem; }
+
+/* RISK PANEL */
+.panel{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:1.75rem;
+  position:relative;
+  overflow:hidden;
+}
+.panel::before{
+  content:'';
+  position:absolute;
+  top:-60px; right:-60px;
+  width:160px; height:160px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(0,229,160,0.06) 0%, transparent 70%);
+  pointer-events:none;
+}
+.panel-title{
+  font-size:11px; font-weight:600;
+  letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--muted);
+  margin-bottom:1.5rem;
+}
+
+/* GAUGE */
+.gauge-wrap{ text-align:center; margin-bottom:1.5rem; }
+.gauge-svg{ width:160px; height:160px; }
+.gauge-svg circle{ fill:none; stroke-width:14; }
+.g-bg{ stroke:var(--bg3); }
+.g-fill{ stroke-linecap:round; transition:stroke-dashoffset 1s cubic-bezier(.4,0,.2,1), stroke .4s; }
+.gauge-inner{
+  position:relative;
+  width:160px; margin:0 auto -160px;
+  height:160px;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+}
+.g-pct{
+  font-family:'Syne',sans-serif;
+  font-size:38px; font-weight:800;
+  line-height:1;
+}
+.g-label{ font-size:11px; color:var(--muted); margin-top:4px; }
+
+.risk-pill{
+  display:inline-block;
+  padding:7px 22px;
+  border-radius:50px;
+  font-size:13px; font-weight:600;
+  margin-bottom:1.5rem;
+}
+.pill-low { background:rgba(0,229,160,0.12); color:var(--green); border:1px solid rgba(0,229,160,0.25); }
+.pill-mid { background:rgba(255,181,71,0.12); color:var(--yellow); border:1px solid rgba(255,181,71,0.25); }
+.pill-high{ background:rgba(255,90,90,0.12); color:var(--red); border:1px solid rgba(255,90,90,0.25); }
+
+/* FACTORS */
+.f-title{
+  font-size:10px; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--muted); font-weight:600;
+  margin-bottom:0.75rem;
+  padding-bottom:0.75rem;
+  border-bottom:1px solid var(--border);
+}
+.f-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 0;
+  border-bottom:1px solid var(--border);
+  gap:8px;
+}
+.f-row:last-child{ border-bottom:none; }
+.f-name{ font-size:13px; color:var(--light); flex:1; }
+.f-right{ display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.f-val{ font-size:13px; font-weight:500; color:var(--text); }
+.f-bar{
+  width:50px; height:4px;
+  background:var(--bg3);
+  border-radius:99px;
+  overflow:hidden;
+}
+.f-bar-fill{ height:100%; border-radius:99px; }
+.bar-high{ background:var(--red); }
+.bar-mid { background:var(--yellow); }
+.bar-ok  { background:var(--green); }
+
+/* TIME PANEL */
+.time-big{
+  text-align:center;
+  padding:1.5rem 0 1rem;
+}
+.time-num{
+  font-family:'Syne',sans-serif;
+  font-size:72px; font-weight:800;
+  line-height:1;
+  background:linear-gradient(135deg, #fff 0%, var(--blue) 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.time-unit{ font-size:20px; color:var(--muted); margin-left:4px; -webkit-text-fill-color:var(--muted); }
+.time-range{ font-size:13px; color:var(--muted); margin-top:6px; }
+
+.tl{
+  display:flex; align-items:center;
+  margin:1.5rem 0 0.5rem;
+  font-size:11px; color:var(--muted);
+}
+.tl-dot-wrap{ flex:1; text-align:center; }
+.tl-node{
+  width:10px; height:10px; border-radius:50%;
+  margin:0 auto 5px;
+  transition:background .4s;
+}
+.tl-node.on{ background:var(--green); box-shadow:0 0 0 3px rgba(0,229,160,0.2); }
+.tl-node.off{ background:var(--bg3); border:1px solid var(--border); }
+.tl-line{ flex:1; height:1px; background:var(--border); }
+
+/* SUMMARY */
+.summary{
+  background:linear-gradient(135deg, var(--bg2) 0%, rgba(0,229,160,0.05) 100%);
+  border:1px solid rgba(0,229,160,0.15);
+  border-radius:20px;
+  padding:2rem;
+  position:relative;
+  overflow:hidden;
+}
+.summary::after{
+  content:'';
+  position:absolute;
+  bottom:-40px; right:-40px;
+  width:120px; height:120px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(0,229,160,0.08) 0%, transparent 70%);
+}
+.sum-title{
+  font-size:11px; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--green); font-weight:600; margin-bottom:1rem;
+}
+.sum-text{
+  font-size:15px; line-height:1.85;
+  color:var(--light);
+}
+.sum-text strong{ color:var(--text); }
+.sum-hl{ color:var(--green); font-weight:600; }
+
+@media(max-width:640px){
+  .fg3{ grid-template-columns:1fr 1fr; }
+  .res-grid{ grid-template-columns:1fr; }
+  .result-header{ flex-direction:column; gap:1rem; align-items:flex-start; }
+  .time-num{ font-size:56px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Surgical<em>AI</em></div>
+  <div class="status-dot">
+    <span class="dot-live"></span>
+    LightGBM 모델 연결됨
+  </div>
+</header>
+
+<div class="hero">
+  <div class="hero-tag">Medical AI Dataton 2026</div>
+  <h1>수술 전 <span>위험도 & 시간</span><br>예측 시스템</h1>
+  <p>환자 정보를 입력하면 AI가 ICU 입원 위험도와<br>예상 수술 시간을 실시간으로 예측합니다</p>
+</div>
+
+<div class="wrap">
+
+  <div class="glass">
+    <div class="sec-label">환자 기본 정보</div>
+    <div class="fg fg3">
+      <div class="field">
+        <label>나이</label>
+        <input type="number" id="age" value="58" placeholder="세">
+      </div>
+      <div class="field">
+        <label>성별</label>
+        <select id="sex">
+          <option value="M">남성</option>
+          <option value="F">여성</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>현재 건강 상태 (ASA)</label>
+        <select id="asa">
+          <option value="1">1 — 완전 건강</option>
+          <option value="2">2 — 경미한 질환</option>
+          <option value="3" selected>3 — 중등도 질환</option>
+          <option value="4">4 — 중증 질환</option>
+          <option value="5">5 — 매우 위험</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>체중 (kg)</label>
+        <input type="number" id="weight" value="68">
+      </div>
+      <div class="field">
+        <label>신장 (cm)</label>
+        <input type="number" id="height" value="168">
+      </div>
+      <div class="field">
+        <label>기존에 앓고 있는 병 수</label>
+        <input type="number" id="diag_count" value="3" min="0">
+      </div>
+    </div>
+  </div>
+
+  <div class="glass">
+    <div class="sec-label">수술 정보</div>
+    <div class="fg fg2" style="margin-bottom:1rem;">
+      <div class="field">
+        <label>진료과</label>
+        <select id="dept">
+          <option value="GS">일반외과</option>
+          <option value="CTS">흉부외과</option>
+          <option value="NS">신경외과</option>
+          <option value="OS">정형외과</option>
+          <option value="OG">산부인과</option>
+          <option value="UR">비뇨기과</option>
+          <option value="PS">성형외과</option>
+          <option value="OL">안과</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>마취 방법</label>
+        <select id="antype">
+          <option value="General">전신마취 (완전히 잠드는 방법)</option>
+          <option value="Neuraxial">척추마취 (하반신 마취)</option>
+          <option value="Regional">부위마취 (수술 부위만)</option>
+          <option value="MAC">수면마취 (반쯤 잠드는 방법)</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg fg2">
+      <div class="field">
+        <label>수술 종류</label>
+        <input type="text" id="surgery_type" value="복강경 대장절제술" placeholder="예: 복강경 담낭절제술">
+      </div>
+      <div class="field">
+        <label>수술 긴급도</label>
+        <select id="emop">
+          <option value="0">계획 수술 (미리 예약된 수술)</option>
+          <option value="1">응급 수술 (즉시 시행)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-area">
+    <button class="btn-predict" id="predictBtn" onclick="predict()">
+      &#9654; &nbsp; 지금 예측하기
+    </button>
+  </div>
+
+  <div class="err-box" id="errBox"></div>
+
+  <div class="loading" id="loading">
+    <div class="load-ring"></div>
+    <div class="load-txt">AI 모델이 분석 중입니다...</div>
+  </div>
+
+  <div class="results" id="results">
+
+    <div class="result-header">
+      <div>
+        <div class="rh-label">분석 완료</div>
+        <div class="rh-val" id="rhSummary">—</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="rh-label">예상 수술 시간</div>
+        <div class="rh-val" id="rhTime">— 분</div>
+      </div>
+    </div>
+
+    <div class="res-grid">
+
+      <!-- 위험도 -->
+      <div class="panel">
+        <div class="panel-title">ICU 입원 위험도</div>
+
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 160 160">
+            <circle class="g-bg" cx="80" cy="80" r="64"/>
+            <circle class="g-fill" id="gFill" cx="80" cy="80" r="64"
+              stroke-dasharray="402.1"
+              stroke-dashoffset="402.1"
+              transform="rotate(-90 80 80)"/>
+          </svg>
+          <div class="gauge-inner" style="margin-top:-160px;">
+            <div class="g-pct" id="gPct">0%</div>
+            <div class="g-label">위험 확률</div>
+          </div>
+        </div>
+
+        <div style="text-align:center; margin-bottom:1.5rem;">
+          <span class="risk-pill" id="riskPill">—</span>
+        </div>
+
+        <div class="f-title">주요 위험 요인</div>
+        <div id="riskFactors"></div>
+      </div>
+
+      <!-- 시간 -->
+      <div class="panel" style="--glow:var(--blue);">
+        <div class="panel-title" style="--c:var(--blue);">예상 수술 시간</div>
+
+        <div class="time-big">
+          <span class="time-num" id="timeNum">—</span><span class="time-unit">분</span>
+          <div class="time-range" id="timeRange">분석 중...</div>
+        </div>
+
+        <div class="tl">
+          <div class="tl-dot-wrap">
+            <div class="tl-node on"></div>
+            <div>마취 시작</div>
+          </div>
+          <div class="tl-line"></div>
+          <div class="tl-dot-wrap">
+            <div class="tl-node on"></div>
+            <div>수술 시작</div>
+          </div>
+          <div class="tl-line"></div>
+          <div class="tl-dot-wrap">
+            <div class="tl-node on" id="tlEnd"></div>
+            <div id="tlEndLbl">수술 종료</div>
+          </div>
+        </div>
+
+        <div class="f-title" style="margin-top:1.25rem;">수술 시간 결정 요인</div>
+        <div id="timeFactors"></div>
+      </div>
+    </div>
+
+    <!-- 소견 -->
+    <div class="summary">
+      <div class="sum-title">종합 소견</div>
+      <div class="sum-text" id="sumText">—</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+async function predict(){
+  const err = document.getElementById('errBox');
+  err.classList.remove('on');
+  const btn = document.getElementById('predictBtn');
+  const loading = document.getElementById('loading');
+  const results = document.getElementById('results');
+  const deptEl = document.getElementById('dept');
+
+  btn.disabled = true;
+  loading.classList.add('on');
+  results.classList.remove('on');
+
+  try{
+    const res = await fetch('http://localhost:5000/predict',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        age:        document.getElementById('age').value,
+        sex:        document.getElementById('sex').value,
+        asa:        document.getElementById('asa').value,
+        weight:     document.getElementById('weight').value,
+        height:     document.getElementById('height').value,
+        dept:       deptEl.options[deptEl.selectedIndex].text,
+        antype:     document.getElementById('antype').value,
+        surgery:    document.getElementById('surgery_type').value,
+        emop:       document.getElementById('emop').value,
+        diag_count: document.getElementById('diag_count').value,
+      })
+    });
+    if(!res.ok) throw new Error('서버 오류 '+res.status);
+    render(await res.json());
+  }catch(e){
+    err.textContent = '⚠ '+e.message+' — server.py가 실행 중인지 확인하세요.';
+    err.classList.add('on');
+  }finally{
+    btn.disabled = false;
+    loading.classList.remove('on');
+  }
+}
+
+function render(r){
+  const prob = Math.round(r.icu_prob);
+  const mins = Math.round(r.surgery_min);
+
+  /* 게이지 */
+  const circ = 402.1;
+  const offset = circ - circ * prob / 100;
+  const gFill = document.getElementById('gFill');
+  const color = prob < 20 ? '#00E5A0' : prob < 50 ? '#FFB547' : '#FF5A5A';
+  gFill.style.stroke = color;
+  setTimeout(()=>{ gFill.style.strokeDashoffset = offset; }, 80);
+
+  document.getElementById('gPct').textContent = prob + '%';
+  document.getElementById('gPct').style.color = color;
+
+  const pill = document.getElementById('riskPill');
+  if(prob < 20){ pill.textContent='안심하세요  —  저위험'; pill.className='risk-pill pill-low'; }
+  else if(prob < 50){ pill.textContent='주의 필요  —  중위험'; pill.className='risk-pill pill-mid'; }
+  else{ pill.textContent='고위험  —  ICU 준비 권고'; pill.className='risk-pill pill-high'; }
+
+  /* 헤더 요약 */
+  document.getElementById('rhSummary').textContent =
+    prob < 20 ? '저위험 환자입니다' : prob < 50 ? '중위험 — 주의 관찰 필요' : '고위험 — 즉시 대응 필요';
+  document.getElementById('rhSummary').style.color = color;
+  document.getElementById('rhTime').textContent = mins + '분';
+
+  /* 수술 시간 */
+  document.getElementById('timeNum').textContent = mins;
+  document.getElementById('timeRange').textContent =
+    '예상 범위: ' + Math.round(mins*0.8) + '분 ~ ' + Math.round(mins*1.2) + '분';
+  document.getElementById('tlEndLbl').textContent = mins + '분 후 종료';
+
+  /* 요인 */
+  const bars = { high:85, mid:50, ok:25 };
+  const barCls = { high:'bar-high', mid:'bar-mid', ok:'bar-ok' };
+  const makeRows = arr => (arr||[]).map(f =>
+    `<div class="f-row">
+      <span class="f-name">${f.name}</span>
+      <span class="f-right">
+        <span class="f-val">${f.value}</span>
+        <span class="f-bar"><span class="f-bar-fill ${barCls[f.impact]}" style="width:${bars[f.impact]}%"></span></span>
+      </span>
+    </div>`
+  ).join('');
+
+  document.getElementById('riskFactors').innerHTML = makeRows(r.risk_factors);
+  document.getElementById('timeFactors').innerHTML = makeRows(r.time_factors);
+
+  /* 소견 */
+  let txt = r.recommendation;
+  txt = txt.replace(/(\d+\.\d+%)/g, '<span class="sum-hl">$1</span>');
+  txt = txt.replace(/고위험|중위험|저위험/, m => `<span class="sum-hl">${m}</span>`);
+  document.getElementById('sumText').innerHTML = txt;
+
+  const el = document.getElementById('results');
+  el.classList.add('on');
+  setTimeout(()=>{ el.scrollIntoView({ behavior:'smooth', block:'start' }); }, 100);
+}
+</script>
+</body>
+</html>

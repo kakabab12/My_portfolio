@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수술 위험도 & 시간 예측</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #f4f6f8; color: #1a1a1a; min-height: 100vh; }
+.app { max-width: 720px; margin: 0 auto; padding: 2rem 1rem; }
+.header { text-align: center; margin-bottom: 1.5rem; }
+.header h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+.header p { font-size: 13px; color: #666; }
+.badge { display: inline-block; font-size: 11px; background: #dbeafe; color: #1d4ed8; padding: 3px 10px; border-radius: 20px; margin-bottom: 10px; }
+.card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+.card-title { font-size: 14px; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; color: #374151; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 12px; color: #6b7280; font-weight: 500; }
+.field input, .field select { border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 10px; font-size: 14px; background: #f9fafb; color: #1a1a1a; width: 100%; }
+.field input:focus, .field select:focus { outline: none; border-color: #3b82f6; background: #fff; }
+.btn-predict { width: 100%; padding: 13px; background: #1d4ed8; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 0.25rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-predict:hover { background: #1e40af; }
+.btn-predict:disabled { background: #93c5fd; cursor: not-allowed; }
+.loading { text-align: center; padding: 2.5rem; color: #6b7280; font-size: 14px; display: none; }
+.loading.visible { display: block; }
+.dot-pulse { margin-bottom: 10px; }
+.dot-pulse span { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; margin: 0 3px; animation: pulse 1.2s ease-in-out infinite; }
+.dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+.dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes pulse { 0%,80%,100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+.results { display: none; }
+.results.visible { display: block; }
+.divider { text-align: center; font-size: 12px; color: #9ca3af; margin: 1rem 0 0.5rem; }
+.result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+.metric-box { background: #f3f4f6; border-radius: 10px; padding: 1rem; text-align: center; margin-bottom: 0.75rem; }
+.metric-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+.metric-value { font-size: 32px; font-weight: 700; }
+.metric-sub { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+.risk-low { color: #059669; }
+.risk-mid { color: #d97706; }
+.risk-high { color: #dc2626; }
+.gauge-bar { height: 10px; background: #e5e7eb; border-radius: 99px; overflow: hidden; margin-bottom: 0.75rem; }
+.gauge-fill { height: 100%; border-radius: 99px; transition: width 0.8s ease; }
+.gauge-fill.low { background: #10b981; }
+.gauge-fill.mid { background: #f59e0b; }
+.gauge-fill.high { background: #ef4444; }
+.surgery-time-display { display: flex; align-items: baseline; gap: 6px; justify-content: center; }
+.surgery-time-num { font-size: 40px; font-weight: 700; }
+.surgery-time-unit { font-size: 16px; color: #6b7280; }
+.factors { margin-top: 0.5rem; }
+.factor-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+.factor-item:last-child { border-bottom: none; }
+.factor-name { color: #6b7280; }
+.factor-badge { font-size: 11px; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+.badge-danger { background: #fee2e2; color: #b91c1c; }
+.badge-warn { background: #fef3c7; color: #92400e; }
+.badge-ok { background: #d1fae5; color: #065f46; }
+.recommendation { background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 8px; padding: 1rem; font-size: 13px; line-height: 1.7; color: #374151; }
+.timeline { display: flex; align-items: center; margin: 0.75rem 0; font-size: 12px; }
+.tl-item { flex: 1; text-align: center; }
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; background: #d1d5db; margin: 0 auto 4px; }
+.tl-dot.active { background: #10b981; }
+.tl-line { flex: 1; height: 2px; background: #e5e7eb; }
+.tl-label { color: #6b7280; }
+.error-msg { background: #fee2e2; border: 1px solid #fca5a5; border-radius: 8px; padding: 0.75rem 1rem; font-size: 13px; color: #b91c1c; margin-top: 0.75rem; display: none; }
+.error-msg.visible { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="badge">Medical AI Dataton 2026</div>
+    <h1>수술 위험도 &amp; 시간 예측</h1>
+    <p>환자 정보를 입력하면 ICU 입원 위험도와 예상 수술 시간을 예측합니다</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">👤 환자 기본 정보</div>
+    <div class="grid-3" style="margin-bottom:12px;">
+      <div class="field"><label>나이</label><input type="number" id="age" value="58" min="0" max="120"></div>
+      <div class="field"><label>성별</label>
+        <select id="sex"><option value="M">남성</option><option value="F">여성</option></select>
+      </div>
+      <div class="field"><label>ASA 점수</label>
+        <select id="asa">
+          <option value="1">1 (건강)</option>
+          <option value="2">2 (경미한 질환)</option>
+          <option value="3" selected>3 (중등도 질환)</option>
+          <option value="4">4 (중증 질환)</option>
+          <option value="5">5 (위험)</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>체중 (kg)</label><input type="number" id="weight" value="68"></div>
+      <div class="field"><label>신장 (cm)</label><input type="number" id="height" value="168"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🏥 수술 정보</div>
+    <div class="grid-2" style="margin-bottom:12px;">
+      <div class="field"><label>진료과</label>
+        <select id="dept">
+          <option value="GS">일반외과 (General Surgery)</option>
+          <option value="CTS">흉부외과 (Cardio-Thoracic)</option>
+          <option value="NS">신경외과 (Neurosurgery)</option>
+          <option value="OS">정형외과 (Orthopedic)</option>
+          <option value="OG">산부인과 (Ob/Gyn)</option>
+          <option value="UR">비뇨기과 (Urology)</option>
+          <option value="PS">성형외과 (Plastic Surgery)</option>
+          <option value="OL">안과 (Ophthalmology)</option>
+        </select>
+      </div>
+      <div class="field"><label>마취 유형</label>
+        <select id="antype">
+          <option value="General" selected>전신마취</option>
+          <option value="Neuraxial">척추/경막외마취</option>
+          <option value="Regional">부위마취</option>
+          <option value="MAC">감시마취관리</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-bottom:12px;">
+      <div class="field"><label>주요 진단명</label><input type="text" id="diagnosis" value="대장암"></div>
+      <div class="field"><label>수술 종류</label><input type="text" id="surgery_type" value="복강경 대장절제술"></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>응급 수술 여부</label>
+        <select id="emop"><option value="0">아니오 (계획 수술)</option><option value="1">예 (응급 수술)</option></select>
+      </div>
+      <div class="field"><label>기저 진단 수</label><input type="number" id="diag_count" value="3" min="0" max="50"></div>
+    </div>
+  </div>
+
+  <button class="btn-predict" id="predictBtn" onclick="predict()">⚡ 예측 시작</button>
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="loading" id="loading">
+    <div class="dot-pulse"><span></span><span></span><span></span></div>
+    <div>AI 모델 분석 중...</div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="divider">── 예측 결과 ──</div>
+    <div class="result-grid">
+      <div class="card" style="margin:0;">
+        <div class="card-title">⚠️ ICU 입원 위험도</div>
+        <div class="metric-box">
+          <div class="metric-label">위험 확률</div>
+          <div class="metric-value" id="riskPct">—</div>
+          <div class="metric-sub" id="riskLabel">—</div>
+        </div>
+        <div class="gauge-bar"><div class="gauge-fill" id="gaugeFill" style="width:0%"></div></div>
+        <div class="factors" id="riskFactors"></div>
+      </div>
+      <div class="card" style="margin:0;">
+        <div class="card-title">⏱️ 예상 수술 시간</div>
+        <div class="metric-box">
+          <div class="metric-label">예상 소요 시간</div>
+          <div class="surgery-time-display">
+            <span class="surgery-time-num" id="surgeryTime">—</span>
+            <span class="surgery-time-unit">분</span>
+          </div>
+          <div class="metric-sub" id="surgeryTimeRange">—</div>
+        </div>
+        <div class="timeline">
+          <div class="tl-item"><div class="tl-dot active"></div><div class="tl-label">마취 시작</div></div>
+          <div class="tl-line"></div>
+          <div class="tl-item"><div class="tl-dot active"></div><div class="tl-label">수술 시작</div></div>
+          <div class="tl-line"></div>
+          <div class="tl-item"><div class="tl-dot" id="tlEnd"></div><div class="tl-label" id="tlEndLabel">수술 종료</div></div>
+        </div>
+        <div class="factors" id="timeFactors"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">💡 종합 소견 및 권고사항</div>
+      <div class="recommendation" id="recommendation">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function predict() {
+  const errorMsg = document.getElementById('errorMsg');
+  errorMsg.classList.remove('visible');
+
+  const btn = document.getElementById('predictBtn');
+  const loading = document.getElementById('loading');
+  const results = document.getElementById('results');
+  const deptEl = document.getElementById('dept');
+
+  btn.disabled = true;
+  loading.classList.add('visible');
+  results.classList.remove('visible');
+
+  try {
+    const res = await fetch("http://localhost:5000/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        age:        document.getElementById('age').value,
+        sex:        document.getElementById('sex').value,
+        asa:        document.getElementById('asa').value,
+        weight:     document.getElementById('weight').value,
+        height:     document.getElementById('height').value,
+        dept:       deptEl.options[deptEl.selectedIndex].text,
+        antype:     document.getElementById('antype').value,
+        diagnosis:  document.getElementById('diagnosis').value,
+        surgery:    document.getElementById('surgery_type').value,
+        emop:       document.getElementById('emop').value,
+        diag_count: document.getElementById('diag_count').value
+      })
+    });
+
+    if (!res.ok) throw new Error('서버 오류 ' + res.status);
+    showResults(await res.json());
+
+  } catch (e) {
+    errorMsg.textContent = '❌ 오류: ' + e.message + ' — server.py가 실행 중인지 확인하세요.';
+    errorMsg.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    loading.classList.remove('visible');
+  }
+}
+
+function showResults(r) {
+  const prob = Math.round(r.icu_prob);
+  const surgMin = Math.round(r.surgery_min);
+
+  const riskPct = document.getElementById('riskPct');
+  riskPct.textContent = prob + '%';
+
+  let riskClass, labelText, fillClass;
+  if (prob < 20) { riskClass='risk-low'; labelText='저위험 — ICU 입원 가능성 낮음'; fillClass='low'; }
+  else if (prob < 50) { riskClass='risk-mid'; labelText='중위험 — 주의 관찰 필요'; fillClass='mid'; }
+  else { riskClass='risk-high'; labelText='고위험 — ICU 준비 권고'; fillClass='high'; }
+
+  riskPct.className = 'metric-value ' + riskClass;
+  document.getElementById('riskLabel').textContent = labelText;
+  const gf = document.getElementById('gaugeFill');
+  gf.className = 'gauge-fill ' + fillClass;
+  setTimeout(() => { gf.style.width = Math.min(prob,100) + '%'; }, 50);
+
+  document.getElementById('surgeryTime').textContent = surgMin;
+  document.getElementById('surgeryTimeRange').textContent = '예상 범위: ' + Math.round(surgMin*0.8) + '~' + Math.round(surgMin*1.2) + '분';
+  document.getElementById('tlEndLabel').textContent = surgMin + '분 후';
+  document.getElementById('tlEnd').classList.add('active');
+
+  const bm = { high:'badge-danger', mid:'badge-warn', ok:'badge-ok' };
+  const bt = { high:'위험', mid:'주의', ok:'양호' };
+  const html = arr => (arr||[]).map(f =>
+    '<div class="factor-item"><span class="factor-name">'+f.name+'</span><span><strong>'+f.value+'</strong> <span class="factor-badge '+bm[f.impact]+'">'+bt[f.impact]+'</span></span></div>'
+  ).join('');
+
+  document.getElementById('riskFactors').innerHTML = html(r.risk_factors);
+  document.getElementById('timeFactors').innerHTML = html(r.time_factors);
+  document.getElementById('recommendation').textContent = r.recommendation;
+
+  const el = document.getElementById('results');
+  el.classList.add('visible');
+  el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+</script>
+</body>
+</html>

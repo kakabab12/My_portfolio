@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로봇팔 작업 관리자</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root { --accent-color: #00BFFF; --background-color: #1a1c20; --card-color: rgba(43, 48, 53, 0.7); }
+        body { font-family: 'Poppins', sans-serif; background-color: var(--background-color); font-size: 0.9rem; }
+        .container-fluid { max-width: 1800px; }
+        .card { background-color: var(--card-color); border: none; border-top: 3px solid var(--accent-color); border-radius: 8px; backdrop-filter: blur(10px); transition: all 0.3s ease-in-out; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); }
+        .card-header { background-color: transparent; border-bottom: 1px solid rgba(255, 255, 255, 0.1); font-weight: 600; color: var(--accent-color); }
+        .main-title { font-weight: 600; color: #fff; text-shadow: 0 0 10px var(--accent-color); }
+        .progress-bar { background-color: var(--accent-color); transition: width 0.5s ease-in-out; }
+        .nav-tabs .nav-link.active { background-color: var(--card-color); color: #fff; border-color: rgba(255, 255, 255, 0.1); border-bottom-color: transparent; }
+        .log-table-wrapper { height: 250px; overflow-y: auto; }
+        .table th, .table td { text-align: center; vertical-align: middle; }
+        
+        .btn-start { font-weight: 600; padding: 12px; font-size: 1.1rem; }
+        .btn-stop { font-weight: 600; padding: 12px; font-size: 1.1rem; }
+        .btn-calib { font-weight: 600; padding: 8px; margin-top: 5px; font-size: 0.9rem; }
+
+        /* Gemini AI Chat UI Styles */
+        #gemini-chat-container { transition: all 0.3s ease; border-top: 3px solid #9b72cb !important; border-radius: 12px; overflow: hidden; }
+        #gemini-content::-webkit-scrollbar { width: 5px; }
+        #gemini-content::-webkit-scrollbar-thumb { background: #9b72cb; border-radius: 10px; }
+        .gemini-btn-grad { background: linear-gradient(135deg, #4285f4, #9b72cb, #d96570); border: none; transition: all 0.2s; }
+        .gemini-btn-grad:hover { transform: scale(1.1); box-shadow: 0 0 15px rgba(155, 114, 203, 0.6); }
+    </style>
+</head>
+<body>
+    <div class="container-fluid my-4">
+        <h1 class="text-center mb-4 main-title">로봇팔 작업 관리자</h1>
+
+        <div class="row">
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header">실시간 스트림</div>
+                    <div class="card-body p-0 d-flex align-items-center">
+                        <img src="http://127.0.0.1:5000/video_feed" width="100%" style="border-radius: 0 0 8px 8px;" onerror="this.src='https://via.placeholder.com/640x480?text=Camera+Not+Connected'">
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                 <div class="card">
+                    <div class="card-header">시스템 성능</div>
+                    <div class="card-body">
+                        <span>CPU</span>
+                        <div class="progress mb-2" role="progressbar"><div class="progress-bar" id="cpu-progress" style="width: 0%">0%</div></div>
+                        <span>Memory</span>
+                        <div class="progress mb-3" role="progressbar"><div class="progress-bar" id="mem-progress" style="width: 0%">0%</div></div>
+                        <div class="d-flex justify-content-between"><strong>카메라 FPS:</strong><span id="fps-display" class="fw-bold" style="color: var(--accent-color);">0.00</span></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">시스템 제어</div>
+                    <div class="card-body p-3">
+                        <div class="d-grid gap-2">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-success btn-start flex-grow-1" onclick="sendCommand('START')">START</button>
+                                <button class="btn btn-danger btn-stop flex-grow-1" onclick="sendCommand('STOP')">STOP</button>
+                            </div>
+                            <button class="btn btn-warning btn-calib" onclick="sendCommand('CALIB')">CALIBRATION (초기화)</button>
+                        </div>
+                        <div class="text-center mt-2">
+                            <p class="mb-0 text-body-secondary">상태: <span id="last-command" class="fw-bold text-white">대기 중</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" id="logTabs" role="tablist">
+                            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#detection-pane" type="button">탐지 내역</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#action-pane" type="button">동작 내역</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#system-pane" type="button">시스템 로그</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#trend-pane" type="button">생산량 통계</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#defect-pane" type="button">불량률 현황</button></li>
+                        </ul>
+                    </div>
+                    <div class="card-body tab-content p-0">
+                        <div class="tab-pane fade show active" id="detection-pane">
+                            <div class="p-2 border-bottom">
+                                <select id="class-filter" class="form-select form-select-sm bg-dark text-white border-secondary">
+                                    <option value="ALL" selected>전체 보기</option>
+                                    <option value="big_normal_box">대형 정상</option>
+                                    <option value="big_abnormal_box">대형 불량</option>
+                                    <option value="medium_normal_box">중형 정상</option>
+                                    <option value="medium_abnormal_box">중형 불량</option>
+                                    <option value="small_normal_box">소형 정상</option>
+                                    <option value="small_abnormal_box">소형 불량</option>
+                                </select>
+                            </div>
+                            <div class="log-table-wrapper">
+                                <table class="table table-dark table-striped table-sm mb-0">
+                                    <thead><tr><th>시간</th><th>클래스</th><th>정확도</th><th>좌표 (x, y, z)</th></tr></thead>
+                                    <tbody id="detection-log-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="action-pane"><div class="log-table-wrapper"><table class="table table-dark table-striped table-sm mb-0"><thead><tr><th>시간</th><th>동작</th><th>결과</th></tr></thead><tbody id="action-log-body"></tbody></table></div></div>
+                        <div class="tab-pane fade" id="system-pane"><div class="log-table-wrapper"><table class="table table-dark table-striped table-sm mb-0"><thead><tr><th>시간</th><th>CPU(%)</th><th>MEM(%)</th><th>FPS</th></tr></thead><tbody id="system-log-body"></tbody></table></div></div>
+                        <div class="tab-pane fade p-2" id="trend-pane"><canvas id="productionChart" height="230"></canvas></div>
+                        <div class="tab-pane fade p-2" id="defect-pane"><canvas id="defectChart" height="230"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="gemini-chat-container" class="card shadow-lg" style="position: fixed; bottom: 90px; right: 20px; width: 380px; z-index: 1000; display: none;">
+        <div class="card-header d-flex justify-content-between align-items-center" style="background: rgba(155, 114, 203, 0.1); border-bottom: 1px solid rgba(155, 114, 203, 0.2);">
+            <div class="d-flex align-items-center gap-2">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+                    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="#9b72cb" />
+                    <path d="M19 3L19.7 4.3L21 5L19.7 5.7L19 7L18.3 5.7L17 5L18.3 4.3L19 3Z" fill="#9b72cb" />
+                </svg>
+                <span style="font-weight: 600; color: #fff; font-size: 1rem;">Gemini AI</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white" onclick="toggleGemini()"></button>
+        </div>
+        <div id="gemini-content" class="card-body p-3" style="height: 450px; overflow-y: auto; background-color: rgba(26, 28, 32, 0.98); font-size: 0.85rem;">
+            <div class="mb-3 text-info">반갑습니다. 실시간 데이터를 바탕으로 공정 효율 및 불량 원인을 분석해 드립니다.</div>
+        </div>
+        <div class="card-footer p-2" style="background-color: var(--card-color);">
+            <div class="input-group">
+                <input type="text" id="gemini-input" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="예: 현재 공정 상태 요약해줘" onkeypress="if(event.keyCode==13) askGemini()">
+                <button class="btn btn-outline-info btn-sm" onclick="askGemini()">분석</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn shadow-lg d-flex align-items-center justify-content-center gemini-btn-grad" onclick="toggleGemini()" 
+            style="position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; z-index: 1000;">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="30" height="30">
+            <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="white" />
+            <path d="M19 3L19.7 4.3L21 5L19.7 5.7L19 7L18.3 5.7L17 5L18.3 4.3L19 3Z" fill="white" />
+        </svg>
+    </button>
+
+    <footer class="mt-5 py-3 text-center text-body-secondary">
+        <p class="mb-0"><strong>Project Team:</strong> 김한민 · 이지용 · 장민기 · 정철훈</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const SERVER_URL = "http://127.0.0.1:5000"; // ✅ 서버 주소 변수화
+
+        Chart.defaults.color = '#dee2e6'; Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+        const productionChart = new Chart(document.getElementById('productionChart'), { type: 'line', data: { labels: [], datasets: [{ label: '총 생산량', data: [], borderColor: 'var(--accent-color)', fill: false, tension: 0.3 }] } });
+        const defectChart = new Chart(document.getElementById('defectChart'), { type: 'doughnut', data: { labels: ['정상', '불량'], datasets: [{ data: [1, 0], backgroundColor: ['#198754', '#dc3545'], borderWidth: 0 }] } });
+        
+        function sendCommand(command) {
+            const lastCommandEl = document.getElementById('last-command');
+            lastCommandEl.innerText = `${command} 전송 중...`;
+            // ✅ 절대 경로로 수정
+            fetch(`${SERVER_URL}/control`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command: command }) })
+            .then(res => res.json()).then(data => { lastCommandEl.innerText = data.status === 'success' ? data.command : "전송 실패"; })
+            .catch(() => { lastCommandEl.innerText = "연결 오류"; });
+        }
+
+        function updateData() {
+            // ✅ 절대 경로로 수정
+            fetch(`${SERVER_URL}/data`).then(res => res.json()).then(data => {
+                const stats = data.stats;
+                document.getElementById('cpu-progress').style.width = `${stats.cpu}%`;
+                document.getElementById('cpu-progress').innerText = `${stats.cpu.toFixed(1)}%`;
+                document.getElementById('mem-progress').style.width = `${stats.memory}%`;
+                document.getElementById('mem-progress').innerText = `${stats.memory.toFixed(1)}%`;
+                document.getElementById('fps-display').innerText = stats.fps.toFixed(2);
+                
+                // 로그 테이블 업데이트 로직 (간소화)
+                const detBody = document.getElementById('detection-log-body');
+                if(data.detection_log.length > 0) {
+                    detBody.innerHTML = data.detection_log.map(log => `<tr><td>${log.time}</td><td>${log.class}</td><td>${log.conf}</td><td>${log.coords}</td></tr>`).join('');
+                }
+
+                // 차트 업데이트
+                const total = data.action_log.length;
+                const defect = data.action_log.filter(l => l.action.includes("abnormal") || l.result === 'FAIL').length;
+                defectChart.data.datasets[0].data = [total - defect, defect];
+                defectChart.update();
+            }).catch(e => console.error("Data fetch error:", e));
+        }
+
+        function toggleGemini() {
+            const el = document.getElementById('gemini-chat-container');
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function askGemini() {
+            const input = document.getElementById('gemini-input');
+            const content = document.getElementById('gemini-content');
+            const question = input.value.trim();
+            if (!question) return;
+
+            const stats = {
+                cpu: document.getElementById('cpu-progress').innerText,
+                fps: document.getElementById('fps-display').innerText,
+                good: defectChart.data.datasets[0].data[0],
+                defect: defectChart.data.datasets[0].data[1]
+            };
+
+            content.innerHTML += `<div class="text-end mb-3"><span class="p-2 rounded shadow-sm" style="background-color: #0077ff; color: white; display: inline-block; max-width: 80%;">${question}</span></div>`;
+            input.value = '';
+            content.scrollTop = content.scrollHeight;
+
+            const loadingId = 'loading-' + Date.now();
+            content.innerHTML += `<div id="${loadingId}" class="mb-3 text-secondary">Gemini 분석 중...</div>`;
+
+            try {
+                // ✅ 절대 경로로 수정
+                const res = await fetch(`${SERVER_URL}/ask_gemini`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: question, context: stats }) });
+                const data = await res.json();
+                document.getElementById(loadingId).remove();
+                content.innerHTML += `<div class="mb-3"><span class="p-2 rounded shadow-sm" style="background-color: var(--card-color); border: 1px solid #9b72cb; display: inline-block; max-width: 90%;"> <strong>분석 결과:</strong><br>${data.answer}</span></div>`;
+            } catch { 
+                document.getElementById(loadingId).innerText = "서버 응답 없음"; 
+            }
+            content.scrollTop = content.scrollHeight;
+        }
+
+        setInterval(updateData, 2000);
+        document.addEventListener('DOMContentLoaded', updateData);
+    </script>
+</body>
+</html>

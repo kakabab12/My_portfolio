@@ -1,0 +1,62 @@
+cd project
+
+콘다 활성화
+# 객체인식
+conda activate lerobot312
+
+# ACT 실행
+conda activate lerobot
+
+모델 실행시키기전
+export PYTHONPATH=/home/user/project/lerobot/src:$PYTHONPATH
+
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+export CUDA_MODULE_LOADING=LAZY
+export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+
+로봇 파일 드가기
+cd lerobot
+
+포트 번호찾기
+ls /dev/ttyACM*
+lerobot-find-port
+팔로우암
+/dev/ttyACM2
+리더암
+/dev/ttyACM1
+
+카메라 찾기
+lerobot-find-cameras opencv 
+front:팔로우암
+0
+top: 오버헤드 카메라
+2
+
+카메라0 (포트/카메라 번호 확인후 항상 수정해야함)
+python teleoperate_so101_jetson.py
+
+카메라x (포트 번호 확인후 항상 수정해야함)
+python teleop_leader_follower.py
+
+카메라 실시간확인
+python - <<'EOF'
+import cv2
+
+cap = cv2.VideoCapture(2)#이부분만 수정하면됨
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    cv2.imshow("cam", frame)
+
+    if cv2.waitKey(1) == 27:
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+EOF

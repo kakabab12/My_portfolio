@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로봇팔 작업 관리자</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent-color: #00BFFF; --background-color: #1a1c20; --card-color: rgba(43, 48, 53, 0.7); }
+        body { font-family: 'Poppins', sans-serif; background-color: var(--background-color); font-size: 0.9rem; }
+        .container-fluid { max-width: 1800px; }
+        .card { background-color: var(--card-color); border: none; border-top: 3px solid var(--accent-color); border-radius: 8px; backdrop-filter: blur(10px); transition: all 0.3s ease-in-out; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+        .card-header { background-color: transparent; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600; color: var(--accent-color); }
+        .main-title { font-weight: 600; color: #fff; text-shadow: 0 0 10px var(--accent-color); }
+        .progress-bar { background-color: var(--accent-color); transition: width 0.5s ease-in-out; }
+        .nav-tabs .nav-link.active { background-color: var(--card-color); color: #fff; border-color: rgba(255,255,255,0.1); border-bottom-color: transparent; }
+        .log-table-wrapper { height: 250px; overflow-y: auto; }
+        .table th, .table td { text-align: center; vertical-align: middle; }
+        .btn-start { font-weight: 600; padding: 12px; font-size: 1.1rem; }
+        .btn-stop  { font-weight: 600; padding: 12px; font-size: 1.1rem; }
+        .btn-calib { font-weight: 600; padding: 8px; margin-top: 5px; font-size: 0.9rem; }
+        #gemini-chat-container { transition: all 0.3s ease; border-top: 3px solid #9b72cb !important; border-radius: 12px; overflow: hidden; }
+        #gemini-content::-webkit-scrollbar { width: 5px; }
+        #gemini-content::-webkit-scrollbar-thumb { background: #9b72cb; border-radius: 10px; }
+        .gemini-btn-grad { background: linear-gradient(135deg, #4285f4, #9b72cb, #d96570); border: none; transition: all 0.2s; }
+        .gemini-btn-grad:hover { transform: scale(1.1); box-shadow: 0 0 15px rgba(155,114,203,0.6); }
+    </style>
+</head>
+<body>
+    <div class="container-fluid my-4">
+        <h1 class="text-center mb-4 main-title">로봇팔 작업 관리자</h1>
+
+        <div class="row">
+            <!-- 왼쪽: 카메라 스트림 -->
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header">실시간 스트림</div>
+                    <div class="card-body p-0 d-flex align-items-center">
+                        <img src="http://127.0.0.1:5000/video_feed" width="100%"
+                             style="border-radius: 0 0 8px 8px;"
+                             onerror="this.src='https://via.placeholder.com/640x480?text=Camera+Not+Connected'">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 오른쪽: 성능 + 제어 + 로그 -->
+            <div class="col-lg-5">
+
+                <!-- 시스템 성능 -->
+                <div class="card">
+                    <div class="card-header">시스템 성능</div>
+                    <div class="card-body">
+                        <span>CPU</span>
+                        <div class="progress mb-2" role="progressbar">
+                            <div class="progress-bar" id="cpu-progress" style="width:0%">0%</div>
+                        </div>
+                        <span>Memory</span>
+                        <div class="progress mb-3" role="progressbar">
+                            <div class="progress-bar" id="mem-progress" style="width:0%">0%</div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <strong>카메라 FPS:</strong>
+                            <span id="fps-display" class="fw-bold" style="color:var(--accent-color);">0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 시스템 제어 -->
+                <div class="card">
+                    <div class="card-header">시스템 제어</div>
+                    <div class="card-body p-3">
+                        <div class="d-grid gap-2">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-success btn-start flex-grow-1" onclick="sendCommand('START')">START</button>
+                                <button class="btn btn-danger btn-stop flex-grow-1"  onclick="sendCommand('STOP')">STOP</button>
+                            </div>
+                            <button class="btn btn-warning btn-calib" onclick="sendCommand('CALIB')">CALIBRATION (초기화)</button>
+                        </div>
+                        <div class="text-center mt-2">
+                            <p class="mb-0 text-body-secondary">상태: <span id="last-command" class="fw-bold text-white">대기 중</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 로그 탭: 탐지 내역 + 동작 내역만 -->
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" id="logTabs" role="tablist">
+                            <li class="nav-item">
+                                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#detection-pane" type="button">탐지 내역</button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#action-pane" type="button">동작 내역</button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body tab-content p-0">
+
+                        <!-- 탐지 내역: 클래스 + 정확도만 -->
+                        <div class="tab-pane fade show active" id="detection-pane">
+                            <div class="log-table-wrapper">
+                                <table class="table table-dark table-striped table-sm mb-0">
+                                    <thead>
+                                        <tr><th>인식 숫자</th><th>정확도</th></tr>
+                                    </thead>
+                                    <tbody id="detection-log-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 동작 내역 -->
+                        <div class="tab-pane fade" id="action-pane">
+                            <div class="log-table-wrapper">
+                                <table class="table table-dark table-striped table-sm mb-0">
+                                    <thead>
+                                        <tr><th>동작</th><th>결과</th></tr>
+                                    </thead>
+                                    <tbody id="action-log-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Gemini AI 채팅 -->
+    <div id="gemini-chat-container" class="card" style="display:none; position:fixed; bottom:90px; right:20px; width:380px; z-index:999;">
+        <div class="card-header d-flex justify-content-between align-items-center"
+             style="background:rgba(155,114,203,0.1); border-bottom:1px solid rgba(155,114,203,0.2);">
+            <div class="d-flex align-items-center gap-2">
+                <svg viewBox="0 0 24 24" fill="none" width="22" height="22">
+                    <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="#9b72cb"/>
+                    <path d="M19 3L19.7 4.3L21 5L19.7 5.7L19 7L18.3 5.7L17 5L18.3 4.3L19 3Z" fill="#9b72cb"/>
+                </svg>
+                <span style="font-weight:600; color:#fff; font-size:1rem;">Gemini AI</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white" onclick="toggleGemini()"></button>
+        </div>
+        <div id="gemini-content" class="card-body p-3"
+             style="height:450px; overflow-y:auto; background-color:rgba(26,28,32,0.98); font-size:0.85rem;">
+            <div class="mb-3 text-info">반갑습니다. 실시간 데이터를 바탕으로 분석해 드립니다.</div>
+        </div>
+        <div class="card-footer p-2" style="background-color:var(--card-color);">
+            <div class="input-group">
+                <input type="text" id="gemini-input"
+                       class="form-control form-control-sm bg-dark text-white border-secondary"
+                       placeholder="예: 현재 공정 상태 요약해줘"
+                       onkeypress="if(event.keyCode==13) askGemini()">
+                <button class="btn btn-outline-info btn-sm" onclick="askGemini()">분석</button>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn shadow-lg d-flex align-items-center justify-content-center gemini-btn-grad"
+            onclick="toggleGemini()"
+            style="position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; z-index:1000;">
+        <svg viewBox="0 0 24 24" fill="none" width="30" height="30">
+            <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="white"/>
+            <path d="M19 3L19.7 4.3L21 5L19.7 5.7L19 7L18.3 5.7L17 5L18.3 4.3L19 3Z" fill="white"/>
+        </svg>
+    </button>
+
+    <footer class="mt-5 py-3 text-center text-body-secondary">
+        <p class="mb-0"><strong>Project Team:</strong> 김한민 · 이지용 · 장민기 · 정철훈</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const SERVER_URL = "http://127.0.0.1:5000";
+
+        function sendCommand(command) {
+            const el = document.getElementById('last-command');
+            el.innerText = `${command} 전송 중...`;
+            fetch(`${SERVER_URL}/control`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command })
+            })
+            .then(res => res.json())
+            .then(data => { el.innerText = data.status === 'success' ? data.command : "전송 실패"; })
+            .catch(() => { el.innerText = "연결 오류"; });
+        }
+
+        function updateData() {
+            fetch(`${SERVER_URL}/data`)
+            .then(res => res.json())
+            .then(data => {
+                const s = data.stats;
+
+                // 성능 바
+                document.getElementById('cpu-progress').style.width = `${s.cpu}%`;
+                document.getElementById('cpu-progress').innerText   = `${s.cpu.toFixed(1)}%`;
+                document.getElementById('mem-progress').style.width = `${s.memory}%`;
+                document.getElementById('mem-progress').innerText   = `${s.memory.toFixed(1)}%`;
+                document.getElementById('fps-display').innerText    = s.fps.toFixed(2);
+
+                // 탐지 내역: 클래스 + 정확도만
+                if (data.detection_log.length > 0) {
+                    document.getElementById('detection-log-body').innerHTML =
+                        data.detection_log.map(l =>
+                            `<tr><td>${l.class}</td><td>${l.conf}</td></tr>`
+                        ).join('');
+                }
+
+                // 동작 내역
+                if (data.action_log.length > 0) {
+                    document.getElementById('action-log-body').innerHTML =
+                        data.action_log.map(l =>
+                            `<tr><td>${l.action}</td><td>${l.result}</td></tr>`
+                        ).join('');
+                }
+            })
+            .catch(e => console.error("Data fetch error:", e));
+        }
+
+        function toggleGemini() {
+            const el = document.getElementById('gemini-chat-container');
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function askGemini() {
+            const input   = document.getElementById('gemini-input');
+            const content = document.getElementById('gemini-content');
+            const question = input.value.trim();
+            if (!question) return;
+
+            const stats = {
+                cpu: document.getElementById('cpu-progress').innerText,
+                fps: document.getElementById('fps-display').innerText
+            };
+
+            content.innerHTML += `<div class="text-end mb-3">
+                <span class="p-2 rounded shadow-sm"
+                      style="background-color:#0077ff; color:white; display:inline-block; max-width:80%;">
+                    ${question}
+                </span></div>`;
+            input.value = '';
+            content.scrollTop = content.scrollHeight;
+
+            const loadingId = 'loading-' + Date.now();
+            content.innerHTML += `<div id="${loadingId}" class="mb-3 text-secondary">Gemini 분석 중...</div>`;
+
+            try {
+                const res  = await fetch(`${SERVER_URL}/ask_gemini`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: question, context: stats })
+                });
+                const data = await res.json();
+                document.getElementById(loadingId).remove();
+                content.innerHTML += `<div class="mb-3">
+                    <span class="p-2 rounded shadow-sm"
+                          style="background-color:var(--card-color); border:1px solid #9b72cb; display:inline-block; max-width:90%;">
+                        <strong>분석 결과:</strong><br>${data.answer}
+                    </span></div>`;
+            } catch {
+                document.getElementById(loadingId).innerText = "서버 응답 없음";
+            }
+            content.scrollTop = content.scrollHeight;
+        }
+
+        setInterval(updateData, 2000);
+        document.addEventListener('DOMContentLoaded', updateData);
+    </script>
+</body>
+</html>

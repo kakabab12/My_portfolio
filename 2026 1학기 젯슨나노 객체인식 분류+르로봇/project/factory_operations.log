@@ -1,0 +1,4 @@
+2026-04-10 00:29:45,183 [INFO] ✅ TensorRT AI Engine Ready.
+2026-04-10 00:29:45,183 [WARNING] ⚠️ Arduino not detected. Simulation mode enabled.
+2026-04-10 00:29:45,184 [INFO] 📸 Camera Pipeline Activated.
+2026-04-10 00:29:45,185 [INFO] 🧠 Inference Intelligence Thread Activated.

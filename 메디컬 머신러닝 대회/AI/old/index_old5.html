@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수술 예측 시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green:  #00C897;
+  --yellow: #FFB800;
+  --red:    #FF4757;
+  --navy:   #0B1D3A;
+  --gray1:  #F7F8FC;
+  --gray2:  #ECEEF5;
+  --gray3:  #9AA0B2;
+  --text:   #1A2340;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans KR', sans-serif; background: var(--gray1); color: var(--text); min-height: 100vh; }
+
+.top-bar { background: var(--navy); padding: 0 2rem; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+.top-bar .logo { font-family: 'DM Sans', sans-serif; font-size: 17px; font-weight: 600; color: #fff; }
+.top-bar .logo span { color: var(--green); }
+.top-bar .sub { font-size: 12px; color: var(--gray3); }
+
+.wrap { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+.form-card { background: #fff; border-radius: 20px; padding: 2rem; margin-bottom: 1rem; box-shadow: 0 2px 16px rgba(11,29,58,0.06); }
+.section-title { font-size: 11px; font-weight: 700; color: var(--gray3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 1.25rem; }
+
+.field-grid { display: grid; gap: 1rem; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.field label { display: block; font-size: 12px; font-weight: 500; color: var(--gray3); margin-bottom: 6px; }
+.field input, .field select {
+  width: 100%; padding: 11px 14px;
+  border: 1.5px solid var(--gray2); border-radius: 10px;
+  font-size: 14px; font-family: 'Noto Sans KR', sans-serif;
+  color: var(--text); background: var(--gray1);
+  transition: border-color .15s; appearance: none;
+}
+.field input:focus, .field select:focus { outline: none; border-color: var(--green); background: #fff; }
+.divider { height: 1px; background: var(--gray2); margin: 1.5rem 0; }
+
+.btn-wrap { text-align: center; margin: 1.5rem 0; }
+.btn-predict {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 14px 48px; background: var(--navy); color: #fff;
+  border: none; border-radius: 50px; font-size: 16px; font-weight: 700;
+  font-family: 'Noto Sans KR', sans-serif; cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+  box-shadow: 0 4px 20px rgba(11,29,58,0.2);
+}
+.btn-predict:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(11,29,58,0.3); }
+.btn-predict:disabled { background: var(--gray3); cursor: not-allowed; transform: none; box-shadow: none; }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); animation: blink 1.5s ease-in-out infinite; }
+@keyframes blink { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
+
+.loading { display: none; text-align: center; padding: 2rem; color: var(--gray3); font-size: 14px; }
+.loading.on { display: block; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--gray2); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.results { display: none; }
+.results.on { display: block; animation: fadeUp .4s ease; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+/* 결과 헤더 */
+.result-bar {
+  background: #fff; border-radius: 16px;
+  padding: 1.25rem 1.75rem; margin-bottom: 1rem;
+  box-shadow: 0 2px 16px rgba(11,29,58,0.06);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.rb-group { display: flex; flex-direction: column; gap: 3px; }
+.rb-label { font-size: 11px; color: var(--gray3); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+.rb-val { font-size: 20px; font-weight: 700; font-family: 'DM Sans', sans-serif; }
+
+/* 결과 그리드 */
+.res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+
+.panel { background: #fff; border-radius: 20px; padding: 1.75rem; box-shadow: 0 2px 16px rgba(11,29,58,0.06); }
+.panel-title { font-size: 11px; font-weight: 700; color: var(--gray3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 1.5rem; }
+
+/* 원형 게이지 */
+.gauge-wrap { text-align: center; margin-bottom: 1.25rem; }
+.gauge-outer { position: relative; width: 150px; height: 150px; margin: 0 auto; }
+.gauge-outer svg { width: 150px; height: 150px; transform: rotate(-90deg); }
+circle { fill: none; stroke-width: 13; }
+.c-bg { stroke: var(--gray2); }
+.c-fill { stroke-linecap: round; transition: stroke-dashoffset .9s cubic-bezier(.4,0,.2,1), stroke .3s; }
+.gauge-center {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.g-pct { font-size: 34px; font-weight: 700; font-family: 'DM Sans', sans-serif; }
+.g-sub { font-size: 11px; color: var(--gray3); margin-top: 2px; }
+
+.risk-badge { display: inline-block; padding: 7px 22px; border-radius: 50px; font-size: 13px; font-weight: 700; }
+.badge-low  { background: #E6FBF5; color: #00A878; }
+.badge-mid  { background: #FFF6E0; color: #D49800; }
+.badge-high { background: #FFE8EA; color: #D93047; }
+
+.f-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gray3); margin: 1.25rem 0 0.75rem; padding-bottom: 0.75rem; border-bottom: 1.5px solid var(--gray2); }
+.f-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--gray2); font-size: 13px; }
+.f-row:last-child { border-bottom: none; }
+.f-name { color: var(--text); font-weight: 500; }
+.f-right { display: flex; align-items: center; gap: 10px; }
+.f-val { color: var(--gray3); }
+.f-bar { width: 48px; height: 4px; background: var(--gray2); border-radius: 99px; overflow: hidden; }
+.f-bar-fill { height: 100%; border-radius: 99px; }
+.bar-high { background: var(--red); }
+.bar-mid  { background: var(--yellow); }
+.bar-ok   { background: var(--green); }
+
+/* 수술 시간 */
+.time-center { text-align: center; padding: 1.25rem 0 1rem; }
+.time-num { font-size: 72px; font-weight: 700; font-family: 'DM Sans', sans-serif; color: var(--navy); line-height: 1; }
+.time-unit { font-size: 20px; color: var(--gray3); }
+.time-range { font-size: 13px; color: var(--gray3); margin-top: 6px; }
+
+.tl { display: flex; align-items: center; margin: 1.25rem 0 0.5rem; font-size: 11px; }
+.tl-item { flex: 1; text-align: center; }
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; margin: 0 auto 5px; transition: background .3s; }
+.tl-dot.on { background: var(--green); box-shadow: 0 0 0 3px rgba(0,200,151,0.2); }
+.tl-dot.off { background: var(--gray2); }
+.tl-line { flex: 1; height: 1.5px; background: var(--gray2); }
+.tl-label { color: var(--gray3); }
+
+/* 종합 소견 */
+.summary-card {
+  background: var(--navy); border-radius: 20px;
+  padding: 1.75rem 2rem; color: #fff;
+  box-shadow: 0 4px 24px rgba(11,29,58,0.18);
+}
+.sum-title { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 0.85rem; }
+.sum-text { font-size: 15px; line-height: 1.8; color: rgba(255,255,255,0.85); }
+.sum-hl { color: var(--green); font-weight: 700; }
+
+.err { display: none; background: #FFE8EA; border-radius: 10px; padding: 0.85rem 1.25rem; font-size: 13px; color: var(--red); margin: 0.75rem 0; }
+.err.on { display: block; }
+
+@media (max-width: 640px) {
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+  .res-grid { grid-template-columns: 1fr; }
+  .result-bar { flex-direction: column; gap: 0.75rem; align-items: flex-start; }
+  .time-num { font-size: 56px; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">Surgical<span>AI</span></div>
+  <div class="sub">Medical AI Dataton 2026</div>
+</div>
+
+<div class="wrap">
+
+  <div class="form-card">
+    <div class="section-title">환자 기본 정보</div>
+    <div class="field-grid grid-3" style="margin-bottom:1rem;">
+      <div class="field"><label>나이</label><input type="number" id="age" value="58"></div>
+      <div class="field"><label>성별</label>
+        <select id="sex"><option value="M">남성</option><option value="F">여성</option></select>
+      </div>
+      <div class="field"><label>현재 건강 상태 (ASA)</label>
+        <select id="asa">
+          <option value="1">1단계 — 완전 건강</option>
+          <option value="2">2단계 — 경미한 질환</option>
+          <option value="3" selected>3단계 — 중등도 질환</option>
+          <option value="4">4단계 — 중증 질환</option>
+          <option value="5">5단계 — 매우 위험</option>
+        </select>
+      </div>
+      <div class="field"><label>체중 (kg)</label><input type="number" id="weight" value="68"></div>
+      <div class="field"><label>신장 (cm)</label><input type="number" id="height" value="168"></div>
+      <div class="field"><label>기존에 앓고 있는 병 수</label><input type="number" id="diag_count" value="3" min="0"></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-title">수술 정보</div>
+
+    <div class="field-grid grid-2" style="margin-bottom:1rem;">
+      <div class="field"><label>진료과</label>
+        <select id="dept">
+          <option value="GS">일반외과</option>
+          <option value="CTS">흉부외과</option>
+          <option value="NS">신경외과</option>
+          <option value="OS">정형외과</option>
+          <option value="OG">산부인과</option>
+          <option value="UR">비뇨기과</option>
+          <option value="PS">성형외과</option>
+          <option value="OL">안과</option>
+        </select>
+      </div>
+      <div class="field"><label>마취 방법</label>
+        <select id="antype">
+          <option value="General">전신마취 (완전히 잠드는 방법)</option>
+          <option value="Neuraxial">척추마취 (하반신 마취)</option>
+          <option value="Regional">부위마취 (수술 부위만)</option>
+          <option value="MAC">수면마취 (반쯤 잠드는 방법)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-grid grid-2">
+      <div class="field"><label>수술 종류</label><input type="text" id="surgery_type" value="복강경 대장절제술"></div>
+      <div class="field"><label>수술 긴급도</label>
+        <select id="emop">
+          <option value="0">계획 수술 (미리 예약된 수술)</option>
+          <option value="1">응급 수술 (즉시 시행)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-wrap">
+    <button class="btn-predict" id="predictBtn" onclick="predict()">
+      <span class="live-dot"></span> 예측 결과 보기
+    </button>
+  </div>
+
+  <div class="err" id="errBox"></div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    AI 모델이 분석 중입니다...
+  </div>
+
+  <div class="results" id="results">
+
+    <div class="result-bar">
+      <div class="rb-group">
+        <div class="rb-label">분석 결과</div>
+        <div class="rb-val" id="rbSummary">—</div>
+      </div>
+      <div class="rb-group" style="text-align:right;">
+        <div class="rb-label">예상 수술 시간</div>
+        <div class="rb-val" id="rbTime">— 분</div>
+      </div>
+    </div>
+
+    <div class="res-grid">
+
+      <!-- ICU 위험도 -->
+      <div class="panel">
+        <div class="panel-title">ICU 입원 위험도</div>
+        <div class="gauge-wrap">
+          <div class="gauge-outer">
+            <svg viewBox="0 0 150 150">
+              <circle class="c-bg" cx="75" cy="75" r="57"/>
+              <circle class="c-fill" id="cFill" cx="75" cy="75" r="57"
+                stroke-dasharray="358.1" stroke-dashoffset="358.1"/>
+            </svg>
+            <div class="gauge-center">
+              <div class="g-pct" id="gPct">0%</div>
+              <div class="g-sub">위험 확률</div>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center; margin-bottom:1.25rem;">
+          <span class="risk-badge" id="riskBadge">—</span>
+        </div>
+        <div class="f-title">주요 위험 요인</div>
+        <div id="riskFactors"></div>
+      </div>
+
+      <!-- 수술 시간 -->
+      <div class="panel">
+        <div class="panel-title">예상 수술 시간</div>
+        <div class="time-center">
+          <span class="time-num" id="timeNum">—</span>
+          <span class="time-unit">분</span>
+          <div class="time-range" id="timeRange">—</div>
+        </div>
+        <div class="tl">
+          <div class="tl-item"><div class="tl-dot on"></div><div class="tl-label">마취 시작</div></div>
+          <div class="tl-line"></div>
+          <div class="tl-item"><div class="tl-dot on"></div><div class="tl-label">수술 시작</div></div>
+          <div class="tl-line"></div>
+          <div class="tl-item"><div class="tl-dot on" id="tlEnd"></div><div class="tl-label" id="tlLbl">수술 종료</div></div>
+        </div>
+        <div class="f-title">수술 시간 결정 요인</div>
+        <div id="timeFactors"></div>
+      </div>
+    </div>
+
+    <div class="summary-card">
+      <div class="sum-title">종합 소견</div>
+      <div class="sum-text" id="sumText">—</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+async function predict() {
+  const err = document.getElementById('errBox');
+  err.classList.remove('on');
+  const btn = document.getElementById('predictBtn');
+  const loading = document.getElementById('loading');
+  const results = document.getElementById('results');
+  const deptEl = document.getElementById('dept');
+
+  btn.disabled = true;
+  loading.classList.add('on');
+  results.classList.remove('on');
+
+  try {
+    const res = await fetch('http://localhost:5000/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        age:        document.getElementById('age').value,
+        sex:        document.getElementById('sex').value,
+        asa:        document.getElementById('asa').value,
+        weight:     document.getElementById('weight').value,
+        height:     document.getElementById('height').value,
+        dept:       deptEl.options[deptEl.selectedIndex].text,
+        antype:     document.getElementById('antype').value,
+        surgery:    document.getElementById('surgery_type').value,
+        emop:       document.getElementById('emop').value,
+        diag_count: document.getElementById('diag_count').value,
+      })
+    });
+    if (!res.ok) throw new Error('서버 오류 ' + res.status);
+    render(await res.json());
+  } catch(e) {
+    err.textContent = '⚠ ' + e.message + ' — server.py가 실행 중인지 확인하세요.';
+    err.classList.add('on');
+  } finally {
+    btn.disabled = false;
+    loading.classList.remove('on');
+  }
+}
+
+function render(r) {
+  const prob = Math.round(r.icu_prob);
+  const mins = Math.round(r.surgery_min);
+
+  // 게이지
+  const circ = 358.1;
+  const fill = document.getElementById('cFill');
+  const color = prob < 20 ? '#00C897' : prob < 50 ? '#FFB800' : '#FF4757';
+  fill.style.stroke = color;
+  setTimeout(() => { fill.style.strokeDashoffset = circ - circ * prob / 100; }, 80);
+
+  document.getElementById('gPct').textContent = prob + '%';
+  document.getElementById('gPct').style.color = color;
+
+  const badge = document.getElementById('riskBadge');
+  if (prob < 20) { badge.textContent = '안심하세요 — 저위험'; badge.className = 'risk-badge badge-low'; }
+  else if (prob < 50) { badge.textContent = '주의 필요 — 중위험'; badge.className = 'risk-badge badge-mid'; }
+  else { badge.textContent = '고위험 — ICU 준비 권고'; badge.className = 'risk-badge badge-high'; }
+
+  // 결과 바
+  const sumText = prob < 20 ? '저위험 환자입니다' : prob < 50 ? '중위험 — 주의 관찰 필요' : '고위험 — 즉시 대응 필요';
+  document.getElementById('rbSummary').textContent = sumText;
+  document.getElementById('rbSummary').style.color = color;
+  document.getElementById('rbTime').textContent = mins + '분';
+
+  // 수술 시간
+  document.getElementById('timeNum').textContent = mins;
+  document.getElementById('timeRange').textContent = '예상 범위: ' + Math.round(mins*0.8) + '분 ~ ' + Math.round(mins*1.2) + '분';
+  document.getElementById('tlLbl').textContent = mins + '분 후 종료';
+
+  // 요인
+  const bars = { high: 85, mid: 50, ok: 25 };
+  const barCls = { high: 'bar-high', mid: 'bar-mid', ok: 'bar-ok' };
+  const makeRows = arr => (arr||[]).map(f =>
+    `<div class="f-row">
+      <span class="f-name">${f.name}</span>
+      <span class="f-right">
+        <span class="f-val">${f.value}</span>
+        <span class="f-bar"><span class="f-bar-fill ${barCls[f.impact]}" style="width:${bars[f.impact]}%"></span></span>
+      </span>
+    </div>`
+  ).join('');
+
+  document.getElementById('riskFactors').innerHTML = makeRows(r.risk_factors);
+  document.getElementById('timeFactors').innerHTML = makeRows(r.time_factors);
+
+  // 종합 소견
+  let txt = r.recommendation;
+  txt = txt.replace(/(\d+\.?\d*%)/g, '<span class="sum-hl">$1</span>');
+  txt = txt.replace(/고위험|중위험|저위험/, m => `<span class="sum-hl">${m}</span>`);
+  document.getElementById('sumText').innerHTML = txt;
+
+  const el = document.getElementById('results');
+  el.classList.add('on');
+  setTimeout(() => { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
+}
+</script>
+</body>
+</html>

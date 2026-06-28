@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SurgicalAI — 수술 전 위험도 예측 시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#00C897;--yellow:#F59E0B;--red:#EF4444;--blue:#3B82F6;
+  --navy:#0B1D3A;--navy2:#132140;
+  --g1:#F8FAFC;--g2:#EEF2F7;--g3:#CBD5E1;--g4:#94A3B8;
+  --text:#1E293B;--text2:#475569;
+  --shadow:0 2px 20px rgba(11,29,58,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'DM Sans','Noto Sans KR',sans-serif;background:var(--g1);color:var(--text);min-height:100vh;}
+
+/* HEADER */
+.header{
+  background:var(--navy);
+  padding:0 2.5rem;height:64px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  position:sticky;top:0;z-index:100;
+}
+.logo{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.3px;}
+.logo em{color:var(--green);font-style:normal;}
+.header-right{display:flex;align-items:center;gap:16px;}
+.live-badge{
+  display:flex;align-items:center;gap:7px;
+  font-size:12px;color:rgba(255,255,255,.6);
+}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 3px rgba(0,200,151,.2);
+  animation:pulse 2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(0,200,151,.2);}50%{box-shadow:0 0 0 6px rgba(0,200,151,.05);}}
+.version{font-size:11px;color:rgba(255,255,255,.3);padding:3px 10px;border:1px solid rgba(255,255,255,.1);border-radius:20px;}
+
+/* LAYOUT */
+.wrap{max-width:1000px;margin:0 auto;padding:2rem 1.5rem 5rem;}
+
+.page-title{margin-bottom:1.75rem;}
+.page-title h1{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.page-title p{font-size:13px;color:var(--text2);}
+
+/* CARD */
+.card{background:#fff;border-radius:16px;padding:1.75rem 2rem;margin-bottom:1rem;box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.04);}
+.card-header{display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--g2);}
+.card-num{width:24px;height:24px;border-radius:6px;background:var(--navy);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.card-title{font-size:14px;font-weight:700;color:var(--navy);}
+.card-sub{font-size:12px;color:var(--g4);margin-left:auto;}
+
+/* GRID */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1rem;}
+
+/* FIELD */
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.3px;text-transform:uppercase;}
+.field .label-sub{font-size:10px;color:var(--g4);margin-top:-3px;text-transform:none;letter-spacing:0;}
+.field input,.field select{
+  width:100%;padding:10px 13px;
+  border:1.5px solid var(--g2);border-radius:10px;
+  font-size:13px;font-family:inherit;
+  color:var(--text);background:var(--g1);
+  transition:all .15s;appearance:none;
+}
+.field input:focus,.field select:focus{outline:none;border-color:var(--green);background:#fff;box-shadow:0 0 0 3px rgba(0,200,151,.08);}
+.field input::placeholder{color:var(--g3);}
+
+/* DIAGNOSIS CHECKBOXES */
+.diag-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.diag-item{
+  display:flex;flex-direction:column;gap:4px;
+  padding:12px;border:1.5px solid var(--g2);border-radius:12px;
+  cursor:pointer;transition:all .15s;background:var(--g1);
+  user-select:none;
+}
+.diag-item:has(input:checked){border-color:var(--green);background:#f0fdf9;}
+.diag-item input{display:none;}
+.diag-check{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--g3);display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .15s;}
+.diag-item:has(input:checked) .diag-check{background:var(--green);border-color:var(--green);color:#fff;}
+.diag-name{font-size:12px;font-weight:600;color:var(--text);}
+.diag-desc{font-size:10px;color:var(--g4);}
+
+/* LAB TOGGLE */
+.lab-toggle-row{display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;padding:12px 16px;background:var(--g1);border-radius:10px;border:1.5px solid var(--g2);}
+.toggle-sw{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle-sw input{display:none;}
+.toggle-track{width:40px;height:22px;background:var(--g3);border-radius:11px;cursor:pointer;transition:background .2s;}
+.toggle-sw input:checked ~ .toggle-track{background:var(--green);}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:transform .2s;pointer-events:none;}
+.toggle-sw input:checked ~ .toggle-track ~ .toggle-thumb,
+.toggle-sw input:checked + .toggle-track + .toggle-thumb{transform:translateX(18px);}
+.toggle-sw input:checked ~ * ~ .toggle-thumb{transform:translateX(18px);}
+.lab-toggle-lbl{flex:1;}
+.lab-toggle-title{font-size:13px;font-weight:600;color:var(--text);}
+.lab-toggle-desc{font-size:11px;color:var(--g4);margin-top:2px;}
+.lab-note{font-size:12px;color:var(--text2);padding:10px 14px;background:#EFF6FF;border-left:3px solid var(--blue);border-radius:8px;margin-bottom:1.25rem;}
+.lab-ref{font-size:10px;color:var(--g4);margin-top:4px;}
+
+/* BTN */
+.btn-area{text-align:center;padding:1.5rem 0 .5rem;}
+.btn-predict{
+  display:inline-flex;align-items:center;gap:12px;
+  padding:15px 56px;background:var(--navy);color:#fff;
+  border:none;border-radius:50px;font-size:16px;font-weight:700;
+  font-family:inherit;cursor:pointer;
+  box-shadow:0 4px 24px rgba(11,29,58,.22);
+  transition:transform .15s,box-shadow .15s;
+}
+.btn-predict:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(11,29,58,.3);}
+.btn-predict:disabled{background:var(--g3);cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-dot{width:9px;height:9px;border-radius:50%;background:var(--green);animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* LOADING */
+.loading{display:none;text-align:center;padding:3rem;color:var(--g4);}
+.loading.on{display:block;}
+.spinner{width:40px;height:40px;border:3px solid var(--g2);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ERR */
+.err{display:none;background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:.85rem 1.25rem;font-size:13px;color:var(--red);margin:.75rem 0;}
+.err.on{display:block;}
+
+/* RESULTS */
+.results{display:none;}
+.results.on{display:block;animation:up .45s ease;}
+@keyframes up{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+
+/* RISK BANNER */
+.risk-banner{
+  border-radius:16px;padding:1.5rem 2rem;margin-bottom:1rem;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  box-shadow:var(--shadow);
+}
+.rb-low {background:linear-gradient(135deg,#ECFDF5,#D1FAE5);border:1px solid #6EE7B7;}
+.rb-mid {background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border:1px solid #FCD34D;}
+.rb-high{background:linear-gradient(135deg,#FEF2F2,#FEE2E2);border:1px solid #FCA5A5;}
+.rb-left{display:flex;align-items:center;gap:16px;}
+.rb-icon{font-size:32px;}
+.rb-texts .rb-title{font-size:18px;font-weight:700;}
+.rb-texts .rb-sub{font-size:13px;margin-top:3px;opacity:.75;}
+.rb-right{text-align:right;}
+.rb-pct{font-size:36px;font-weight:700;font-family:'DM Sans',sans-serif;line-height:1;}
+.rb-pct-sub{font-size:12px;margin-top:3px;opacity:.6;}
+.rb-time-info{margin-top:6px;font-size:13px;font-weight:600;opacity:.8;}
+
+/* RESULT GRID */
+.res-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+
+/* PANEL */
+.panel{background:#fff;border-radius:16px;padding:1.75rem;box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.04);}
+.panel-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--g4);margin-bottom:1.5rem;display:flex;align-items:center;gap:8px;}
+.panel-title::after{content:'';flex:1;height:1px;background:var(--g2);}
+
+/* GAUGE (CSS only, no SVG) */
+.gauge-wrap{display:flex;align-items:center;gap:1.5rem;margin-bottom:1.5rem;}
+.gauge-ring{position:relative;width:120px;height:120px;flex-shrink:0;}
+.gauge-ring svg{width:120px;height:120px;transform:rotate(-90deg);}
+.gauge-ring circle{fill:none;stroke-width:12;}
+.g-bg{stroke:var(--g2);}
+.g-fill{stroke-linecap:round;transition:stroke-dashoffset 1s ease,stroke .3s;}
+.gauge-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+.g-pct{font-size:26px;font-weight:700;font-family:'DM Sans',sans-serif;line-height:1;}
+.g-sub{font-size:10px;color:var(--g4);margin-top:2px;}
+.gauge-info{flex:1;}
+.risk-badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:.75rem;}
+.r-low {background:#D1FAE5;color:#065F46;}
+.r-mid {background:#FEF3C7;color:#92400E;}
+.r-high{background:#FEE2E2;color:#991B1B;}
+.risk-desc{font-size:13px;color:var(--text2);line-height:1.6;}
+
+/* FACTORS */
+.f-hdr{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--g4);margin:1.25rem 0 .75rem;padding-bottom:.65rem;border-bottom:1px solid var(--g2);}
+.f-row{display:flex;align-items:center;padding:9px 10px;border-radius:8px;margin-bottom:4px;transition:background .1s;}
+.f-row:hover{background:var(--g1);}
+.f-row.f-user{background:#F0FDF9;}
+.f-name{font-size:13px;font-weight:500;flex:1;color:var(--text);}
+.f-badge{font-size:10px;font-weight:700;background:var(--green);color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px;}
+.f-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.f-val{font-size:12px;color:var(--g4);min-width:60px;text-align:right;}
+.f-bar{width:50px;height:5px;background:var(--g2);border-radius:99px;overflow:hidden;}
+.f-bar-fill{height:100%;border-radius:99px;}
+.bh{background:var(--red);}.bm{background:var(--yellow);}.bo{background:var(--green);}
+
+/* TIME PANEL */
+.time-center{text-align:center;padding:.75rem 0 1rem;}
+.time-num{font-size:64px;font-weight:700;font-family:'DM Sans',sans-serif;color:var(--navy);line-height:1;}
+.time-unit{font-size:18px;color:var(--g4);}
+.time-boxes{display:flex;gap:8px;margin:.75rem 0;}
+.time-box{flex:1;text-align:center;padding:8px;border-radius:10px;}
+.tb-fast{background:#F0FDF9;border:1px solid #86EFAC;}
+.tb-avg {background:#EFF6FF;border:1px solid #93C5FD;}
+.tb-slow{background:#FFFBEB;border:1px solid #FCD34D;}
+.tb-num{font-size:18px;font-weight:700;font-family:'DM Sans',sans-serif;display:block;}
+.tb-lbl{font-size:10px;color:var(--g4);margin-top:3px;}
+.tb-fast .tb-num{color:#16A34A;}
+.tb-avg  .tb-num{color:#2563EB;}
+.tb-slow .tb-num{color:#D97706;}
+
+/* TIMELINE */
+.tl{display:flex;align-items:center;margin:1rem 0 .5rem;font-size:11px;color:var(--g4);}
+.tl-item{flex:1;text-align:center;}
+.tl-dot{width:10px;height:10px;border-radius:50%;margin:0 auto 5px;background:var(--green);box-shadow:0 0 0 3px rgba(0,200,151,.2);}
+.tl-line{flex:1;height:2px;background:linear-gradient(90deg,var(--green),var(--blue));}
+
+/* SUMMARY */
+.summary-card{
+  background:var(--navy);border-radius:16px;padding:1.75rem 2rem;
+  color:#fff;box-shadow:0 4px 24px rgba(11,29,58,.2);margin-bottom:1rem;
+}
+.sum-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;}
+.sum-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.35);}
+.sum-model{font-size:11px;color:rgba(255,255,255,.25);}
+.sum-text{font-size:15px;line-height:1.85;color:rgba(255,255,255,.85);}
+.shl{color:var(--green);font-weight:700;}
+
+/* CLINICAL NOTES */
+.clinical-notes{background:#fff;border-radius:16px;padding:1.5rem 2rem;box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.04);}
+.cn-title{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--g4);margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--g2);}
+.cn-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.cn-item{padding:12px;border-radius:10px;border:1px solid var(--g2);}
+.cn-item.ok{background:#F0FDF9;border-color:#86EFAC;}
+.cn-item.warn{background:#FFFBEB;border-color:#FCD34D;}
+.cn-item.danger{background:#FEF2F2;border-color:#FCA5A5;}
+.cn-label{font-size:10px;font-weight:600;color:var(--g4);text-transform:uppercase;letter-spacing:.5px;}
+.cn-val{font-size:15px;font-weight:700;margin-top:4px;}
+.cn-item.ok .cn-val{color:#16A34A;}
+.cn-item.warn .cn-val{color:#D97706;}
+.cn-item.danger .cn-val{color:#DC2626;}
+
+@media(max-width:700px){
+  .g3,.g4{grid-template-columns:1fr 1fr;}
+  .diag-grid{grid-template-columns:1fr 1fr;}
+  .res-grid{grid-template-columns:1fr;}
+  .cn-grid{grid-template-columns:1fr 1fr;}
+  .gauge-wrap{flex-direction:column;align-items:flex-start;}
+  .risk-banner{flex-direction:column;align-items:flex-start;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">Surgical<em>AI</em></div>
+  <div class="header-right">
+    <div class="live-badge"><span class="live-dot"></span>시스템 정상</div>
+    <div class="version">LightGBM v2.0</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="page-title">
+    <h1>수술 전 위험도 & 시간 예측</h1>
+    <p>환자 정보를 입력하면 130,960건 임상 데이터 기반 AI 모델이 ICU 입원 위험도와 예상 수술 시간을 분석합니다</p>
+  </div>
+
+  <!-- ① 기본 정보 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-num">①</div>
+      <div class="card-title">환자 기본 정보</div>
+    </div>
+    <div class="g3" style="margin-bottom:1rem;">
+      <div class="field">
+        <label>나이</label>
+        <input type="number" id="age" placeholder="예: 65" min="0" max="120">
+      </div>
+      <div class="field">
+        <label>성별</label>
+        <select id="sex"><option value="">선택하세요</option><option value="M">남성</option><option value="F">여성</option></select>
+      </div>
+      <div class="field">
+        <label>ASA 신체등급</label>
+        <span class="label-sub">마취과학회 신체상태 분류</span>
+        <select id="asa">
+          <option value="">선택하세요</option>
+          <option value="1">1등급 — 정상, 건강한 환자</option>
+          <option value="2">2등급 — 경미한 전신질환</option>
+          <option value="3">3등급 — 중등도 전신질환</option>
+          <option value="4">4등급 — 생명을 위협하는 중증</option>
+          <option value="5">5등급 — 수술 없이는 생존 불가</option>
+        </select>
+      </div>
+      <div class="field"><label>체중 (kg)</label><input type="number" id="weight" placeholder="예: 68"></div>
+      <div class="field"><label>신장 (cm)</label><input type="number" id="height" placeholder="예: 168"></div>
+      <div class="field">
+        <label>수술 긴급도</label>
+        <select id="emop">
+          <option value="">선택하세요</option>
+          <option value="0">계획 수술 (Elective)</option>
+          <option value="1">응급 수술 (Emergency)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 진단명 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-num">②</div>
+      <div class="card-title">주요 진단명 (ICD-10 질환군)</div>
+      <div class="card-sub">해당 항목 모두 선택</div>
+    </div>
+    <div class="diag-grid">
+      <label class="diag-item">
+        <input type="checkbox" id="d_circulatory">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="diag-check">✓</div><div>
+            <div class="diag-name">심혈관계</div>
+            <div class="diag-desc">고혈압, 심부전, 부정맥</div>
+          </div>
+        </div>
+      </label>
+      <label class="diag-item">
+        <input type="checkbox" id="d_neoplasm">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="diag-check">✓</div><div>
+            <div class="diag-name">종양 / 암</div>
+            <div class="diag-desc">악성·양성 신생물</div>
+          </div>
+        </div>
+      </label>
+      <label class="diag-item">
+        <input type="checkbox" id="d_endocrine">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="diag-check">✓</div><div>
+            <div class="diag-name">내분비계</div>
+            <div class="diag-desc">당뇨, 갑상선, 부신</div>
+          </div>
+        </div>
+      </label>
+      <label class="diag-item">
+        <input type="checkbox" id="d_respiratory">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="diag-check">✓</div><div>
+            <div class="diag-name">호흡기계</div>
+            <div class="diag-desc">COPD, 천식, 폐렴</div>
+          </div>
+        </div>
+      </label>
+      <label class="diag-item">
+        <input type="checkbox" id="d_digestive">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="diag-check">✓</div><div>
+            <div class="diag-name">소화기계</div>
+            <div class="diag-desc">간질환, 위장관, 담도</div>
+          </div>
+        </div>
+      </label>
+      <label class="diag-item">
+        <input type="checkbox" id="d_musculoskeletal">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="diag-check">✓</div><div>
+            <div class="diag-name">근골격계</div>
+            <div class="diag-desc">관절염, 골절, 척추</div>
+          </div>
+        </div>
+      </label>
+      <label class="diag-item">
+        <input type="checkbox" id="d_genitourinary">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="diag-check">✓</div><div>
+            <div class="diag-name">비뇨생식기</div>
+            <div class="diag-desc">신장, 방광, 생식기</div>
+          </div>
+        </div>
+      </label>
+      <label class="diag-item">
+        <input type="checkbox" id="d_injury">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="diag-check">✓</div><div>
+            <div class="diag-name">외상 / 손상</div>
+            <div class="diag-desc">골절, 열상, 다발외상</div>
+          </div>
+        </div>
+      </label>
+    </div>
+    <div style="margin-top:1rem;">
+      <div class="field" style="max-width:300px;">
+        <label>기저질환 총 수</label>
+        <input type="number" id="diag_count" placeholder="0" min="0" max="50">
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 혈액검사 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-num">③</div>
+      <div class="card-title">혈액검사 수치</div>
+      <div class="card-sub">선택 입력 (정확도 향상)</div>
+    </div>
+    <div class="lab-toggle-row">
+      <label class="toggle-sw" onclick="toggleLab()">
+        <input type="checkbox" id="labToggle">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+      <div class="lab-toggle-lbl">
+        <div class="lab-toggle-title" id="toggleTitle">혈액검사 수치 입력하기</div>
+        <div class="lab-toggle-desc" id="toggleDesc">수치를 입력할수록 AI 예측 정확도가 높아집니다. 간단한 수술이면 건너뛰어도 됩니다.</div>
+      </div>
+    </div>
+    <div id="labSection" style="display:none;">
+      <div class="lab-note">
+        💡 수술 전 최근 검사 수치를 입력하세요. 모르는 항목은 비워두면 학습 데이터 평균값이 사용됩니다.
+        <div class="lab-ref">참고: 정상 범위는 성별·연령에 따라 다를 수 있습니다</div>
+      </div>
+      <!-- 혈압 -->
+      <div class="g2" style="margin-bottom:1rem;">
+        <div class="field">
+          <label>수축기 혈압 (SBP)</label>
+          <span class="label-sub">정상: 90–139 mmHg | 고혈압: ≥140 | 저혈압: &lt;90</span>
+          <input type="number" id="lab_sbp" placeholder="mmHg" min="40" max="300">
+        </div>
+        <div class="field">
+          <label>이완기 혈압 (DBP)</label>
+          <span class="label-sub">정상: 60–89 mmHg | 고혈압: ≥90 | 저혈압: &lt;60</span>
+          <input type="number" id="lab_dbp" placeholder="mmHg" min="20" max="200">
+        </div>
+      </div>
+      <div class="g4" style="margin-bottom:1rem;">
+        <div class="field">
+          <label>크레아티닌</label>
+          <span class="label-sub">정상: 0.7–1.3 mg/dL</span>
+          <input type="number" id="lab_creatinine" step="0.01" placeholder="mg/dL">
+        </div>
+        <div class="field">
+          <label>혈당 (공복)</label>
+          <span class="label-sub">정상: 70–100 mg/dL</span>
+          <input type="number" id="lab_glucose" placeholder="mg/dL">
+        </div>
+        <div class="field">
+          <label>혈색소 (Hb)</label>
+          <span class="label-sub">정상: 남 13.5–17.5 g/dL</span>
+          <input type="number" id="lab_hb" step="0.1" placeholder="g/dL">
+        </div>
+        <div class="field">
+          <label>알부민</label>
+          <span class="label-sub">정상: 3.5–5.0 g/dL</span>
+          <input type="number" id="lab_albumin" step="0.1" placeholder="g/dL">
+        </div>
+        <div class="field">
+          <label>백혈구 (WBC)</label>
+          <span class="label-sub">정상: 4–10 ×10³/μL</span>
+          <input type="number" id="lab_wbc" step="0.1" placeholder="×10³/μL">
+        </div>
+        <div class="field">
+          <label>혈소판 (PLT)</label>
+          <span class="label-sub">정상: 150–400 ×10³/μL</span>
+          <input type="number" id="lab_plt" placeholder="×10³/μL">
+        </div>
+        <div class="field">
+          <label>나트륨 (Na)</label>
+          <span class="label-sub">정상: 136–145 mEq/L</span>
+          <input type="number" id="lab_na" placeholder="mEq/L">
+        </div>
+        <div class="field">
+          <label>칼륨 (K)</label>
+          <span class="label-sub">정상: 3.5–5.0 mEq/L</span>
+          <input type="number" id="lab_k" step="0.1" placeholder="mEq/L">
+        </div>
+      </div>
+      <div class="g4">
+        <div class="field">
+          <label>ALT (간수치)</label>
+          <span class="label-sub">정상: 7–40 IU/L</span>
+          <input type="number" id="lab_alt" placeholder="IU/L">
+        </div>
+        <div class="field">
+          <label>AST (간수치)</label>
+          <span class="label-sub">정상: 10–40 IU/L</span>
+          <input type="number" id="lab_ast" placeholder="IU/L">
+        </div>
+        <div class="field">
+          <label>BUN (요소질소)</label>
+          <span class="label-sub">정상: 8–20 mg/dL</span>
+          <input type="number" id="lab_bun" placeholder="mg/dL">
+        </div>
+        <div class="field">
+          <label>CRP (염증지표)</label>
+          <span class="label-sub">정상: &lt;5 mg/L</span>
+          <input type="number" id="lab_crp" step="0.1" placeholder="mg/L">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 수술 정보 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-num">④</div>
+      <div class="card-title">수술 정보</div>
+    </div>
+    <div class="g3">
+      <div class="field">
+        <label>진료과</label>
+        <select id="dept" onchange="loadSurgeries()">
+          <option value="">선택하세요</option>
+          <option value="GS">일반외과 (General Surgery)</option>
+          <option value="CTS">흉부외과 (Cardio-Thoracic)</option>
+          <option value="NS">신경외과 (Neurosurgery)</option>
+          <option value="OS">정형외과 (Orthopedic)</option>
+          <option value="OG">산부인과 (Ob/Gyn)</option>
+          <option value="UR">비뇨기과 (Urology)</option>
+          <option value="PS">성형외과 (Plastic Surgery)</option>
+          <option value="OL">안과 (Ophthalmology)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>마취 방법</label>
+        <select id="antype">
+          <option value="">선택하세요</option>
+          <option value="General">전신마취 (General Anesthesia)</option>
+          <option value="Neuraxial">척추/경막외마취 (Neuraxial)</option>
+          <option value="Regional">부위마취 (Regional)</option>
+          <option value="MAC">감시마취관리 (MAC)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>수술 종류 (ICD-10-PCS)</label>
+        <span class="label-sub" id="surgery_hint">진료과 선택 후 목록이 로드됩니다</span>
+        <select id="surgery_type"><option value="">진료과를 먼저 선택하세요</option></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-area">
+    <button class="btn-predict" id="predictBtn" onclick="predict()">
+      <span class="btn-dot"></span> 위험도 분석 시작
+    </button>
+  </div>
+
+  <div class="err" id="errBox"></div>
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    130,960건 임상 데이터 모델 분석 중...
+  </div>
+
+  <!-- 결과 -->
+  <div class="results" id="results">
+
+    <!-- 위험도 배너 -->
+    <div class="risk-banner" id="riskBanner">
+      <div class="rb-left">
+        <div class="rb-icon" id="rbIcon">—</div>
+        <div class="rb-texts">
+          <div class="rb-title" id="rbTitle">—</div>
+          <div class="rb-sub" id="rbSub">—</div>
+        </div>
+      </div>
+      <div class="rb-right">
+        <div class="rb-pct" id="rbPct">—</div>
+        <div class="rb-pct-sub">ICU 입원 위험 확률</div>
+        <div class="rb-time-info" id="rbTimeInfo">—</div>
+      </div>
+    </div>
+
+    <!-- 임상 요약 카드 -->
+    <div class="clinical-notes" id="clinNotes" style="margin-bottom:1rem;">
+      <div class="cn-title">임상 핵심 지표</div>
+      <div class="cn-grid" id="cnGrid"></div>
+    </div>
+
+    <div class="res-grid">
+      <!-- 위험도 패널 -->
+      <div class="panel">
+        <div class="panel-title">ICU 입원 위험도 분석</div>
+        <div class="gauge-wrap">
+          <div class="gauge-ring">
+            <svg viewBox="0 0 120 120">
+              <circle class="g-bg" cx="60" cy="60" r="50"/>
+              <circle class="g-fill" id="cf" cx="60" cy="60" r="50"
+                stroke-dasharray="314.2" stroke-dashoffset="314.2"/>
+            </svg>
+            <div class="gauge-center">
+              <div class="g-pct" id="gpct">—</div>
+              <div class="g-sub">위험확률</div>
+            </div>
+          </div>
+          <div class="gauge-info">
+            <span class="risk-badge" id="riskBadge">—</span>
+            <div class="risk-desc" id="riskDesc">—</div>
+          </div>
+        </div>
+        <div class="f-hdr">주요 위험 요인</div>
+        <div id="riskFactors"></div>
+      </div>
+
+      <!-- 수술 시간 패널 -->
+      <div class="panel">
+        <div class="panel-title">예상 수술 소요 시간</div>
+        <div class="time-center">
+          <span class="time-num" id="tNum">—</span>
+          <span class="time-unit">분</span>
+        </div>
+        <div class="time-boxes">
+          <div class="time-box tb-fast">
+            <span class="tb-num" id="tFast">—</span>
+            <div class="tb-lbl">⚡ 최단 예상</div>
+          </div>
+          <div class="time-box tb-avg">
+            <span class="tb-num" id="tAvg">—</span>
+            <div class="tb-lbl">📊 중간 예측</div>
+          </div>
+          <div class="time-box tb-slow">
+            <span class="tb-num" id="tSlow">—</span>
+            <div class="tb-lbl">🐢 최장 예상</div>
+          </div>
+        </div>
+        <div class="tl">
+          <div class="tl-item"><div class="tl-dot"></div>마취 시작</div>
+          <div class="tl-line"></div>
+          <div class="tl-item"><div class="tl-dot"></div>수술 시작</div>
+          <div class="tl-line"></div>
+          <div class="tl-item"><div class="tl-dot"></div><span id="tlEnd">수술 종료</span></div>
+        </div>
+        <div class="f-hdr">수술 시간 결정 요인</div>
+        <div id="timeFactors"></div>
+      </div>
+    </div>
+
+    <!-- 종합 소견 -->
+    <div class="summary-card">
+      <div class="sum-header">
+        <div class="sum-title">종합 임상 소견</div>
+        <div class="sum-model">LightGBM + Evidence-Based Calibration</div>
+      </div>
+      <div class="sum-text" id="sumTxt">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 토글
+function toggleLab() {
+  var chk = document.getElementById('labToggle');
+  chk.checked = !chk.checked;
+  var sec = document.getElementById('labSection');
+  var tit = document.getElementById('toggleTitle');
+  var desc = document.getElementById('toggleDesc');
+  if (chk.checked) {
+    sec.style.display = 'block';
+    tit.textContent = '혈액검사 수치 입력 중 (정확도 향상됨)';
+    tit.style.color = 'var(--green)';
+    desc.textContent = '검사 수치가 많을수록 예측이 정확해집니다.';
+  } else {
+    sec.style.display = 'none';
+    tit.textContent = '혈액검사 수치 입력하기';
+    tit.style.color = 'var(--text)';
+    desc.textContent = '간단한 수술이거나 결과가 없으면 건너뛰어도 됩니다.';
+    ['lab_creatinine','lab_glucose','lab_hb','lab_albumin','lab_wbc',
+     'lab_plt','lab_na','lab_k','lab_alt','lab_ast','lab_bun','lab_crp',
+     'lab_sbp','lab_dbp']
+    .forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+  }
+}
+
+// 수술 목록
+function loadSurgeries() {
+  var dept = document.getElementById('dept').value;
+  var sel  = document.getElementById('surgery_type');
+  var hint = document.getElementById('surgery_hint');
+  if (!dept) { sel.innerHTML='<option value="">진료과를 먼저 선택하세요</option>'; return; }
+  sel.innerHTML = '<option value="">불러오는 중...</option>';
+  fetch('http://localhost:5000/surgeries?dept=' + dept)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (!data || data.length === 0) {
+        sel.innerHTML = '<option value="">수술 코드 없음 (python generate_lookup.py 실행)</option>';
+        hint.textContent = '⚠ generate_lookup.py 실행 필요';
+        hint.style.color = 'var(--yellow)';
+        return;
+      }
+      sel.innerHTML = '<option value="">수술 종류를 선택하세요</option>' +
+        data.map(function(s){ return '<option value="'+s.code+'">'+s.label+'</option>'; }).join('');
+      hint.textContent = '✅ ' + data.length + '개 수술 코드 로드됨';
+      hint.style.color = 'var(--green)';
+    })
+    .catch(function(){
+      sel.innerHTML = '<option value="">서버 연결 필요 (server.py 실행)</option>';
+    });
+}
+
+// 수술 코드
+function getSurgeryCode() {
+  var sel = document.getElementById('surgery_type');
+  return (sel && sel.value) ? sel.value : '';
+}
+
+function lab(id) {
+  var e = document.getElementById(id);
+  return (!e || e.value === '') ? null : parseFloat(e.value);
+}
+
+// 예측
+function predict() {
+  var err = document.getElementById('errBox');
+  err.classList.remove('on');
+  var btn = document.getElementById('predictBtn');
+  var deptEl = document.getElementById('dept');
+  var asaEl = document.getElementById('asa');
+  var asaVal = asaEl.value;
+
+  btn.disabled = true;
+  document.getElementById('loading').classList.add('on');
+  document.getElementById('results').classList.remove('on');
+
+  fetch('http://localhost:5000/predict', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      age:   document.getElementById('age').value,
+      sex:   document.getElementById('sex').value,
+      asa:   asaVal,
+      weight:document.getElementById('weight').value,
+      height:document.getElementById('height').value,
+      emop:  document.getElementById('emop').value,
+      dept:  deptEl.value,
+      antype:document.getElementById('antype').value,
+      icd10_pcs_code: getSurgeryCode(),
+      diag_count: document.getElementById('diag_count').value,
+      diag_circulatory:    document.getElementById('d_circulatory').checked?1:0,
+      diag_neoplasm:       document.getElementById('d_neoplasm').checked?1:0,
+      diag_endocrine:      document.getElementById('d_endocrine').checked?1:0,
+      diag_respiratory:    document.getElementById('d_respiratory').checked?1:0,
+      diag_digestive:      document.getElementById('d_digestive').checked?1:0,
+      diag_musculoskeletal:document.getElementById('d_musculoskeletal').checked?1:0,
+      diag_genitourinary:  document.getElementById('d_genitourinary').checked?1:0,
+      diag_injury:         document.getElementById('d_injury').checked?1:0,
+      lab_creatinine:lab('lab_creatinine'), lab_glucose:lab('lab_glucose'),
+      lab_hb:lab('lab_hb'), lab_albumin:lab('lab_albumin'),
+      lab_wbc:lab('lab_wbc'), lab_plt:lab('lab_plt'),
+      lab_na:lab('lab_na'), lab_k:lab('lab_k'),
+      lab_alt:lab('lab_alt'), lab_ast:lab('lab_ast'),
+      lab_bun:lab('lab_bun'), lab_crp:lab('lab_crp'),
+      lab_sbp:lab('lab_sbp'), lab_dbp:lab('lab_dbp'),
+    })
+  })
+  .then(function(r){
+    if (!r.ok) return r.text().then(function(t){ throw new Error('서버 오류 '+r.status+': '+t.slice(0,200)); });
+    return r.json();
+  })
+  .then(function(data){ render(data); })
+  .catch(function(e){
+    err.textContent = '⚠ ' + e.message;
+    err.classList.add('on');
+  })
+  .finally(function(){
+    btn.disabled = false;
+    document.getElementById('loading').classList.remove('on');
+  });
+}
+
+// 게이지
+function setGauge(prob, color) {
+  var cf = document.getElementById('cf');
+  if (!cf) return;
+  var circ = 314.2;
+  var offset = circ - circ * prob / 100;
+  cf.setAttribute('stroke', color);
+  cf.style.transition = 'none';
+  cf.setAttribute('stroke-dashoffset', circ);
+  setTimeout(function(){
+    cf.style.transition = 'stroke-dashoffset 1s ease, stroke 0.3s';
+    cf.setAttribute('stroke-dashoffset', offset);
+  }, 80);
+  var pctEl = document.getElementById('gpct');
+  if (pctEl) { pctEl.textContent = prob + '%'; pctEl.style.color = color; }
+}
+
+// 요인 렌더
+function makeRows(arr) {
+  return (arr||[]).map(function(f){
+    var bw = f.impact==='high'?85:f.impact==='mid'?52:28;
+    var bc = f.impact==='high'?'bh':f.impact==='mid'?'bm':'bo';
+    var bd = f.is_user ? ' <span class="f-badge">직접 입력</span>' : '';
+    var rc = f.is_user ? ' f-user' : '';
+    return '<div class="f-row'+rc+'">'+
+      '<span class="f-name">'+f.name+bd+'</span>'+
+      '<span class="f-right">'+
+        '<span class="f-val">'+f.value+'</span>'+
+        '<span class="f-bar"><span class="f-bar-fill '+bc+'" style="width:'+bw+'%"></span></span>'+
+      '</span></div>';
+  }).join('');
+}
+
+// 임상 요약 카드 생성
+function makeClinicalNotes(r, d) {
+  var items = [];
+  var prob = r.icu_prob;
+
+  // ASA
+  var asaVal = parseInt(document.getElementById('asa').value) || 0;
+  var asaClass = asaVal >= 4 ? 'danger' : asaVal >= 3 ? 'warn' : 'ok';
+  items.push({cls:asaClass, label:'ASA 등급', val: asaVal ? asaVal+'등급' : '미입력'});
+
+  // 응급수술
+  var emop = document.getElementById('emop').value;
+  items.push({cls:emop==='1'?'danger':'ok', label:'수술 긴급도', val:emop==='1'?'응급수술':'계획수술'});
+
+  // ICU 위험
+  var riskClass = prob>=50?'danger':prob>=20?'warn':'ok';
+  items.push({cls:riskClass, label:'ICU 위험', val:prob.toFixed(1)+'%'});
+
+  // 수술 시간
+  items.push({cls:'ok', label:'예측 수술 시간', val:r.surgery_min+'분'});
+
+  // 기저질환
+  var dc = parseInt(document.getElementById('diag_count').value)||0;
+  items.push({cls:dc>=5?'danger':dc>=3?'warn':'ok', label:'기저질환 수', val:dc+'개'});
+
+  // 혈액검사 반영
+  items.push({cls:r.lab_count>0?'ok':'warn', label:'혈액검사 반영', val:r.lab_count>0?r.lab_count+'개 항목':'없음 (평균값 사용)'});
+
+  return items.map(function(i){
+    return '<div class="cn-item '+i.cls+'"><div class="cn-label">'+i.label+'</div><div class="cn-val">'+i.val+'</div></div>';
+  }).join('');
+}
+
+// 렌더
+function render(r) {
+  var prob  = parseFloat(r.icu_prob)  || 0;
+  var mins  = parseInt(r.surgery_min) || 0;
+  var fast  = parseInt(r.surgery_fast)|| Math.round(mins*0.8);
+  var slow  = parseInt(r.surgery_slow)|| Math.round(mins*1.2);
+
+  var color, bannerCls, icon, title, sub;
+  if (prob >= 50) {
+    color='#EF4444'; bannerCls='rb-high'; icon='🚨';
+    title='고위험 환자 — 즉각적 대응 필요';
+    sub='수술 전 ICU 사전 배정 및 집중치료팀 준비를 강력 권고합니다';
+  } else if (prob >= 20) {
+    color='#F59E0B'; bannerCls='rb-mid'; icon='⚠️';
+    title='중위험 환자 — 주의 관찰 필요';
+    sub='활력징후 집중 모니터링 및 회복실 면밀 관찰이 필요합니다';
+  } else {
+    color='#00C897'; bannerCls='rb-low'; icon='✅';
+    title='저위험 환자 — 표준 프로토콜 적용';
+    sub='일반 회복실 배정 후 표준 경과 관찰이 적합합니다';
+  }
+
+  // 배너
+  var banner = document.getElementById('riskBanner');
+  banner.className = 'risk-banner ' + bannerCls;
+  document.getElementById('rbIcon').textContent = icon;
+  document.getElementById('rbTitle').textContent = title;
+  document.getElementById('rbSub').textContent = sub;
+  document.getElementById('rbPct').textContent = prob.toFixed(1) + '%';
+  document.getElementById('rbPct').style.color = color;
+  document.getElementById('rbTimeInfo').textContent = '예상 수술 시간: ' + mins + '분';
+
+  // 게이지
+  setGauge(Math.round(prob), color);
+
+  // 뱃지 & 설명
+  var badge = document.getElementById('riskBadge');
+  var desc  = document.getElementById('riskDesc');
+  if (prob >= 50) {
+    badge.textContent='고위험'; badge.className='risk-badge r-high';
+    desc.textContent='수술 후 ICU 입원이 강력히 예상됩니다. 마취과·외과·중환자의학과 협진을 권장합니다.';
+  } else if (prob >= 20) {
+    badge.textContent='중위험'; badge.className='risk-badge r-mid';
+    desc.textContent='수술 후 합병증 가능성이 있습니다. 회복실 집중 모니터링이 필요합니다.';
+  } else {
+    badge.textContent='저위험'; badge.className='risk-badge r-low';
+    desc.textContent='수술 전 지표상 위험도가 낮습니다. 표준 수술 프로토콜을 적용하십시오.';
+  }
+
+  // 수술 시간
+  document.getElementById('tNum').textContent = mins;
+  document.getElementById('tFast').textContent = fast + '분';
+  document.getElementById('tAvg').textContent  = mins + '분';
+  document.getElementById('tSlow').textContent = slow + '분';
+  document.getElementById('tlEnd').textContent = mins + '분 후 종료';
+
+  // 요인
+  document.getElementById('riskFactors').innerHTML = makeRows(r.risk_factors);
+  document.getElementById('timeFactors').innerHTML = makeRows(r.time_factors);
+
+  // 임상 요약
+  document.getElementById('cnGrid').innerHTML = makeClinicalNotes(r);
+
+  // 소견
+  var txt = r.recommendation || '';
+  txt = txt.replace(/(\d+\.?\d*%)/g, '<span class="shl">$1</span>');
+  txt = txt.replace(/(고위험|중위험|저위험)/, '<span class="shl">$1</span>');
+  txt = txt.replace(/(\d+분)/g, '<span class="shl">$1</span>');
+  document.getElementById('sumTxt').innerHTML = txt;
+
+  // 결과 표시
+  var el = document.getElementById('results');
+  el.classList.add('on');
+  setTimeout(function(){ el.scrollIntoView({behavior:'smooth',block:'start'}); }, 100);
+}
+
+window.addEventListener('DOMContentLoaded', function(){ loadSurgeries(); });
+</script>
+</body>
+</html>

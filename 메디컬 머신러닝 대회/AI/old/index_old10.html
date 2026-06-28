@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수술 예측 시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--green:#00C897;--yellow:#FFB800;--red:#FF4757;--navy:#0B1D3A;--gray1:#F7F8FC;--gray2:#ECEEF5;--gray3:#9AA0B2;--text:#1A2340;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--gray1);color:var(--text);min-height:100vh;}
+
+.top-bar{background:var(--navy);padding:0 2rem;height:60px;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'DM Sans',sans-serif;font-size:18px;font-weight:700;color:#fff;}
+.logo span{color:var(--green);}
+.top-sub{font-size:12px;color:var(--gray3);}
+
+.wrap{max-width:980px;margin:0 auto;padding:2rem 1.5rem 4rem;}
+
+.card{background:#fff;border-radius:18px;padding:1.75rem 2rem;margin-bottom:1rem;box-shadow:0 2px 20px rgba(11,29,58,0.07);}
+.sec{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gray3);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1.5px solid var(--gray2);}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1rem;}
+
+.field label{display:block;font-size:11px;font-weight:600;color:var(--gray3);margin-bottom:6px;letter-spacing:.3px;}
+.field input,.field select{width:100%;padding:10px 13px;border:1.5px solid var(--gray2);border-radius:10px;font-size:13px;font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--gray1);appearance:none;transition:border-color .15s;}
+.field input:focus,.field select:focus{outline:none;border-color:var(--green);background:#fff;}
+.field input::placeholder{color:#c5cad8;}
+
+/* 진단 체크 */
+.diag-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.diag-item{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1.5px solid var(--gray2);border-radius:10px;cursor:pointer;transition:all .15s;background:var(--gray1);}
+.diag-item:has(input:checked){border-color:var(--green);background:#f0fdf9;}
+.diag-item input{width:15px;height:15px;accent-color:var(--green);cursor:pointer;flex-shrink:0;}
+.diag-item span{font-size:12px;font-weight:500;color:var(--text);}
+
+/* 검사수치 */
+.lab-note{font-size:11px;color:var(--gray3);margin-bottom:1rem;padding:8px 12px;background:var(--gray1);border-radius:8px;border-left:3px solid var(--green);}
+
+/* 버튼 */
+.btn-area{text-align:center;margin:1.5rem 0;}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 52px;background:var(--navy);color:#fff;border:none;border-radius:50px;font-size:15px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 4px 20px rgba(11,29,58,0.22);}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(11,29,58,0.32);}
+.btn:disabled{background:var(--gray3);cursor:not-allowed;transform:none;box-shadow:none;}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--green);animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+.loading{display:none;text-align:center;padding:2rem;color:var(--gray3);}
+.loading.on{display:block;}
+.spin{width:38px;height:38px;border:3px solid var(--gray2);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.err{display:none;background:#FFE8EA;border-radius:10px;padding:.85rem 1.25rem;font-size:13px;color:var(--red);margin:.75rem 0;}
+.err.on{display:block;}
+
+/* 결과 */
+.results{display:none;}
+.results.on{display:block;animation:up .4s ease;}
+@keyframes up{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+
+/* 결과 헤더 바 */
+.res-header{background:#fff;border-radius:16px;padding:1.25rem 1.75rem;margin-bottom:1rem;box-shadow:0 2px 20px rgba(11,29,58,0.07);display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.rh-item{display:flex;flex-direction:column;gap:3px;}
+.rh-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray3);}
+.rh-val{font-size:20px;font-weight:700;font-family:'DM Sans',sans-serif;}
+
+/* 결과 그리드 */
+.res-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.panel{background:#fff;border-radius:18px;padding:1.75rem;box-shadow:0 2px 20px rgba(11,29,58,0.07);}
+.p-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gray3);margin-bottom:1.5rem;}
+
+/* 게이지 */
+.gauge-wrap{text-align:center;margin-bottom:1.25rem;}
+.go{position:relative;width:148px;height:148px;margin:0 auto;}
+.go svg{width:148px;height:148px;transform:rotate(-90deg);}
+circle{fill:none;stroke-width:13;}
+.cbg{stroke:var(--gray2);}
+.cfill{stroke-linecap:round;transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1),stroke .3s;}
+.gc{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+.gpct{font-size:33px;font-weight:700;font-family:'DM Sans',sans-serif;}
+.gsub{font-size:11px;color:var(--gray3);margin-top:2px;}
+
+.rbadge{display:inline-block;padding:7px 22px;border-radius:50px;font-size:13px;font-weight:700;}
+.r-low{background:#E6FBF5;color:#00A878;}
+.r-mid{background:#FFF6E0;color:#D49800;}
+.r-high{background:#FFE8EA;color:#D93047;}
+
+/* 요인 */
+.f-hdr{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray3);margin:1.25rem 0 .75rem;padding-bottom:.65rem;border-bottom:1.5px solid var(--gray2);}
+.f-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray2);font-size:13px;}
+.f-row:last-child{border-bottom:none;}
+.f-name{color:var(--text);font-weight:500;flex:1;}
+.f-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.f-val{color:var(--gray3);font-size:12px;}
+.fbar{width:52px;height:4px;background:var(--gray2);border-radius:99px;overflow:hidden;}
+.fbf{height:100%;border-radius:99px;}
+.bh{background:var(--red);}
+.bm{background:var(--yellow);}
+.bo{background:var(--green);}
+.f-user{background:#f0fdf9;border-radius:8px;padding:8px 10px;margin:2px 0;}
+
+/* 토글 스위치 */
+.lab-toggle-wrap{margin-bottom:1rem;}
+.lab-toggle{display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none;}
+.lab-toggle input{display:none;}
+.toggle-slider{
+  position:relative;width:44px;height:24px;
+  background:var(--gray2);border-radius:12px;
+  transition:background .2s;flex-shrink:0;
+}
+.toggle-slider::after{
+  content:'';position:absolute;
+  top:3px;left:3px;
+  width:18px;height:18px;
+  background:#fff;border-radius:50%;
+  box-shadow:0 1px 4px rgba(0,0,0,.15);
+  transition:transform .2s;
+}
+.lab-toggle input:checked + .toggle-slider{background:var(--green);}
+.lab-toggle input:checked + .toggle-slider::after{transform:translateX(20px);}
+.toggle-label{font-size:14px;font-weight:600;color:var(--text);}
+.lab-skip-hint{font-size:12px;color:var(--gray3);margin-top:6px;margin-left:56px;}
+.f-badge{display:inline-block;font-size:10px;font-weight:700;background:var(--green);color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle;}
+
+/* 수술 시간 */
+.time-big{text-align:center;padding:1rem 0 .75rem;}
+.time-num{font-size:68px;font-weight:700;font-family:'DM Sans',sans-serif;color:var(--navy);line-height:1;}
+.time-unit{font-size:18px;color:var(--gray3);}
+.time-range{margin-top:.75rem;display:flex;justify-content:center;gap:1rem;}
+.tr-item{text-align:center;padding:8px 16px;border-radius:10px;font-size:12px;}
+.tr-fast{background:#E6FBF5;color:#00A878;}
+.tr-avg{background:#EEF2FF;color:#4F6EF7;}
+.tr-slow{background:#FFF6E0;color:#D49800;}
+.tr-num{font-size:18px;font-weight:700;font-family:'DM Sans',sans-serif;display:block;}
+.tr-lbl{font-size:11px;margin-top:2px;}
+
+.tl{display:flex;align-items:center;margin:1.25rem 0 .5rem;font-size:11px;}
+.tl-item{flex:1;text-align:center;}
+.tl-dot{width:10px;height:10px;border-radius:50%;margin:0 auto 5px;}
+.tl-dot.on{background:var(--green);box-shadow:0 0 0 3px rgba(0,200,151,0.2);}
+.tl-dot.off{background:var(--gray2);}
+.tl-line{flex:1;height:1.5px;background:var(--gray2);}
+.tl-label{color:var(--gray3);}
+
+/* 종합 소견 */
+.summary{background:var(--navy);border-radius:18px;padding:1.75rem 2rem;color:#fff;box-shadow:0 4px 24px rgba(11,29,58,0.2);}
+.sum-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:.85rem;}
+.sum-text{font-size:15px;line-height:1.85;color:rgba(255,255,255,.85);}
+.shl{color:var(--green);font-weight:700;}
+
+@media(max-width:680px){
+  .g3,.g4{grid-template-columns:1fr 1fr;}
+  .diag-grid{grid-template-columns:1fr 1fr;}
+  .res-grid{grid-template-columns:1fr;}
+  .res-header{flex-direction:column;align-items:flex-start;}
+  .time-num{font-size:52px;}
+  .time-range{flex-direction:column;align-items:center;}
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">Surgical<span>AI</span></div>
+  <div class="top-sub">Medical AI Dataton 2026 — LightGBM 기반 수술 전 예측</div>
+</div>
+
+<div class="wrap">
+
+  <!-- 1. 환자 기본 정보 -->
+  <div class="card">
+    <div class="sec">① 환자 기본 정보</div>
+    <div class="g3" style="margin-bottom:1rem;">
+      <div class="field"><label>나이</label><input type="number" id="age" placeholder="나이를 입력하세요" min="0" max="120"></div>
+      <div class="field"><label>성별</label>
+        <select id="sex"><option value="">선택하세요</option><option value="M">남성</option><option value="F">여성</option></select>
+      </div>
+      <div class="field"><label>건강 상태 (ASA 점수)</label>
+        <select id="asa">
+          <option value="">선택하세요</option>
+          <option value="1">1단계 — 완전 건강</option>
+          <option value="2">2단계 — 경미한 질환</option>
+          <option value="3">3단계 — 중등도 질환</option>
+          <option value="4">4단계 — 중증 질환</option>
+          <option value="5">5단계 — 매우 위험</option>
+        </select>
+      </div>
+      <div class="field"><label>체중 (kg)</label><input type="number" id="weight" placeholder="체중을 입력하세요"></div>
+      <div class="field"><label>신장 (cm)</label><input type="number" id="height" placeholder="신장을 입력하세요"></div>
+      <div class="field"><label>수술 긴급도</label>
+        <select id="emop">
+          <option value="">선택하세요</option>
+          <option value="0">계획 수술 (미리 예약된 수술)</option>
+          <option value="1">응급 수술 (즉시 시행)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 진단명 -->
+  <div class="card">
+    <div class="sec">② 진단명 — 해당하는 질환을 모두 선택하세요</div>
+    <div class="diag-grid">
+      <label class="diag-item"><input type="checkbox" id="d_circulatory"><span>💔 심혈관 질환<br><small style="color:var(--gray3)">고혈압, 심부전 등</small></span></label>
+      <label class="diag-item"><input type="checkbox" id="d_neoplasm"><span>🎗️ 종양 / 암<br><small style="color:var(--gray3)">악성·양성 종양</small></span></label>
+      <label class="diag-item"><input type="checkbox" id="d_endocrine"><span>🩺 당뇨 / 내분비<br><small style="color:var(--gray3)">당뇨병, 갑상선</small></span></label>
+      <label class="diag-item"><input type="checkbox" id="d_respiratory"><span>🫁 호흡기 질환<br><small style="color:var(--gray3)">천식, COPD 등</small></span></label>
+      <label class="diag-item"><input type="checkbox" id="d_digestive"><span>🫃 소화기 질환<br><small style="color:var(--gray3)">간질환, 위장관</small></span></label>
+      <label class="diag-item"><input type="checkbox" id="d_musculoskeletal"><span>🦴 근골격계<br><small style="color:var(--gray3)">관절염, 골절 등</small></span></label>
+      <label class="diag-item"><input type="checkbox" id="d_genitourinary"><span>🫘 비뇨생식기<br><small style="color:var(--gray3)">신장, 방광 등</small></span></label>
+      <label class="diag-item"><input type="checkbox" id="d_injury"><span>🩹 외상 / 손상<br><small style="color:var(--gray3)">골절, 열상 등</small></span></label>
+    </div>
+    <div style="margin-top:1rem;" class="g2">
+      <div class="field"><label>기존에 앓고 있는 병 수 (전체 진단 개수)</label><input type="number" id="diag_count" placeholder="0" min="0" max="50"></div>
+    </div>
+  </div>
+
+  <!-- 3. 혈액검사 수치 -->
+  <div class="card">
+    <div class="sec">③ 혈액검사 수치 (검사 수치)</div>
+    <div class="lab-toggle-wrap">
+      <label class="lab-toggle">
+        <input type="checkbox" id="labToggle" onchange="toggleLab()">
+        <span class="toggle-slider"></span>
+        <span class="toggle-label" id="toggleLabel">혈액검사 수치 입력하기 (정확도 향상)</span>
+      </label>
+      <div class="lab-skip-hint" id="labSkipHint">간단한 수술이거나 검사 결과가 없으면 건너뛰어도 됩니다.</div>
+    </div>
+    <div id="labSection" style="display:none;">
+    <div class="lab-note">💡 수치를 더 많이 입력할수록 AI 예측 정확도가 높아집니다. 모르는 항목은 비워두세요.</div>
+    <div class="g4" style="margin-bottom:1rem;">
+      <div class="field"><label>크레아티닌 mg/dL<br><small>신장 기능 지표</small></label><input type="number" id="lab_creatinine" step="0.01" placeholder="정상: 0.7~1.3"></div>
+      <div class="field"><label>혈당 mg/dL</label><input type="number" id="lab_glucose" placeholder="정상: 70~100"></div>
+      <div class="field"><label>혈색소 g/dL<br><small>빈혈 지표</small></label><input type="number" id="lab_hb" step="0.1" placeholder="정상: 12~17"></div>
+      <div class="field"><label>알부민 g/dL<br><small>영양 상태</small></label><input type="number" id="lab_albumin" step="0.1" placeholder="정상: 3.5~5.0"></div>
+      <div class="field"><label>백혈구 ×10³/μL<br><small>염증/면역</small></label><input type="number" id="lab_wbc" step="0.1" placeholder="정상: 4~10"></div>
+      <div class="field"><label>혈소판 ×10³/μL</label><input type="number" id="lab_plt" placeholder="정상: 150~400"></div>
+      <div class="field"><label>나트륨 mEq/L</label><input type="number" id="lab_na" placeholder="정상: 136~145"></div>
+      <div class="field"><label>칼륨 mEq/L</label><input type="number" id="lab_k" step="0.1" placeholder="정상: 3.5~5.0"></div>
+    </div>
+    <div class="g4">
+      <div class="field"><label>ALT 간수치 IU/L</label><input type="number" id="lab_alt" placeholder="정상: 7~40"></div>
+      <div class="field"><label>AST 간수치 IU/L</label><input type="number" id="lab_ast" placeholder="정상: 10~40"></div>
+      <div class="field"><label>혈액요소질소 mg/dL<br><small>신장 기능</small></label><input type="number" id="lab_bun" placeholder="정상: 8~20"></div>
+      <div class="field"><label>CRP mg/L<br><small>염증 수치</small></label><input type="number" id="lab_crp" step="0.1" placeholder="정상: <5"></div>
+    </div>
+  </div>
+
+    </div><!-- /#labSection -->
+  <!-- 4. 수술 정보 -->
+  <div class="card">
+    <div class="sec">④ 수술 정보</div>
+    <div class="g3">
+      <div class="field"><label>진료과</label>
+        <select id="dept" onchange="loadSurgeries()">
+          <option value="">진료과 선택</option><option value="GS" onchange="loadSurgeries()">일반외과</option>
+          <option value="CTS">흉부외과</option>
+          <option value="NS">신경외과</option>
+          <option value="OS">정형외과</option>
+          <option value="OG">산부인과</option>
+          <option value="UR">비뇨기과</option>
+          <option value="PS">성형외과</option>
+          <option value="OL">안과</option>
+        </select>
+      </div>
+      <div class="field"><label>마취 방법</label>
+        <select id="antype">
+          <option value="">마취 방법 선택</option><option value="General">전신마취 (완전히 잠드는 방법)</option>
+          <option value="Neuraxial">척추마취 (하반신 마취)</option>
+          <option value="Regional">부위마취 (수술 부위만)</option>
+          <option value="MAC">수면마취 (반쯤 잠드는 방법)</option>
+        </select>
+      </div>
+      <div class="field"><label>수술 종류 (코드)</label>
+        <select id="surgery_type" style="width:100%;">
+          <option value="">진료과 선택 후 목록이 로드됩니다...</option>
+        </select>
+        <div id="surgery_hint" style="font-size:11px;color:var(--gray3);margin-top:5px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-area">
+    <button class="btn" id="predictBtn" onclick="predict()">
+      <span class="pulse"></span> 예측 결과 보기
+    </button>
+  </div>
+
+  <div class="err" id="errBox"></div>
+  <div class="loading" id="loading">
+    <div class="spin"></div>
+    AI 모델이 분석 중입니다...
+  </div>
+
+  <!-- 결과 -->
+  <div class="results" id="results">
+
+    <div class="res-header">
+      <div class="rh-item">
+        <div class="rh-label">위험도 분석</div>
+        <div class="rh-val" id="rhSum">—</div>
+      </div>
+      <div class="rh-item" style="text-align:center;">
+        <div class="rh-label">예상 수술 시간</div>
+        <div class="rh-val" id="rhTime">— 분</div>
+      </div>
+      <div class="rh-item" style="text-align:right;">
+        <div class="rh-label">범위</div>
+        <div class="rh-val" id="rhRange" style="font-size:14px;color:var(--gray3);">—</div>
+      </div>
+    </div>
+
+    <div class="res-grid">
+
+      <!-- ICU 위험도 -->
+      <div class="panel">
+        <div class="p-title">ICU 입원 위험도</div>
+        <div class="gauge-wrap">
+          <div class="go">
+            <svg viewBox="0 0 148 148">
+              <circle class="cbg" cx="74" cy="74" r="56"/>
+              <circle class="cfill" id="cf" cx="74" cy="74" r="56"
+                stroke-dasharray="351.9" stroke-dashoffset="351.9"/>
+            </svg>
+            <div class="gc">
+              <div class="gpct" id="gpct">0%</div>
+              <div class="gsub">위험 확률</div>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center;margin-bottom:1.25rem;">
+          <span class="rbadge" id="rbadge">—</span>
+        </div>
+        <div class="f-hdr">주요 위험 요인 — 진단명 · 검사 수치 중심</div>
+        <div id="riskFactors"></div>
+      </div>
+
+      <!-- 수술 시간 -->
+      <div class="panel">
+        <div class="p-title">예상 수술 시간</div>
+        <div class="time-big">
+          <span class="time-num" id="tNum">—</span>
+          <span class="time-unit">분</span>
+        </div>
+        <div class="time-range">
+          <div class="tr-item tr-fast">
+            <span class="tr-num" id="tFast">—</span>
+            <span class="tr-lbl">⚡ 빠르면</span>
+          </div>
+          <div class="tr-item tr-avg">
+            <span class="tr-num" id="tAvg">—</span>
+            <span class="tr-lbl">📊 평균 예측</span>
+          </div>
+          <div class="tr-item tr-slow">
+            <span class="tr-num" id="tSlow">—</span>
+            <span class="tr-lbl">🐢 늦으면</span>
+          </div>
+        </div>
+        <div class="tl" style="margin-top:1.25rem;">
+          <div class="tl-item"><div class="tl-dot on"></div><div class="tl-label">마취 시작</div></div>
+          <div class="tl-line"></div>
+          <div class="tl-item"><div class="tl-dot on"></div><div class="tl-label">수술 시작</div></div>
+          <div class="tl-line"></div>
+          <div class="tl-item"><div class="tl-dot on"></div><div class="tl-label" id="tlEnd">수술 종료</div></div>
+        </div>
+        <div class="f-hdr">수술 시간 결정 요인</div>
+        <div id="timeFactors"></div>
+      </div>
+    </div>
+
+    <div class="summary">
+      <div class="sum-title">종합 소견</div>
+      <div class="sum-text" id="sumTxt">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadSurgeries() {
+  const dept = document.getElementById('dept').value;
+  const sel  = document.getElementById('surgery_type');
+  const hint = document.getElementById('surgery_hint');
+  if (!dept) {
+    sel.innerHTML = '<option value="">진료과를 먼저 선택하세요</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">불러오는 중...</option>';
+  try {
+    const res  = await fetch('http://localhost:5000/surgeries?dept=' + dept);
+    const data = await res.json();
+    if (!data || data.length === 0) {
+      sel.style.display = 'none';
+      let t = document.getElementById('surgery_text_fallback');
+      if (!t) {
+        t = document.createElement('input');
+        t.type = 'text'; t.id = 'surgery_text_fallback';
+        t.placeholder = '수술 종류를 직접 입력 (예: 복강경 대장절제술)';
+        t.style.cssText = 'width:100%;padding:10px 13px;border:1.5px solid var(--gray2);border-radius:10px;font-size:13px;font-family:inherit;color:var(--text);background:var(--gray1);';
+        sel.parentNode.insertBefore(t, sel.nextSibling);
+      }
+      t.style.display = 'block';
+      if (hint) { hint.textContent = '⚠ train.py 재실행 후 드롭다운 활성화'; hint.style.color='var(--yellow)'; }
+      return;
+    }
+    sel.style.display = 'block';
+    const fb = document.getElementById('surgery_text_fallback');
+    if (fb) fb.style.display = 'none';
+    sel.innerHTML = '<option value="">수술 종류를 선택하세요</option>' +
+      data.map(s => '<option value="' + s.code + '">' + s.label + '</option>').join('');
+    if (hint) { hint.textContent = '✅ ' + data.length + '개 수술 코드 로드됨'; hint.style.color='var(--green)'; }
+  } catch(e) {
+    sel.innerHTML = '<option value="">서버 연결 필요</option>';
+  }
+}
+
+function getSurgeryCode() {
+  const sel = document.getElementById('surgery_type');
+  if (sel && sel.style.display !== 'none' && sel.value) return sel.value;
+  const t = document.getElementById('surgery_text_fallback');
+  return (t && t.value) ? t.value : '';
+}
+
+function toggleLab() {
+  const checked = document.getElementById('labToggle').checked;
+  const section = document.getElementById('labSection');
+  const hint    = document.getElementById('labSkipHint');
+  const label   = document.getElementById('toggleLabel');
+  if (checked) {
+    section.style.display = 'block';
+    label.textContent = '혈액검사 수치 입력 중 (정확도 향상됨)';
+    hint.textContent  = '검사 결과를 입력하면 AI 예측이 더 정확해집니다.';
+    hint.style.color  = 'var(--green)';
+  } else {
+    section.style.display = 'none';
+    label.textContent = '혈액검사 수치 입력하기 (정확도 향상)';
+    hint.textContent  = '간단한 수술이거나 검사 결과가 없으면 건너뛰어도 됩니다.';
+    hint.style.color  = 'var(--gray3)';
+    ['lab_creatinine','lab_glucose','lab_hb','lab_albumin',
+     'lab_wbc','lab_plt','lab_na','lab_k','lab_alt','lab_ast','lab_bun','lab_crp']
+    .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  }
+}
+
+function lab(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  return el.value === '' ? null : parseFloat(el.value);
+}
+
+async function predict() {
+  const err = document.getElementById('errBox');
+  err.classList.remove('on');
+  const btn = document.getElementById('predictBtn');
+  const deptEl = document.getElementById('dept');
+  btn.disabled = true;
+  document.getElementById('loading').classList.add('on');
+  document.getElementById('results').classList.remove('on');
+
+  const asaVal = document.getElementById('asa').value;
+  const asaNum = asaVal.match(/\d+/) ? asaVal.match(/\d+/)[0] : asaVal;
+
+  try {
+    const res = await fetch('http://localhost:5000/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        age:   document.getElementById('age').value,
+        sex:   document.getElementById('sex').value,
+        asa:   asaNum,
+        weight:document.getElementById('weight').value,
+        height:document.getElementById('height').value,
+        emop:  document.getElementById('emop').value,
+        dept:  deptEl.options[deptEl.selectedIndex].value,
+        antype:document.getElementById('antype').value,
+        icd10_pcs_code: getSurgeryCode(),
+        diag_count: document.getElementById('diag_count').value,
+        diag_circulatory:    document.getElementById('d_circulatory').checked?1:0,
+        diag_neoplasm:       document.getElementById('d_neoplasm').checked?1:0,
+        diag_endocrine:      document.getElementById('d_endocrine').checked?1:0,
+        diag_respiratory:    document.getElementById('d_respiratory').checked?1:0,
+        diag_digestive:      document.getElementById('d_digestive').checked?1:0,
+        diag_musculoskeletal:document.getElementById('d_musculoskeletal').checked?1:0,
+        diag_genitourinary:  document.getElementById('d_genitourinary').checked?1:0,
+        diag_injury:         document.getElementById('d_injury').checked?1:0,
+        lab_creatinine:lab('lab_creatinine'),
+        lab_glucose:   lab('lab_glucose'),
+        lab_hb:        lab('lab_hb'),
+        lab_albumin:   lab('lab_albumin'),
+        lab_wbc:       lab('lab_wbc'),
+        lab_plt:       lab('lab_plt'),
+        lab_na:        lab('lab_na'),
+        lab_k:         lab('lab_k'),
+        lab_alt:       lab('lab_alt'),
+        lab_ast:       lab('lab_ast'),
+        lab_bun:       lab('lab_bun'),
+        lab_crp:       lab('lab_crp'),
+      })
+    });
+    if (!res.ok) {
+      const errTxt = await res.text();
+      throw new Error('서버 오류 ' + res.status + ': ' + errTxt.slice(0,200));
+    }
+    const data = await res.json();
+    render(data);
+  } catch(e) {
+    err.textContent = '⚠ ' + e.message;
+    err.classList.add('on');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('loading').classList.remove('on');
+  }
+}
+
+function setGauge(prob, color) {
+  // SVG 게이지
+  const cf = document.getElementById('cf');
+  if (cf) {
+    const circ = 351.9;
+    const offset = circ - circ * prob / 100;
+    cf.setAttribute('stroke', color);
+    cf.style.transition = 'none';
+    cf.setAttribute('stroke-dashoffset', circ);
+    setTimeout(function() {
+      cf.style.transition = 'stroke-dashoffset 1s ease, stroke 0.3s';
+      cf.setAttribute('stroke-dashoffset', offset);
+    }, 50);
+  }
+  // 숫자 텍스트 (항상 표시)
+  const pctEl = document.getElementById('gpct');
+  if (pctEl) {
+    pctEl.textContent = prob + '%';
+    pctEl.style.color = color;
+  }
+}
+
+function render(r) {
+  const prob  = Math.round(Number(r.icu_prob)  || 0);
+  const mins  = Math.round(Number(r.surgery_min) || 0);
+  const fast  = Math.round(Number(r.surgery_fast) || mins * 0.8);
+  const slow  = Math.round(Number(r.surgery_slow) || mins * 1.2);
+  const color = prob < 20 ? '#00C897' : prob < 50 ? '#FFB800' : '#FF4757';
+
+  // 게이지 & 퍼센트
+  setGauge(prob, color);
+
+  // 위험 뱃지
+  const badge = document.getElementById('rbadge');
+  if (badge) {
+    if (prob < 20) { badge.textContent='안심하세요 — 저위험'; badge.className='rbadge r-low'; }
+    else if (prob < 50) { badge.textContent='주의 필요 — 중위험'; badge.className='rbadge r-mid'; }
+    else { badge.textContent='고위험 — ICU 준비 권고'; badge.className='rbadge r-high'; }
+  }
+
+  // 헤더 바
+  const rhSum = document.getElementById('rhSum');
+  if (rhSum) {
+    rhSum.textContent = prob < 20 ? '저위험 환자입니다' : prob < 50 ? '중위험 — 관찰 필요' : '고위험 — 즉시 대응';
+    rhSum.style.color = color;
+  }
+  const rhTime = document.getElementById('rhTime');
+  if (rhTime) rhTime.textContent = mins + '분';
+  const rhRange = document.getElementById('rhRange');
+  if (rhRange) rhRange.textContent = fast + '분 ~ ' + slow + '분';
+
+  // 수술 시간
+  const tNum = document.getElementById('tNum');
+  if (tNum) tNum.textContent = mins;
+  const tFast = document.getElementById('tFast');
+  if (tFast) tFast.textContent = fast + '분';
+  const tAvg = document.getElementById('tAvg');
+  if (tAvg) tAvg.textContent = mins + '분';
+  const tSlow = document.getElementById('tSlow');
+  if (tSlow) tSlow.textContent = slow + '분';
+  const tlEnd = document.getElementById('tlEnd');
+  if (tlEnd) tlEnd.textContent = mins + '분 후 종료';
+
+  // 요인 렌더링
+  function makeRows(arr) {
+    return (arr || []).map(function(f) {
+      var bw = f.impact === 'high' ? 85 : f.impact === 'mid' ? 52 : 28;
+      var bc = f.impact === 'high' ? 'bh' : f.impact === 'mid' ? 'bm' : 'bo';
+      var badge = f.is_user ? ' <span class="f-badge">직접 입력</span>' : '';
+      var rowCls = f.is_user ? ' f-user' : '';
+      return '<div class="f-row' + rowCls + '">' +
+        '<span class="f-name">' + f.name + badge + '</span>' +
+        '<span class="f-right">' +
+          '<span class="f-val">' + f.value + '</span>' +
+          '<span class="fbar"><span class="fbf ' + bc + '" style="width:' + bw + '%"></span></span>' +
+        '</span></div>';
+    }).join('');
+  }
+
+  const rf = document.getElementById('riskFactors');
+  if (rf) rf.innerHTML = makeRows(r.risk_factors);
+  const tf = document.getElementById('timeFactors');
+  if (tf) tf.innerHTML = makeRows(r.time_factors);
+
+  // 종합 소견
+  var txt = r.recommendation || '';
+  txt = txt.replace(/(\d+\.?\d*%)/g, '<span class="shl">$1</span>');
+  txt = txt.replace(/(고위험|중위험|저위험)/, '<span class="shl">$1</span>');
+  txt = txt.replace(/(\d+분)/g, '<span class="shl">$1</span>');
+  const sumTxt = document.getElementById('sumTxt');
+  if (sumTxt) {
+    sumTxt.innerHTML = txt;
+    if (r.lab_count > 0) {
+      var note = document.createElement('div');
+      note.style.cssText = 'margin-top:10px;font-size:12px;color:var(--green);';
+      note.textContent = '✅ 혈액검사 ' + r.lab_count + '개 항목이 예측에 반영되었습니다.';
+      sumTxt.after(note);
+    }
+  }
+
+  // 결과 표시
+  var el = document.getElementById('results');
+  if (el) {
+    el.classList.add('on');
+    setTimeout(function() { el.scrollIntoView({behavior:'smooth', block:'start'}); }, 100);
+  }
+}
+
+// 페이지 로드 시 수술 목록 로드
+window.addEventListener('DOMContentLoaded', function() { loadSurgeries(); });
+</script>
+</body>
+</html>
