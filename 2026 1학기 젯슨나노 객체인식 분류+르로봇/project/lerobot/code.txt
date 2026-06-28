@@ -1,0 +1,57 @@
+네, 저 명령어 자체는 NVIDIA 젯슨 오린 나노의 Ubuntu/Linux 터미널에서 실행 가능한 형식입니다.
+
+다만 전제조건이 있습니다:
+
+1. 파일이 실제로 존재해야 함
+2. `lerobot` 가상환경이 있어야 함
+3. `SO101Follower` import 경로가 현재 LeRobot 버전과 맞아야 함
+
+즉 먼저 이 파일을 만들어야 합니다:
+
+```bash
+/home/user/project/lerobot/examples/save_so101_follower_calibration_light.py
+```
+
+그 다음 실행:
+
+```bash
+cd /home/user/project/lerobot
+conda activate lerobot
+export PYTHONPATH=/home/user/project/lerobot/src:$PYTHONPATH
+
+OMP_NUM_THREADS=1 \
+OPENBLAS_NUM_THREADS=1 \
+MKL_NUM_THREADS=1 \
+NUMEXPR_NUM_THREADS=1 \
+CUDA_VISIBLE_DEVICES="" \
+python examples/save_so101_follower_calibration_light.py \
+  --port /dev/ttyACM0 \
+  --id my_follower
+```
+
+그리고 실행 전 꼭 확인:
+
+```bash
+ls examples/save_so101_follower_calibration_light.py
+```
+
+이 파일이 보여야 합니다.
+
+또 `/dev/ttyACM0` 확인:
+
+```bash
+ls /dev/ttyACM*
+```
+
+만약 포트가 `/dev/ttyACM1` 로 바뀌었으면 명령어도 수정해야 합니다.
+
+즉 결론:
+
+* 명령어 형식 자체는 젯슨에서 정상
+* 하지만 먼저 `save_so101_follower_calibration_light.py` 파일을 생성해야 실행됩니다.
+
+
+cd /home/user/project/lerobot
+conda activate lerobot
+export PYTHONPATH=/home/user/project/lerobot/src:$PYTHONPATH
+python teleoperate_so101_jetson.py
