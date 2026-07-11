@@ -1,0 +1,6 @@
+data/
+__pycache__/
+*.pyc
+
+# Google 공식 저장소에서 다운로드하는 서드파티 모델(13.7MB) - README 안내대로 재다운로드 가능해서 git에는 안 올림
+models/*.task
