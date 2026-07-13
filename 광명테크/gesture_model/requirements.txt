@@ -1,5 +1,10 @@
 mediapipe>=0.10.30
 opencv-python>=4.10
 numpy>=1.26
+pyyaml>=6.0
+onnxruntime>=1.20
+rtmlib>=0.0.13
+
+# scripts/train_classifier.py 전용 (손모양 분류기 학습 + ONNX export) — 추론(src/)에는 불필요
 torch>=2.2
-scikit-learn>=1.4
+onnxscript>=0.7
