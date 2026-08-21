@@ -1,0 +1,7 @@
+# MediaPipe Tasks 모델 (download_models.py 로 받는다, 약 14MB)
+models/
+
+# 실행 중 생성되는 파일
+__pycache__/
+tuning.json
+debug_snapshot.jpg
