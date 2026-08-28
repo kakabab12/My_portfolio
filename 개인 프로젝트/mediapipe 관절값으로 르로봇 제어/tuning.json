@@ -1,0 +1,15 @@
+{
+  "offsets": {
+    "shoulder_lift": 50.0,
+    "elbow_flex": -120.0,
+    "wrist_flex": -30.0
+  },
+  "invert": [
+    "shoulder_pan"
+  ],
+  "gain": 1.8,
+  "joint_gains": {
+    "shoulder_lift": 1.11,
+    "elbow_flex": 1.39
+  }
+}
