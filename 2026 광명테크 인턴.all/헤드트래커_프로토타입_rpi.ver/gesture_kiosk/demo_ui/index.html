@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>제스처 민원발급기 — 예시 UI</title>
+<style>
+  :root {
+    --bg: #10141c; --panel: #1a2230; --panel2: #202b3d; --line: #2e3d55;
+    --text: #e8eef7; --dim: #8ea0bb; --accent: #35c46f; --warn: #f0a437; --danger: #e05555;
+    --focus: #4da3ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: radial-gradient(1200px 600px at 50% -10%, #1a2333 0%, var(--bg) 60%);
+         min-height: 100vh; color: var(--text); font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+  .banner { background: var(--warn); color: #1a1a1a; text-align: center; font-weight: 700; padding: 6px; font-size: 13px; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 14px 22px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; }
+  header .stats { display: flex; gap: 14px; font-size: 13px; color: var(--dim); }
+  header .stats b { color: var(--accent); }
+  .badge { display: inline-block; border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 700; }
+  .badge.on { background: var(--accent); color: #10141c; }
+  .badge.off { background: var(--panel2); color: var(--dim); }
+  main { padding: 16px 22px; max-width: 1000px; margin: 0 auto; }
+  .guide { margin-bottom: 10px; font-size: 12px; color: var(--dim); line-height: 1.9; text-align: center; }
+  .guide span { display: inline-block; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; margin-right: 6px; }
+
+  /* ── 스테이지: 캠 영상 위에 키오스크 화면을 그대로 얹는다(2026-07-18) ──
+     커서를 두 개(서버가 영상에 그리는 것 + 화면 전체 DOM 점) 따로 보여주던 걸
+     하나로 합치기 위해, 메뉴를 카메라와 같은 좌표 공간(스테이지) 안에 둔다.
+     서버가 캠 프레임 위에 그리는 코 커서가 유일한 포인터가 된다. */
+  .stage { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px;
+           overflow: hidden; background: #000; border: 1px solid var(--line); }
+  .stage img#cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #menu-overlay { position: absolute; inset: 0; padding: 5%; display: flex; flex-direction: column; }
+
+  /* 화면 전환 시 살짝 떠오르는 느낌 — 매 렌더마다 클래스를 다시 걸어 재생(JS) */
+  @keyframes screenFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  #menu-overlay.screen-fade { animation: screenFadeIn 0.25s ease-out; }
+
+  .screen-head { margin-bottom: 3%; }
+  .screen-head .title { font-size: 20px; font-weight: 700; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+                         background: rgba(16,20,28,0.55); display: inline-block; padding: 4px 12px; border-radius: 8px; }
+  .screen-head .hint { color: var(--text); font-size: 12px; margin-top: 6px;
+                        background: rgba(16,20,28,0.55); display: inline-block; padding: 2px 10px; border-radius: 6px; }
+  .menu { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3%; flex: 1; }
+  .item, .btn { background: rgba(26,34,48,0.72); border: 2px solid var(--line); border-radius: 10px;
+                display: flex; align-items: center; justify-content: center; text-align: center;
+                font-size: 15px; font-weight: 600; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
+                backdrop-filter: blur(2px); }
+  .item.hl, .btn.hl, .key.hl { border-color: var(--focus); background: rgba(77,163,255,0.28);
+                       box-shadow: 0 0 18px rgba(77,163,255,0.55); transform: scale(1.04); }
+  .btnrow { display: flex; gap: 3%; flex: 1; }
+  /* .btn은 기본적으로 내용(글자 수)에 맞춰 크기가 정해져 "발급하기"/"취소"가 서로
+     다른 너비로 그려졌다(2026-07-21 버그 리포트) — 행 안에서 균등 분할되게 고정 */
+  .btnrow > .btn { flex: 1; }
+  .copies { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3%; flex: 1; }
+  .done { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+          background: rgba(16,20,28,0.55); border-radius: 12px; text-align: center; padding: 20px; }
+  .done .big { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 10px; }
+  .done p { color: var(--dim); font-size: 13px; line-height: 1.8; }
+
+  /* ── 주민등록번호 키패드(2026-07-18 신설) — 입력값은 이 페이지(브라우저) 안에만
+     머물고 엔진(파이썬 백엔드)으로는 전혀 전달되지 않는다(select/go_back 이벤트만
+     오간다) — 설치가이드.md F절 "엔진은 개인정보를 다루지 않는다" 원칙 유지 */
+  .id-display { text-align: center; font-size: 24px; font-weight: 700; letter-spacing: 3px;
+                 font-family: 'Consolas', monospace; background: rgba(16,20,28,0.6);
+                 border-radius: 8px; padding: 10px; margin-bottom: 3%; }
+  .keypad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5%; flex: 1; }
+  .key { background: rgba(26,34,48,0.72); border: 2px solid var(--line); border-radius: 10px;
+         display: flex; align-items: center; justify-content: center; font-size: 18px;
+         font-weight: 700; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
+         backdrop-filter: blur(2px); }
+  .key.disabled { opacity: 0.35; }
+
+  /* ── 응시(dwell) 진행 링 — 서버가 그리는 코 커서 "주위"에만 나타나는 보조 표시라
+     별도 포인터로 오인되지 않는다(가만히 있을 때만 등장, 움직이면 사라짐) */
+  #dwell-ring { position: fixed; pointer-events: none; display: none; z-index: 998;
+                transform: translate(-50%, -50%) rotate(-90deg);
+                filter: drop-shadow(0 0 5px rgba(53,196,111,0.65)); }
+  #dwell-ring-fill { transition: stroke-dashoffset 0.08s linear; }
+
+  /* ── 눈 감기(뒤로가기) 진행 바 — 스테이지 상단에 고정, 커서 위치와 무관해
+     "포인터"로 오인될 여지가 없다. 색을 dwell(초록=선택)과 다르게(주황=뒤로가기) */
+  #eye-progress-wrap { position: absolute; top: 0; left: 0; right: 0; height: 5px;
+                        background: rgba(0,0,0,0.35); z-index: 6; }
+  #eye-progress-fill { height: 100%; width: 0%; background: var(--warn); transition: width 0.08s linear; }
+
+  /* ── 상태 오버레이(2026-07-20) — 인식 대기/캘리브레이션 중을 화면에 크게 안내.
+     저시력·고령 사용자가 "왜 반응이 없는지"를 화면만 보고 알 수 있게 한다 */
+  #state-overlay { position: absolute; inset: 0; z-index: 8; display: none;
+                    flex-direction: column; align-items: center; justify-content: center;
+                    background: rgba(10,13,20,0.72); backdrop-filter: blur(3px);
+                    text-align: center; gap: 14px; }
+  #state-overlay .big-icon { font-size: 56px; }
+  #state-overlay .big-msg { font-size: 26px; font-weight: 800; letter-spacing: 0.5px; }
+  #state-overlay .sub-msg { font-size: 15px; color: var(--dim); line-height: 1.8; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+  #state-overlay.calibrating .big-icon { animation: pulse 1.2s ease-in-out infinite; }
+
+  /* ── 단계 점(step dots) — "지금 몇 번째 단계인지"를 숫자+점으로 함께 표시 */
+  .step { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .step .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--panel2);
+                border: 1px solid var(--line); }
+  .step .dot.on { background: var(--focus); border-color: var(--focus);
+                   box-shadow: 0 0 6px rgba(77,163,255,0.7); }
+  .step .lbl { font-size: 11px; color: var(--dim); font-weight: 700; margin-left: 4px; }
+
+  .footer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .panel h2 { font-size: 13px; color: var(--dim); margin-bottom: 6px; }
+  #evlog { list-style: none; font-size: 12px; color: var(--dim); max-height: 110px; overflow-y: auto; }
+  #evlog li { padding: 3px 0; border-bottom: 1px solid var(--panel2); }
+  #evlog b { color: var(--text); }
+  #dbg { font-size: 12px; color: var(--dim); line-height: 1.7; }
+  #toast { display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+           background: var(--accent); color: #10141c; font-weight: 700; padding: 10px 26px; border-radius: 30px; }
+</style>
+</head>
+<body>
+<div class="banner">⚠ 예시 UI — 회사 키오스크 프로그램으로 교체 예정 (연동 계약: /data 이벤트 · POST /announce)</div>
+<header>
+  <h1>배리어프리 민원발급기 <small style="color:var(--dim);font-size:12px;">헤드트래커 인식 데모</small></h1>
+  <div class="stats">
+    <span id="b-lock" class="badge off">사용자 인식 대기</span>
+    <span>추론 <b id="s-infer">-</b> FPS</span>
+    <span>카메라 <b id="s-cap">-</b> FPS</span>
+  </div>
+</header>
+<main>
+  <div class="guide">
+    <span>😐 코</span>포인터 이동 &nbsp; <span>😮 입 벌리기 / 1.5초 응시</span>선택 &nbsp;
+    <span>😑 양 눈 감고 0.6초</span>뒤로(단계별) · 처음으로(완료 화면) &nbsp;
+    <span>😙 입 오므리기</span>커서 재정렬
+  </div>
+
+  <div class="stage" id="stage">
+    <img id="cam" src="/video_feed" alt="camera stream">
+    <div id="eye-progress-wrap"><div id="eye-progress-fill"></div></div>
+    <div id="menu-overlay"></div>
+    <div id="state-overlay">
+      <div class="big-icon"></div>
+      <div class="big-msg"></div>
+      <div class="sub-msg"></div>
+    </div>
+  </div>
+
+  <div class="footer-row">
+    <div class="panel">
+      <h2>계기판</h2>
+      <div id="dbg"></div>
+      <div id="dbg-raw" style="margin-top:4px;font-size:11px;color:var(--dim);word-break:break-all;"></div>
+    </div>
+    <div class="panel">
+      <h2>이벤트 로그</h2>
+      <ul id="evlog"></ul>
+    </div>
+  </div>
+</main>
+<div id="toast"></div>
+<svg id="dwell-ring" viewBox="0 0 56 56" width="56" height="56">
+  <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(53,196,111,0.25)" stroke-width="4"/>
+  <circle id="dwell-ring-fill" cx="28" cy="28" r="24" fill="none" stroke="#35c46f" stroke-width="4"
+          stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8"/>
+</svg>
+
+<script>
+// ── 민원발급기 예시 화면: 증명서 선택 → 주민등록번호 입력 → 발급 장수 선택 →
+//    발급 확인 → 발급 완료 ── (2026-07-18 헤드트래커 전환 + 캠 위 오버레이 통합 —
+//    커서가 하나만 보이게)
+// (2026-07-18 2~3차: 뒤로가기를 눈썹→입 오므리기→양 눈 감기로, 주민등록번호 입력
+//  키패드 신설(입력값은 이 브라우저 안에만 머물고 엔진으로는 전달되지 않는다, 위
+//  CSS 주석 참고), 발급 장수 선택 화면 신설)
+// (2026-07-20 UI 개선: 뒤로가기가 항상 처음으로 가면 여러 단계 입력한 걸 통째로
+//  잃어버려서 — 이제 "한 단계씩" 뒤로 가면서 입력값을 보존한다. 발급 완료 화면만
+//  예외로 처음으로 돌아간다(더 되돌아갈 데이터가 없으므로). 응시·눈감기 진행률을
+//  시각으로 보여주는 표시도 추가했다.)
+const CERTS = ["주민등록표 등본", "주민등록표 초본", "가족관계증명서",
+               "건축물대장", "토지(임야)대장", "지방세 납세증명"];
+const CONFIRM_BUTTONS = ["발급하기", "취소"];
+const KEYPAD_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "완료"];
+const KEYPAD_ANNOUNCE = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "지우기", "0", "완료"];
+const ID_LENGTH = 13;   // 주민등록번호 앞 6 + 뒤 7자리
+const COPY_OPTIONS = ["1장", "2장", "3장", "4장", "5장"];
+const STEP_ORDER = ["home", "idnum", "copies", "confirm"];   // done은 최종 화면이라 단계 표시 제외
+const PREV_SCREEN = { idnum: "home", copies: "idnum", confirm: "copies" };
+const DWELL_RING_CIRCUMFERENCE = 150.8;   // 2 * PI * r(24) — SVG stroke-dasharray와 맞춤
+
+let screen = "home";        // home | idnum | copies | confirm | done
+let chosenCert = null;
+let idDigits = [];          // 입력 중인 주민등록번호(문자열 배열) — 브라우저 메모리에만 존재
+let copyCount = 1;          // 발급 장수
+let lastEventTs = 0;
+let hoveredIdx = -1;        // 커서가 올라간 항목 인덱스 (없으면 -1)
+let announcedIdx = -1;      // 마지막으로 음성 안내한 인덱스 (중복 안내 방지)
+
+const $ = (id) => document.getElementById(id);
+
+
+function focusLabels() {
+  if (screen === "home") return CERTS;
+  if (screen === "idnum") return KEYPAD_ANNOUNCE;
+  if (screen === "copies") return COPY_OPTIONS;
+  if (screen === "confirm") return CONFIRM_BUTTONS;
+  return [];
+}
+
+function idDisplayMasked() {
+  const front = idDigits.slice(0, 6).join("").padEnd(6, "_");
+  const back = idDigits.slice(6, ID_LENGTH).map(() => "●").join("").padEnd(7, "_");
+  return `${front} - ${back}`;
+}
+
+function stepDotsHtml() {
+  const idx = STEP_ORDER.indexOf(screen);
+  if (idx < 0) return "";
+  const dots = STEP_ORDER.map((_, i) => `<span class="dot${i <= idx ? " on" : ""}"></span>`).join("");
+  return `<div class="step">${dots}<span class="lbl">${idx + 1} / ${STEP_ORDER.length} 단계</span></div>`;
+}
+
+// 상태 오버레이 — 같은 상태에서 innerText를 계속 다시 쓰면 스크린리더·렌더링에
+// 불필요한 변화가 생기므로 상태가 바뀔 때만 DOM을 갱신한다
+let overlayState = null;   // null(숨김) | "waiting" | "calibrating"
+
+function updateStateOverlay(isLocked, cursorX) {
+  const next = !isLocked ? "waiting" : (cursorX == null ? "calibrating" : null);
+  if (next === overlayState) return;
+  overlayState = next;
+  const ov = $("state-overlay");
+  if (next === null) { ov.style.display = "none"; return; }
+  ov.className = next;
+  ov.style.display = "flex";
+  if (next === "waiting") {
+    ov.querySelector(".big-icon").textContent = "🧍";
+    ov.querySelector(".big-msg").textContent = "카메라 앞에 서 주세요";
+    ov.querySelector(".sub-msg").innerHTML = "화면 중앙, 약 50~90cm 거리에서<br>얼굴이 잘 보이도록 서 주세요";
+    announce("카메라 앞에 서 주세요");
+  } else {
+    ov.querySelector(".big-icon").textContent = "🔍";
+    ov.querySelector(".big-msg").textContent = "인식 중입니다";
+    ov.querySelector(".sub-msg").innerHTML = "잠시 정면을 바라봐 주세요<br>곧 코끝 커서가 나타납니다";
+  }
+}
+
+function rerender() {
+  // 화면 전환 없이 같은 화면을 다시 그릴 때(키패드 입력 등) 호출 — hoveredIdx를
+  // 리셋해야 다음 폴링에서 새로 생긴 DOM 요소에 강조 표시가 다시 붙는다
+  // (안 그러면 인덱스가 같다고 판단해 하이라이트 갱신을 건너뛴다)
+  hoveredIdx = -1;
+  announcedIdx = -1;
+  render();
+}
+
+async function announce(text) {  // 화면 맥락 안내는 UI가 요청한다 (연동 계약 시연)
+  try {
+    await fetch("/announce", { method: "POST", headers: { "Content-Type": "application/json" },
+                               body: JSON.stringify({ text }) });
+  } catch (err) { /* 엔진 재시작 중 실패는 무시 */ }
+}
+
+function announceScreenContext() {
+  if (screen === "idnum") {
+    announce(`${chosenCert} 발급을 위해 주민등록번호 13자리를 입력하세요. 현재 ${idDigits.length}자리 입력됨`);
+  } else if (screen === "copies") {
+    announce("발급 장수를 선택하세요");
+  } else if (screen === "confirm") {
+    announce(`${chosenCert} ${copyCount}장 발급 확인. 발급하기 또는 취소를 선택하세요`);
+  } else if (screen === "done") {
+    announce(`${chosenCert} ${copyCount}장 발급이 완료되었습니다`);
+  } else {
+    announce("증명서 선택 화면. 커서를 항목에 올려 선택하세요");
+  }
+}
+
+function enterScreen(nextScreen) {
+  // 앞으로 진행하는 전환 — 새로 들어가는 단계의 입력값은 초기화한다(다음 함수
+  // goBack()은 반대로 보존한다 — 아래 주석 참고)
+  screen = nextScreen;
+  hoveredIdx = -1;
+  announcedIdx = -1;
+  if (screen === "idnum") idDigits = [];
+  else if (screen === "copies") copyCount = 1;
+  announceScreenContext();
+  render();
+}
+
+function goBack() {
+  // 한 단계만 뒤로 — 입력값(idDigits·copyCount)은 그대로 둔다. done 화면은 더
+  // 되돌아갈 데이터가 없어 처음으로(home), home 화면은 더 갈 곳이 없어 무시.
+  if (screen === "done") { enterScreen("home"); return; }
+  const prev = PREV_SCREEN[screen];
+  if (!prev) return;
+  screen = prev;
+  hoveredIdx = -1;
+  announcedIdx = -1;
+  announceScreenContext();
+  render();
+}
+
+function applyEvent(e) {
+  if (e.class_name === "go_back") { goBack(); return; }
+  if (e.class_name === "recenter") { showToast("🎯 커서를 다시 맞췄습니다"); return; }
+  if (e.class_name !== "select" || hoveredIdx < 0) return;   // 커서가 항목 밖이면 무시
+
+  if (screen === "home") { chosenCert = CERTS[hoveredIdx]; enterScreen("idnum"); return; }
+
+  if (screen === "idnum") {
+    if (hoveredIdx === 9) { idDigits.pop(); rerender(); return; }             // 지우기
+    if (hoveredIdx === 11) {                                                   // 완료
+      if (idDigits.length === ID_LENGTH) enterScreen("copies");
+      else showToast(`${ID_LENGTH - idDigits.length}자리 더 입력하세요`);
+      return;
+    }
+    if (idDigits.length < ID_LENGTH) { idDigits.push(KEYPAD_KEYS[hoveredIdx]); rerender(); }
+    return;
+  }
+
+  if (screen === "copies") { copyCount = hoveredIdx + 1; enterScreen("confirm"); return; }
+
+  if (screen === "confirm") {
+    if (CONFIRM_BUTTONS[hoveredIdx] === "발급하기") enterScreen("done");
+    else enterScreen("home");
+    return;
+  }
+
+  enterScreen("home");   // done 화면에서의 select — 처음으로
+}
+
+function render() {
+  const s = $("menu-overlay");
+  const step = stepDotsHtml();
+  if (screen === "home") {
+    s.innerHTML = `
+      <div class="screen-head">${step}<div class="title">증명서 선택</div><br>
+        <div class="hint">코 커서를 올리고 입 벌리기/1.5초 응시로 선택</div></div>
+      <div class="menu">${CERTS.map((c) => `<div class="item">${c}</div>`).join("")}</div>`;
+  } else if (screen === "idnum") {
+    const isDone = idDigits.length === ID_LENGTH;
+    s.innerHTML = `
+      <div class="screen-head">${step}<div class="title">${chosenCert} — 주민등록번호 입력</div><br>
+        <div class="hint">숫자를 선택해 13자리를 입력하세요 (${idDigits.length}/${ID_LENGTH}) · 엔진에는 전달되지 않습니다</div></div>
+      <div class="id-display">${idDisplayMasked()}</div>
+      <div class="keypad">${KEYPAD_KEYS.map((k, i) =>
+        `<div class="key${i === 11 && !isDone ? " disabled" : ""}">${k}</div>`).join("")}</div>`;
+  } else if (screen === "copies") {
+    s.innerHTML = `
+      <div class="screen-head">${step}<div class="title">발급 장수 선택 — ${chosenCert}</div><br>
+        <div class="hint">코 커서를 올리고 입 벌리기/1.5초 응시로 선택</div></div>
+      <div class="copies">${COPY_OPTIONS.map((c) => `<div class="item">${c}</div>`).join("")}</div>`;
+  } else if (screen === "confirm") {
+    s.innerHTML = `
+      <div class="screen-head">${step}<div class="title">발급 확인 — ${chosenCert} (${copyCount}장)</div><br>
+        <div class="hint">커서를 올리고 입 벌리기/1.5초 응시로 선택</div></div>
+      <div class="btnrow">${CONFIRM_BUTTONS.map((b) => `<div class="btn">${b}</div>`).join("")}</div>`;
+  } else {
+    s.innerHTML = `
+      <div class="done"><div class="big">✅ ${chosenCert} ${copyCount}장 발급 완료</div>
+        <p>출력물을 받아 가세요.<br>양 눈을 감으면 처음 화면으로 돌아갑니다.</p></div>`;
+  }
+  // 화면 전환 살짝 떠오르는 효과 — 클래스 재부착으로 애니메이션 재생(reflow로 강제 재시작)
+  s.classList.remove("screen-fade");
+  void s.offsetWidth;
+  s.classList.add("screen-fade");
+}
+
+function showToast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.style.display = "block";
+  setTimeout(() => { t.style.display = "none"; }, 1800);
+}
+
+function updateHover(x, y) {
+  const items = document.querySelectorAll("#menu-overlay .item, #menu-overlay .btn, #menu-overlay .key");
+  let nextIdx = -1;
+  if (x != null && y != null) {
+    // 커서 비율(x,y)은 캠 프레임 좌표 — 스테이지(캠+오버레이가 같은 박스)의
+    // 실제 화면 좌표로 환산해야 오버레이 항목과 정확히 맞아떨어진다
+    const rect = $("stage").getBoundingClientRect();
+    const px = rect.left + x * rect.width;
+    const py = rect.top + y * rect.height;
+    items.forEach((el, idx) => {
+      if (el.classList.contains("disabled")) return;   // 미완성 키패드의 '완료' 등 — 선택 불가
+      const r = el.getBoundingClientRect();
+      if (px >= r.left && px <= r.right && py >= r.top && py <= r.bottom) nextIdx = idx;
+    });
+  }
+  if (nextIdx === hoveredIdx) return;
+  hoveredIdx = nextIdx;
+  items.forEach((el, idx) => el.classList.toggle("hl", idx === hoveredIdx));
+  const labels = focusLabels();
+  if (hoveredIdx >= 0 && hoveredIdx !== announcedIdx) {
+    announce(labels[hoveredIdx]);
+    announcedIdx = hoveredIdx;
+  }
+}
+
+function updateDwellRing(x, y, progress) {
+  // 응시(dwell) 진행률을 서버 커서 "주위"에 링으로 보여준다 — 가만히 있을 때만
+  // 나타나므로(dwell 자체가 정지를 전제) 별도 포인터로 오인되지 않는다
+  const ring = $("dwell-ring");
+  if (x == null || !progress || progress <= 0) { ring.style.display = "none"; return; }
+  const rect = $("stage").getBoundingClientRect();
+  ring.style.left = (rect.left + x * rect.width) + "px";
+  ring.style.top = (rect.top + y * rect.height) + "px";
+  ring.style.display = "block";
+  $("dwell-ring-fill").style.strokeDashoffset = DWELL_RING_CIRCUMFERENCE * (1 - Math.min(1, progress));
+}
+
+function updateEyeProgress(progress) {
+  $("eye-progress-fill").style.width = (Math.min(1, progress || 0) * 100) + "%";
+}
+
+async function poll() {
+  try {
+    const d = await (await fetch("/data")).json();
+    $("s-infer").textContent = d.stats.infer_fps;
+    $("s-cap").textContent = d.stats.capture_fps;
+
+    const lock = $("b-lock");
+    lock.className = "badge " + (d.status.is_user_locked ? "on" : "off");
+    lock.textContent = d.status.is_user_locked ? "사용자 고정됨" : "사용자 인식 대기";
+
+    updateStateOverlay(d.status.is_user_locked, d.status.cursor_x_ratio);
+    updateHover(d.status.cursor_x_ratio, d.status.cursor_y_ratio);
+
+    const g = d.debug || {};
+    updateDwellRing(d.status.cursor_x_ratio, d.status.cursor_y_ratio, g.dwell_progress_ratio);
+    updateEyeProgress(g.eye_close_progress_ratio);
+    $("dbg").textContent =
+      `입벌림 ${g.jaw_open_score ?? 0}(기준 ${g.jaw_baseline ?? "-"}) · ` +
+      `눈감김 ${g.eye_close_score ?? 0}(기준 ${g.eye_baseline ?? "-"}) · ` +
+      `입오므림 ${g.mouth_pucker_score ?? 0}(기준 ${g.mouth_pucker_baseline ?? "-"}) · 응시 진행 ${g.dwell_progress_ratio ?? 0}`;
+    // 2026-07-21 2차: 제스처 후보를 두 번 잘못 골라 추가 — 전체 블렌드셰이프 원점수를
+    // 그대로 보여줘서, 다음에 또 바꿔야 하면 추측 없이 실측값으로 후보를 고를 수 있게 한다
+    const allB = g.all_blendshapes || {};
+    const topB = Object.entries(allB).sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([k, v]) => `${k}:${v}`).join(" ");
+    $("dbg-raw").textContent = topB ? `상위 블렌드셰이프 — ${topB}` : "";
+
+    const log = $("evlog");
+    log.innerHTML = d.events.slice().reverse().map(e =>
+      `<li><b>${e.class_name}</b>${e.data && e.data.trigger ? ` (${e.data.trigger})` : ""} conf=${e.conf}</li>`).join("");
+    for (const e of d.events) {
+      if (e.ts_sec > lastEventTs) { lastEventTs = e.ts_sec; applyEvent(e); }
+    }
+  } catch (err) { /* 서버 재시작 중 폴링 실패는 무시 */ }
+}
+render();
+setInterval(poll, 250);
+</script>
+</body>
+</html>

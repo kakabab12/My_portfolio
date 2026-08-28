@@ -1,0 +1,131 @@
+# gesture_kiosk 설정 — 모든 튜닝값의 단일 출처 (기획서 4.7 : 코드에 숫자 하드코딩 금지)
+#
+# 2026-07-22 라즈베리파이5 이식(rpi.ver) — win.ver(윈도우+USB웹캠) 기준을 그대로 두고
+#   ① 카메라 백엔드 선택지(v4l2/picamera2), ② 약한 CPU 감안한 처리 해상도·num_faces만
+#   낮췄다. head_tracker.* 아래 제스처 판정 임계값은 win.ver와 완전히 동일하게 유지
+#   했다 — 이건 MediaPipe 블렌드셰이프 신호의 특성이라 CPU 성능과 무관하기 때문.
+#
+# ⚠ 이 세션은 실제 라즈베리파이5 하드웨어에서 실행·측정할 수 없었다(개발 PC가 윈도우).
+#   아래 proc_width_px/proc_height_px·num_faces·infer_scale_ratio는 "약한 CPU니까
+#   낮춰서 시작하자"는 추정 초기값이다 — scripts/benchmark.py로 실기 측정 후
+#   숫자를 조정할 것(설치가이드.md "성능 튜닝" 절 참고).
+
+camera:
+  device_id: 0            # V4L2: /dev/video0 상당 · picamera2: camera_num
+  width_px: 1280          # v4l2 백엔드에서 캡처 요청 해상도(USB 웹캠용). picamera2는
+  height_px: 720          #   미사용 — 센서에서 곧바로 proc_*로 뽑는다(아래 backend 설명)
+  proc_width_px: 480      # 파이프라인 처리 해상도 — win.ver(640x360)보다 낮춘 추정 초기값.
+  proc_height_px: 270     #   RPi5(Cortex-A76 4코어)가 개발 PC보다 약해 640x360 그대로면
+                          #   추론 FPS가 부족할 가능성이 높다고 보고 먼저 낮춰서 시작 —
+                          #   실기로 여유가 확인되면 640x360까지 올려볼 것(미검증 추정치)
+  mirror: true            # 거울 모드 — 사용자 기준 좌/우와 고개 방향을 일치시킨다
+  backend: v4l2            # v4l2(USB 웹캠, win.ver와 동일 장치 재사용 가정) | picamera2
+                          #   (공식 카메라 모듈 — libcamera 하드웨어 ISP가 리사이즈·BGR
+                          #   변환을 대신해 CPU를 아낀다. src/capture/camera_stream.py
+                          #   참고 — "추론 성능 최대한"의 가장 큰 레버가 이 백엔드 전환)
+  fourcc: mjpg            # v4l2 캡처 픽셀 포맷 — 무압축(YUY2)은 USB 대역폭 한계로 저FPS.
+                          #   picamera2는 미사용
+
+model:
+  # 라이선스: MediaPipe(Apache-2.0) FaceLandmarker 단일 모델 — win.ver와 동일 모델 파일,
+  # aarch64(ARM64) 리눅스용 mediapipe 휠로 CPU 추론(requirements.txt 참고)
+  face_landmarker_path: models/weights/face_landmarker.task  # 빌드 타임 1회 다운로드
+                          #   (scripts/download_weights.py) — 런타임 네트워크 접근 없음
+  num_faces: 2             # win.ver(3)보다 낮춤 — MediaPipe 자체 랭킹이 잠금을 가로채지
+                          #   않을 최소한만 후보를 받아 연산을 아낀다(미검증 추정치,
+                          #   1로 낮추면 안 됨 — person_lock 잠금 로직 전제가 깨진다)
+  min_face_detection_conf: 0.5   # 실기 튜닝 필요 (win.ver와 동일 시작값)
+  min_face_presence_conf: 0.5    # 실기 튜닝 필요
+  min_tracking_conf: 0.5         # 실기 튜닝 필요
+  infer_scale_ratio: 1.0  # 추가 축소 배율 — proc_*(480x270)가 이미 낮아 일단 축소 없음.
+                          #   proc 해상도를 낮춰도 FPS가 30에 못 미치면 이 값을 0.75 등으로
+                          #   낮추는 게 다음 레버(키오스크 거리에선 얼굴이 커서 여유 있음)
+  max_infer_fps: 30       # KPI 목표는 win.ver와 동일하게 30 유지 — 실기 실측 전까지는
+                          #   목표치이지 보장치가 아니다(약한 CPU라 미달 가능성 있음)
+
+person_lock:              # 오토포커스 카메라 — 초점 맞은 사용자에게 잠금, 다른 사람 무시
+  enabled: true            # (win.ver와 동일 — 플랫폼과 무관한 판정 로직)
+  lock_frame_count: 3
+  follow_radius_ratio: 0.25
+  release_sec: 2.0
+  sharpness_weight: 0.5
+
+head_tracker:              # 얼굴 신호를 커서·클릭·뒤로가기·재정렬로 변환
+                          # (win.ver와 완전히 동일 — 제스처 판정은 MediaPipe 블렌드셰이프
+                          #   신호의 특성이라 CPU 플랫폼과 무관하다. 상세 근거는
+                          #   src/postprocess/head_tracker.py 모듈 docstring 참고)
+  calibration_window_sec: 0.5
+  pointer:
+    sensitivity_x: 0.8
+    sensitivity_y: 0.5
+    smoothing_alpha: 0.3
+    distance_smoothing_alpha: 0.2
+    max_offset_ratio: 0.5
+  click:
+    min_interval_sec: 0.5
+  mouth_click:               # 입 벌리기 — 즉시 클릭
+    enabled: true
+    open_margin: 0.35
+    close_margin: 0.15
+  eye_close_cancel:          # 양 눈 감고 버티기 — 뒤로가기(처음으로도 겸용)
+    close_margin: 0.3
+    hold_sec: 0.6
+  recenter_gesture:          # 입 오므리기 — 자리 이동 없이 커서 중심을 다시 잡는다
+    enabled: true
+    open_margin: 0.43
+    close_margin: 0.3
+    cooldown_sec: 1.0
+  dwell_click:                # 1.5초 응시 — 마스크 등으로 입/눈 인식이 어려운 사용자용 대체 클릭
+    enabled: true
+    radius_ratio: 0.04
+    dwell_sec: 1.5
+    require_release_to_rearm: true
+  scroll:
+    enabled: false          # v1 범위 밖 — 데모 UI가 고정 그리드라 스크롤이 없다
+
+announce:                   # 토크백(보이스오버) — 현재 위치·기능 음성 안내
+  enabled: true
+  backend: tts              # tts(pyttsx3 — 리눅스는 espeak-ng 드라이버, apt 설치 필요.
+                          #   설치가이드.md B절 참고) | log(개발용: 로그로만 출력)
+  rate_wpm: 200
+  volume: 1.0
+  event_templates:          # 제스처 이벤트 자동 안내 문구
+    select: "선택했습니다"
+    go_back: "처음 화면으로 돌아갑니다"
+    recenter: "커서를 다시 맞췄습니다"
+  # UI 화면 안내(현재 커서가 올라간 항목 설명)는 UI가 POST /announce {"text": "..."}로 요청한다
+  # (회사 프로그램 연동 계약 — 이벤트는 엔진→UI, 음성 안내 요청은 UI→엔진)
+
+classes:                    # 표준 동작 목록 — UI/이벤트 수신부와의 계약
+  [select, go_back, recenter]
+
+event_output:
+  # TODO(기획서 9장 №7): 회사 키오스크 프로그램의 이벤트 수신 규격 확정 후 mode 추가
+  mode: console           # console | udp
+  udp:
+    host: 127.0.0.1
+    port: 9999
+
+demo_ui:                  # 예시 UI 서버 — 회사 프로그램 인수 후 제거 예정
+  host: 0.0.0.0
+  port: 5000               # 맥과 달리 리눅스는 5000번 포트 선점 문제가 없다
+  stream_fps: 15
+  jpeg_quality: 75
+
+logging:
+  level: INFO
+  save_dir: logs/
+
+runtime:                  # 배포 기준 명세 — 설치가이드.md와 일치해야 한다
+  python_version: "3.11.5"  # win.ver와 동일 패치버전까지 고정.
+                          #   2026-07-22 실기: 라즈베리파이OS 릴리스에 따라 기본 python3가
+                          #   3.11이 아닐 수 있어(예: 3.13, Debian trixie 기반 이미지) apt만으론
+                          #   못 맞춘다 — pyenv로 소스 빌드 필요(설치가이드.md "A-1" 절)
+  target_os: linux
+  target_platform: raspberry_pi_5   # 8GB 모델 확인(2026-07-22) — CPU(Cortex-A76 4코어)는
+                          #   전 RAM 변형(2/4/8/16GB)이 동일해 proc_*·num_faces 등
+                          #   성능 관련 값은 RAM 용량과 무관하게 그대로 적용된다.
+                          #   8GB라 메모리 여유는 넉넉하지만(이 파이프라인 자체는
+                          #   1GB 안팎), 추론 FPS 병목은 어차피 CPU라 실기 벤치마크로
+                          #   확인해야 한다(위 proc_width_px 주석 참고)
+  target_gpu: none         # MediaPipe CPU 추론(XNNPACK, ARM NEON 자동 활용) — GPU 불필요

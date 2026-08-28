@@ -1,6 +1,0 @@
-__pycache__/
-*.pyc
-logs/
-
-# Google 공식 저장소에서 다운로드하는 서드파티 모델(약 7.8MB) - README 안내대로 재다운로드 가능해서 git에는 안 올림
-models/weights/*.task

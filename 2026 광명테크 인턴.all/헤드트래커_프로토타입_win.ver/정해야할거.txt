@@ -1,0 +1,8 @@
+회사 UI가 연속 커서(호버) 방식을 쓸지, UDP로 좌표를 받을 필요가 있는지는 미확정
+
+
+1.모델 상업적으로 쓸 수 있는지 확인해야함
+  -> 확인 완료(2026-07-22): MediaPipe FaceLandmarker(FaceMesh) 공식 모델 카드에
+     "LICENSED UNDER: Apache License, Version 2.0" 명시. 상업적 사용 문제없음.
+     pyttsx3(TTS)도 MPL-2.0, 무수정 사용이라 공개 의무 없음.
+     출처: https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Face%20Mesh%20V2.pdf

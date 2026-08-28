@@ -1,0 +1,119 @@
+"""이벤트 전송 규격 테스트 — 델파이7 텍스트 규격 + 파이프(stdio) 출력 검증.
+
+2026-07-23: UDP·웹소켓 제거(회사 결정 — 네트워크 철회), stdio 전환.
+stdout은 이벤트 전용 채널이므로 바이트 단위까지 규격을 고정한다.
+"""
+import io
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.pipeline.event_sender import (
+    ConsoleEventSender, StdioEventSender, build_name_payload, build_text_payload,
+    create_event_sender,
+)
+from src.postprocess.gesture_filter import GestureEvent
+
+
+
+
+def _event(class_name="confirm", hand_side="left"):
+    return GestureEvent(class_name=class_name, conf=1.0, ts_sec=12345.6789, hand_side=hand_side)
+
+
+class PayloadFormatTest(unittest.TestCase):
+    def test_text_payload_is_delphi_line(self):
+        # GESTURE|이벤트|손|신뢰도|시각 + CRLF — 델파이7 Pos/Copy 파싱 규격
+        self.assertEqual(
+            build_text_payload(_event()), b"GESTURE|confirm|left|1.00|12345.679\r\n"
+        )
+
+    def test_text_payload_without_hand_side(self):
+        # 손 미상 — 3번째 필드는 빈 문자열 (구분자 수는 항상 4개로 고정)
+        line = build_text_payload(_event(hand_side=None)).decode("ascii")
+        self.assertEqual(line.count("|"), 4)
+        self.assertEqual(line.split("|")[2], "")
+
+    def test_text_payload_is_ascii_single_line(self):
+        line = build_text_payload(_event("home", "right"))
+        self.assertTrue(line.endswith(b"\r\n"))
+        self.assertEqual(line.count(b"\n"), 1)      # 이벤트 1건 = 한 줄
+
+    def test_name_payload_is_event_name_only(self):
+        # 간소 규격(2026-07-31 사용자 요청) — cmd 창에 이벤트명 한 줄만
+        self.assertEqual(build_name_payload(_event("left")), b"left\r\n")
+
+    def test_name_payload_cursor_emits_xy_not_literal_name(self):
+        # 2026-08-04 사용자 요청 — name 규격의 cursor는 "cursor" 문자열 대신
+        # x·y 비율만 찍는다(수신부가 위치 없이는 커서를 그릴 수 없어서)
+        event = GestureEvent(class_name="cursor", conf=1.0, ts_sec=12345.6789,
+                             hand_side=None, data={"cursor_x_ratio": 0.512, "cursor_y_ratio": 0.487})
+        self.assertEqual(build_name_payload(event), b"0.512|0.487\r\n")
+
+    def test_cursor_event_appends_xy(self):
+        # 2026-07-30 헤드트래커 병합 — cursor만 뒤에 x·y 비율 2칸이 더 붙는다
+        event = GestureEvent(class_name="cursor", conf=1.0, ts_sec=12345.6789,
+                             hand_side=None, data={"cursor_x_ratio": 0.512, "cursor_y_ratio": 0.487})
+        self.assertEqual(
+            build_text_payload(event), b"GESTURE|cursor||1.00|12345.679|0.512|0.487\r\n"
+        )
+
+    def test_non_cursor_event_has_no_extra_fields(self):
+        line = build_text_payload(_event("confirm")).decode("ascii")
+        self.assertEqual(line.count("|"), 4)
+
+
+class _FakeStdout:
+    """sys.stdout 대역 — buffer에 쓰인 바이트를 그대로 보관한다."""
+
+    def __init__(self):
+        self.buffer = io.BytesIO()
+
+
+class StdioSenderTest(unittest.TestCase):
+    def setUp(self):
+        self._real_stdout = sys.stdout
+        sys.stdout = _FakeStdout()
+
+    def tearDown(self):
+        sys.stdout = self._real_stdout
+
+    def test_stdio_writes_exact_line_to_stdout(self):
+        StdioEventSender().send(_event("left", "right"))
+        self.assertEqual(sys.stdout.buffer.getvalue(),
+                         b"GESTURE|left|right|1.00|12345.679\r\n")
+
+    def test_consecutive_events_are_separate_lines(self):
+        sender = StdioEventSender()
+        sender.send(_event("right", "right"))
+        sender.send(_event("confirm", "left"))
+        lines = sys.stdout.buffer.getvalue().split(b"\r\n")
+        self.assertEqual(lines[0], b"GESTURE|right|right|1.00|12345.679")
+        self.assertEqual(lines[1], b"GESTURE|confirm|left|1.00|12345.679")
+
+    def test_name_format_sender_writes_event_name_only(self):
+        # config format: name — stdout에 이벤트명 한 줄만 (현행 배포 설정)
+        sender = create_event_sender({"event_output": {"mode": "stdio", "format": "name"}})
+        sender.send(_event("confirm", "left"))
+        self.assertEqual(sys.stdout.buffer.getvalue(), b"confirm\r\n")
+
+
+class CreateSenderTest(unittest.TestCase):
+    def test_stdio_mode(self):
+        sender = create_event_sender({"event_output": {"mode": "stdio"}})
+        self.assertIsInstance(sender, StdioEventSender)
+
+    def test_console_mode(self):
+        sender = create_event_sender({"event_output": {"mode": "console"}})
+        self.assertIsInstance(sender, ConsoleEventSender)
+
+    def test_unknown_mode_rejected_at_startup(self):
+        # 오타는 이벤트 발생 시점이 아니라 시작 시점에 죽어야 한다
+        with self.assertRaises(ValueError):
+            create_event_sender({"event_output": {"mode": "udp"}})
+
+
+if __name__ == "__main__":
+    unittest.main()

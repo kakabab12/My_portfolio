@@ -1,0 +1,56 @@
+# 기획서 4.8 — 대용량 데이터·모델은 Git에 올리지 않는다 (저장 정책은 9장 №10 협의 후 확정)
+data/raw/*
+data/labeled/*
+!data/raw/.gitkeep
+!data/labeled/.gitkeep
+models/weights/*.pt
+models/engines/*.engine
+models/**/*.onnx
+models/weights/*.task
+models/weights/*.tflite
+
+logs/*.log
+runs/
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+venv_win/
+venv_bundle/
+wheelhouse/
+bundle_models/
+.vscode/
+!models/weights/YOLOv10n_gestures.onnx
+models/weights/trt_cache/
+
+# 2026-08-03: run.exe는 scripts/run_launcher.py를 make_exe.bat으로 빌드한 산출물 —
+# 소스만 커밋하고 exe는 각자 빌드한다 (브랜치마다 재현 가능이라 올릴 필요 없음)
+run.exe
+.build_venv_tmp/
+
+# 2026-08-05: dpad.exe·dpad_overlay.exe도 같은 이유로 제외 — 각각
+# scripts/dpad_launcher.py·scripts/dpad_overlay_launcher.py를
+# make_dpad_exe.bat·make_dpad_overlay_exe.bat으로 빌드한 산출물
+dpad.exe
+dpad_overlay.exe
+.build_venv_tmp_dpad/
+.build_venv_tmp_dpad_overlay/
+
+# 2026-08-18: head.exe·eyebrow.exe도 같은 이유로 제외 — 각각
+# scripts/head_launcher.py·scripts/eyebrow_launcher.py를
+# make_head_exe.bat·make_eyebrow_exe.bat으로 빌드한 산출물
+head.exe
+eyebrow.exe
+.build_venv_tmp_head/
+.build_venv_tmp_eyebrow/
+
+# 2026-08-27: forehead.exe도 같은 이유로 제외 —
+# scripts/forehead_launcher.py를 make_forehead_exe.bat으로 빌드한 산출물
+forehead.exe
+.build_venv_tmp_forehead/
+
+# 2026-08-28: 실시간 조절 UI(scripts/tuning_ui.py)가 쓰는 값 파일 — 카메라
+# 배치(각도·위치)마다 다른 값이라 이 기기의 물리적 설정이지 공유할 설정이
+# 아니다. ARC_COMPENSATION을 소스에 하드코딩하는 것과 같은 이유로 제외한다
+eyebrow_tuning.json
+forehead_tuning.json

@@ -1,0 +1,28 @@
+# 추론(라즈베리파이5, aarch64 리눅스, Python 3.11.5) 고정 버전 (설치가이드.md 참고)
+#
+# 2026-07-22 실기(사용자 라즈베리파이): win.ver와 같은 mediapipe==0.10.35로 설치가
+# 휠 문제로 실패함 — PyPI 확인 결과 구글이 0.10.18을 마지막으로 이후 버전(0.10.35
+# 포함)에서 리눅스 aarch64 휠 배포를 중단했다(macOS/Windows/Linux x86_64만 냄).
+# 0.10.18은 cp311용 aarch64 휠이 정확히 있어 이걸로 낮췄다 — win.ver(0.10.35)와
+# 버전이 다른 건 의도한 것이며, FaceLandmarker+블렌드셰이프 API는 0.10.18 시점에
+# 이미 안정화돼 있어 코드 변경은 필요 없다(face_estimator.py 그대로 동작 예상).
+#
+# numpy도 함께 내렸다 — mediapipe 0.10.18은 numpy<2를 요구하는데 win.ver의
+# numpy==2.4.6과 충돌해서다. opencv-python은 이 파일에서 뺐다 — mediapipe
+# 자신이 opencv-contrib-python(버전 미지정)을 의존성으로 끌고 오므로 pip
+# 리졸버가 numpy<2와 맞는 버전을 알아서 고르게 둔다(cv2 import는 opencv-python이든
+# opencv-contrib-python이든 동일하게 동작해 코드에 영향 없음).
+#
+# pyttsx3는 리눅스에서 pywin32를 요구하지 않는다(pyttsx3 자체 platform 마커로
+#   윈도우에서만 pywin32를 끌어옴) — 대신 시스템 패키지 espeak-ng가 필요하다
+#   (pip 아님, install.sh에서 apt로 설치).
+mediapipe==0.10.18                 # 얼굴 랜드마크 + 블렌드셰이프 (Apache-2.0) — aarch64 휠 있는 마지막 버전
+numpy<2                            # mediapipe 0.10.18 요구사항 — pip가 aarch64 호환 1.x를 고른다
+pyyaml==6.0.3
+fastapi==0.139.0
+uvicorn==0.51.0
+psutil==7.2.2
+pyttsx3==2.99                      # 음성 안내 TTS — 리눅스는 espeak-ng 드라이버로 동작
+# picamera2는 pip가 아니라 apt(python3-picamera2)로 설치한다 — libcamera 바인딩이
+#   시스템 패키지라 pip 휠로 배포되지 않는다. install.sh가 --system-site-packages venv를
+#   만드는 이유이기도 하다. camera.backend: v4l2(기본, USB 웹캠)면 이 줄 자체가 불필요.

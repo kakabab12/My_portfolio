@@ -1,0 +1,14 @@
+# 추론(윈도우, Python 3.11.5) 고정 버전 — 타 PC 재현성 보장 (설치가이드.md 참고)
+#
+# 2026-07-18 헤드트래커 전환: 판정 엔진을 rtmlib(RTMPose, 포즈)에서
+#   mediapipe(FaceLandmarker, 얼굴+블렌드셰이프)로 교체. CPU만으로 23 FPS 실측
+#   (2026-07-18, 1280x720 웹캠) — onnxruntime-gpu·torch(CUDA DLL 등록용)·rtmlib를
+#   전부 제거한다. GPU/CUDA 버전 고정이 필요 없어져 설치가 크게 단순해졌다.
+mediapipe==0.10.35                 # 얼굴 랜드마크 + 블렌드셰이프 (Apache-2.0)
+opencv-python==5.0.0.93
+numpy==2.4.6                       # 2026-07-18 실측: mediapipe 0.10.35는 numpy 2.x와 호환
+pyyaml==6.0.3
+fastapi==0.139.0
+uvicorn==0.51.0
+psutil==7.2.2
+pyttsx3==2.99                      # 음성 안내 TTS — 윈도우 SAPI (announce.backend=tts) — MPL-2.0: 무수정 사용이라 공개 의무 없음

@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+logs/
+
+# collect_landmarks.py가 녹화한 원본 손 랜드마크 (개인 녹화 데이터라 git에 안 올림)
+data/
+
+# Google 공식 저장소에서 다운로드하는 서드파티 모델(약 7.8MB) - README 안내대로 재다운로드 가능해서 git에는 안 올림
+models/weights/*.task

@@ -1,0 +1,35 @@
+# gesture_kiosk 부팅 자동 시작용 systemd 유닛 (선택 사항 — 실기 키오스크 배포 시).
+#
+# realtime_loop.py의 _raise_process_priority()는 일반 사용자 권한으로는 niceness를
+# 낮출 수 없어(리눅스 정책) 대부분 "권한 없음" 로그만 남기고 기본 우선순위로 돈다.
+# 이 유닛의 Nice=-5가 그 우선순위를 실제로 보장하는 유일한 확실한 방법이다 —
+# "추론 성능 최대한"을 실기에서 완성하려면 python 직접 실행이 아니라 이 유닛으로
+# 띄울 것.
+#
+# 설치:
+#   sudo cp deploy/gesture_kiosk.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now gesture_kiosk
+# 로그 확인: journalctl -u gesture_kiosk -f
+#
+# ⚠ 아래 User/WorkingDirectory/ExecStart 경로는 예시다 — 실제 설치 위치·사용자명에
+#   맞게 고쳐야 한다(실기 미검증, 경로는 라즈베리파이OS 기본 사용자 "pi" 가정).
+
+[Unit]
+Description=gesture_kiosk headtracker engine
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/gesture_kiosk
+ExecStart=/home/pi/gesture_kiosk/venv_rpi/bin/python scripts/run_demo.py
+Restart=on-failure
+RestartSec=3
+Nice=-5
+# CPUSchedulingPolicy=rr, CPUSchedulingPriority=10 처럼 실시간 스케줄링까지
+# 고려할 수도 있으나, 화면 그리기·TTS 스레드까지 같이 굶길 위험이 있어 기본값에서는
+# 뺐다 — 그 정도 튜닝은 Nice=-5로도 부족할 때 실기로 검토할 것.
+
+[Install]
+WantedBy=multi-user.target

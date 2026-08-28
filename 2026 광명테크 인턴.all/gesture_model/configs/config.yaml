@@ -1,0 +1,61 @@
+# gesture_model 설정 — 모든 튜닝값의 단일 출처. 수정은 이 파일에서만 한다.
+#
+# 2026-07 단순화: 동작 하나만 쓴다 — "주먹쥔 상태에서 손등·팔등이 카메라를
+# 향하기만 하면" next_item 이벤트 확정. 손가락 굽힘 정도가 아니라 손의 회전
+# 방향(손등이 보이는지)만 보므로 훨씬 단순하고 견고하다. 이전에 있던
+# select/pause_voice/cancel/go_home/sos_call/prev_item 등은 제거했다.
+
+camera:
+  device_id: 0            # 웹캠 장치 번호 (노트북 내장캠은 보통 0)
+  width_px: 1280
+  height_px: 720
+  mirror: true             # 거울 모드 — 사용자 기준 좌/우와 이동 방향을 일치시킨다
+  windows_backend: auto    # auto | dshow | msmf — 이 노트북 웹캠 특성 미검증.
+                           #   카메라 열기가 느리거나 캡처 FPS가 낮으면 dshow<->msmf로 바꿔볼 것
+  fourcc: mjpg             # 캡처 픽셀 포맷 — 무압축(YUY2) 720p는 USB 대역폭 한계로 저FPS에 묶임
+
+model:
+  class_map:
+    손등팔등: 손등팔등          # detector_mediapipe가 항상 이 클래스 하나만 내보낸다
+  mediapipe:
+    hand_landmarker_path: models/weights/hand_landmarker.task   # 구글 배포 모델 (Apache-2.0)
+    num_hands: 2              # 동시 추적 손 개수
+    min_tracking_confidence: 0.5
+    bbox_pad_ratio: 0.15          # 랜드마크 -> 손 박스 패딩 (person_lock 손목 귀속용)
+    flip_handedness: true         # 좌/우 라벨 뒤집기 — mediapipe가 문서와 반대로 라벨을
+                                  #   내는 경우가 보고돼 있음(구글 이슈 #4724). 데모 화면 손
+                                  #   박스의 L/R이 실제와 뒤집혀 보이면 이 값을 반전할 것
+    flip_orientation: true        # 손등 판정 부호 반전 — 실측 결과 이론상 유도했던 부호가
+                                  #   반대였음(손바닥을 손등으로 오판) 2026-07-15 확인,
+                                  #   그래서 기본값을 true로 바꿈 (detector_mediapipe.is_back_of_hand)
+  device: cpu               # 전용 NVIDIA GPU 미확인 — CPU 고정 (rtmlib 포즈 추정에 적용)
+  pose_mode: lightweight    # rtmlib 포즈 크기: lightweight(빠름) | balanced | performance(정확)
+  max_infer_fps: 30         # 추론 루프 FPS 상한 — 초과분은 대기
+
+person_lock:               # 잠금: 초점 맞은(선명·큰) 사람에게 잠그고 그 손만 인식, 다른 사람 손 무시
+  enabled: true
+  kpt_conf_threshold: 0.3     # 포즈 키포인트(손목·머리) 최소 신뢰도
+  lock_frame_count: 3         # 최고 점수 후보가 N프레임 연속이면 그 사용자에게 잠금
+  follow_radius_ratio: 0.25   # 잠금 유지·추적 반경 (프레임 폭 대비 비율)
+  release_sec: 2.0            # 이 시간 동안 안 보이면 잠금 해제 — 다음 사용자 인식
+  wrist_match_ratio: 0.14     # 제스처 검출 박스를 손목에 귀속시키는 최대 거리 (프레임 폭 비율)
+  sharpness_weight: 0.5       # 사용자 선정 점수에서 초점 선명도 비중 (0=크기만, 1=선명도만)
+
+detect:
+  conf_threshold: 0.5
+  cooldown_sec: 1.0           # 이벤트 확정 직후 입력 무시 시간 — 연타 방지
+
+gestures:
+  next_item:                  # 주먹쥔 상태로 손등·팔등이 카메라를 향한 채 유지 = next_item
+    stable_frame_count: 5     # N프레임 연속 유지 시 확정
+    max_static_move_ratio: 0.08   # 정적 상태로 인정하는 최대 이동량 (프레임 폭 비율)
+
+event_output:
+  mode: console            # console | udp
+  udp:
+    host: 127.0.0.1
+    port: 9999
+
+logging:
+  level: INFO
+  save_dir: logs/

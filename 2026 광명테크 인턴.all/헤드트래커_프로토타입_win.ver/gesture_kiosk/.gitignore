@@ -1,0 +1,17 @@
+# 기획서 4.8 — 대용량 데이터·모델은 Git에 올리지 않는다 (저장 정책은 9장 №10 협의 후 확정)
+data/raw/*
+data/labeled/*
+!data/raw/.gitkeep
+!data/labeled/.gitkeep
+models/weights/*.task
+logs/*.log
+runs/
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+venv_win/
+venv_bundle/
+wheelhouse/
+bundle_models/
+.vscode/

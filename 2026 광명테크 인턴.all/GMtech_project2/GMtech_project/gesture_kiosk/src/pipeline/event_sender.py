@@ -1,0 +1,110 @@
+"""이벤트 전송 — 확정된 제스처 이벤트를 회사 키오스크 프로그램으로 넘기는 접점.
+
+회사 GUI = **델파이7(Delphi 7) 네이티브 프로그램**. 연동 = **파이프(stdio)** 확정
+(2026-07-23 — 회사 요청: 이벤트를 print만 하면 된다): 엔진이 stdout에 텍스트
+한 줄을 찍으면, 델파이가 엔진을 자식 프로세스로 띄워 익명 파이프로 줄 단위
+수신한다 (docs/델파이7_연동가이드.md — CreateProcess + ReadFile 샘플).
+네트워크 연동(UDP·웹소켓)은 2026-07-23 전면 철회 — 포트·방화벽 이슈 소멸.
+
+주의: 로그는 stderr·파일로만 나간다(logger.py의 StreamHandler 기본 = stderr) —
+stdout은 이벤트 전용 채널이라 다른 출력이 섞이면 델파이 파서가 오염된다.
+"""
+import sys
+
+from src.utils.logger import get_logger
+
+logger = get_logger("pipeline")
+
+
+def build_text_payload(gesture_event):
+    """델파이7용 텍스트 규격 — `GESTURE|이벤트|손|신뢰도|시각` 한 줄(ASCII) 바이트.
+
+    구분자 '|'는 값에 절대 등장하지 않는다(이벤트명·손은 영문 고정, 숫자 2종).
+    delphi Pos/Copy 또는 4번의 구분자 분리로 파싱 가능. CRLF(#13#10)로 끝나
+    수신기가 줄 단위로 읽어도 된다.
+    """
+    return "GESTURE|{}|{}|{:.2f}|{:.3f}\r\n".format(
+        gesture_event.class_name,
+        gesture_event.hand_side or "",
+        gesture_event.conf,
+        gesture_event.ts_sec,
+    ).encode("ascii")
+
+
+def build_name_payload(gesture_event):
+    """간소 규격(2026-07-31 사용자 요청) — 이벤트명 한 줄만 (예: b"left\\r\\n").
+
+    cmd 창 확인·간단한 수신기에 맞춘 최소 출력 — 손·신뢰도·시각이 필요하면
+    config event_output.format을 text(GESTURE| 규격)로 되돌린다.
+    """
+    return (gesture_event.class_name + "\r\n").encode("ascii")
+
+
+PAYLOAD_BUILDERS = {"text": build_text_payload, "name": build_name_payload}
+
+
+class ConsoleEventSender:
+    """개발용 — 이벤트를 로그로만 기록한다 (stdout 미사용)."""
+
+    def send(self, gesture_event):
+        """로그에만 기록. 항상 False — 로그는 끊길 수 없다 (Sender 공통 계약)."""
+        logger.info(
+            "event_output(console): %s (conf=%.2f)",
+            gesture_event.class_name,
+            gesture_event.conf,
+        )
+        return False
+
+
+class StdioEventSender:
+    """파이프(stdio) 연동 — 이벤트 한 줄을 stdout에 쓰고 즉시 flush한다.
+
+    flush가 핵심: stdout이 파이프에 물리면 블록 버퍼링으로 바뀌어, flush 없이는
+    버퍼(수 KB)가 찰 때까지 델파이에 아무것도 도착하지 않는다 (이벤트는 드문드문
+    발생하므로 사실상 무한 지연). 바이트로 직접 써서 인코딩 변수도 제거한다.
+    """
+
+    def __init__(self, build_payload=build_text_payload):
+        self._build_payload = build_payload
+        self.is_pipe_closed = False   # 수신부가 파이프를 닫았나 (한 번만 경고)
+
+    def send(self, gesture_event):
+        """이벤트 한 줄 전송. 수신부가 파이프를 닫았으면 True를 돌려준다.
+
+        ★2026-08-04 실기 사고: 수신부(델파이 또는 명령줄 파이프)가 stdout을 닫으면
+        이 write가 BrokenPipeError를 던진다. 종전엔 그대로 위로 튀어 **추론 스레드가
+        조용히 죽었고**, 창은 멈춘 채 이벤트도 로그도 안 나오는 좀비가 됐다
+        (원인 파악에 로그 두 줄 대조가 필요했다 — gesture_event는 찍혔는데
+        event_output이 없는 지점). 파이프가 끊긴 건 정상 종료 신호로 다루고,
+        판정 루프는 이 반환값을 보고 스스로 접는다.
+        """
+        if self.is_pipe_closed:
+            return True
+        try:
+            sys.stdout.buffer.write(self._build_payload(gesture_event))
+            sys.stdout.buffer.flush()
+        except (BrokenPipeError, ValueError, OSError) as error:
+            # ValueError: 닫힌 버퍼에 쓰기 · OSError: 파이프 소멸(윈도우 EINVAL 포함)
+            self.is_pipe_closed = True
+            logger.warning("이벤트 파이프가 닫혔다 (%s) — 수신부가 종료된 것으로 본다",
+                           type(error).__name__)
+            return True
+        # INFO 기록은 파일 로그 몫 — 콘솔은 WARNING부터라 이벤트 한 줄만 보인다
+        # (2026-07-31 사용자 요청: cmd 창 중복 출력 제거, logger.py console_level)
+        logger.info("event_output(stdio): %s (conf=%.2f)",
+                    gesture_event.class_name, gesture_event.conf)
+        return False
+
+
+def create_event_sender(config):
+    """config의 event_output(mode·format)에 맞는 Sender를 만든다."""
+    output_cfg = config["event_output"]
+    mode = output_cfg["mode"]
+    format_name = output_cfg.get("format", "text")   # 키 없으면 종전(GESTURE| 규격)
+    if format_name not in PAYLOAD_BUILDERS:
+        raise ValueError(f"지원하지 않는 event_output.format: {format_name}")
+    if mode == "stdio":
+        return StdioEventSender(PAYLOAD_BUILDERS[format_name])
+    if mode == "console":
+        return ConsoleEventSender()
+    raise ValueError(f"지원하지 않는 event_output.mode: {mode}")
