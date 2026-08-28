@@ -1,0 +1,7 @@
+<!-- 수정 전 rosdep 오류를 발생시킨 선언 -->
+<buildtool_depend>ament_python</buildtool_depend>
+
+<!-- 빌드 형식 선언은 정상이며 수정 후에도 유지 -->
+<export>
+  <build_type>ament_python</build_type>
+</export>

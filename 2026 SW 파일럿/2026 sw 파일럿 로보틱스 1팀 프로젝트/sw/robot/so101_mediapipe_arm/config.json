@@ -1,0 +1,23 @@
+{
+  "camera": {
+    "width": 960,
+    "height": 720,
+    "fps": 30,
+    "mirror": true
+  },
+  "person_side": "right",
+  "control_hz": 15,
+  "smoothing": 0.28,
+  "gripper": {
+    "closed_aperture": 0.32,
+    "open_aperture": 1.05,
+    "direction": 1
+  },
+  "joints": {
+    "shoulder_pan": {"direction": 1, "ticks_per_radian": 320, "max_offset_ticks": 500},
+    "shoulder_lift": {"direction": -1, "ticks_per_radian": 360, "max_offset_ticks": 520},
+    "elbow_flex": {"direction": 1, "ticks_per_radian": 410, "max_offset_ticks": 520},
+    "wrist_flex": {"direction": 1, "ticks_per_radian": 260, "max_offset_ticks": 350},
+    "wrist_roll": {"direction": 1, "ticks_per_radian": 300, "max_offset_ticks": 500}
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "method": "Single 3-second window inference, matching live_predict.py before temporal smoothing.",
+  "windows": 1935,
+  "window_accuracy": 0.7478,
+  "abnormal_precision": 0.7621,
+  "abnormal_recall": 0.75,
+  "abnormal_f1": 0.756,
+  "confusion_matrix_normal_abnormal": [
+    [
+      691,
+      236
+    ],
+    [
+      252,
+      756
+    ]
+  ]
+}

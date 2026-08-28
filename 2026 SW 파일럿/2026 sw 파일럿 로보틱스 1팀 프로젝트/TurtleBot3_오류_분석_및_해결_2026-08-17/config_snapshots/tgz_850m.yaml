@@ -1,0 +1,18 @@
+teleop_twist_joy_node:
+  ros__parameters:
+    # TGZ-850M is exposed by Linux as an Xbox 360 compatible controller.
+    # Drive directly with the left stick; no enable button is required.
+    require_enable_button: false
+    enable_button: 4
+    enable_turbo_button: -1
+    axis_linear:
+      x: 1
+    scale_linear:
+      # This controller reports stick-forward with the opposite sign.
+      x: -0.08
+    axis_angular:
+      yaw: 0
+    scale_angular:
+      yaw: 0.6
+    inverted_reverse: true
+    publish_stamped_twist: false

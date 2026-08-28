@@ -1,0 +1,20 @@
+sound_anomaly_node:
+  ros__parameters:
+    # Use the USB microphone by name so a changed PortAudio index does not matter.
+    audio_device: "USB Microphone: Audio (hw:1,0)"
+    capture_sample_rate: 44100
+    channels: 1
+    prediction_interval: 1.0
+    # -1 uses the threshold embedded in the model (currently 0.50).
+    anomaly_threshold: -1.0
+    # Audio below this RMS level is IDLE. Tune this using the actual site microphone.
+    silence_rms_threshold: 0.005
+    led_topic: "/opencr_led_status"
+    # OpenCR modes: 1=both on, 2=GPIO 50 blink, 3=GPIO 51 blink.
+    # Actual wiring: green=GPIO 50 and red=GPIO 51.
+    red_blink_mode: 3
+    green_blink_mode: 2
+    idle_led_mode: 1
+    # Turn both LEDs off when the anomaly node exits.
+    shutdown_led_mode: 0
+    led_heartbeat_period: 1.0

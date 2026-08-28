@@ -1,0 +1,9 @@
+# 제스처 엔진(Flask) 의존성 — 젯슨/윈도우 모두 이 파일 하나로 설치.
+# 버전은 gesture_kiosk에서 실기 검증된 조합을 승계(윈도우 기준). 젯슨(aarch64)은
+# 이 정확한 버전의 wheel이 없을 수 있어, 안 맞으면 mediapipe/opencv-contrib-python만
+# 젯슨에서 설치 가능한 버전으로 개별 조정할 것 — 나머지 코드는 API 호환이라 무변경.
+mediapipe==0.10.14
+opencv-contrib-python==4.10.0.84
+numpy==1.26.4
+pyyaml==6.0.3
+flask==3.0.3

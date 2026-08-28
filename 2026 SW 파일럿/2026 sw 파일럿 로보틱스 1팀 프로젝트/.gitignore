@@ -1,0 +1,26 @@
+# Generated ROS 2 workspace outputs
+**/build/
+**/install/
+**/log/
+
+# Python environments and caches
+**/.venv/
+**/.jetson-python/
+**/__pycache__/
+**/.pytest_cache/
+**/.mpl-cache/
+*.py[cod]
+
+# Downloaded Arduino tools, board packages, and build cache
+**/.tools/
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local AI-assistant configuration
+**/.agents/
+**/.claude/
+**/.codex/

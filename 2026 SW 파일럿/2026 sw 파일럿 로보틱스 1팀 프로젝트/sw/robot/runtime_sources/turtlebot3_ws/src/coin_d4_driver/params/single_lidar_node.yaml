@@ -1,0 +1,11 @@
+/**:
+  ros__parameters:
+    # The Jetson udev rule can create /dev/tb3_lidar for the parent USB
+    # device instead of the tty endpoint. Use the verified serial port.
+    port: "/dev/ttyUSB0"
+    frame_id: "base_scan"
+    baudrate: 230400
+    version: 4
+    topic_name: "scan"
+    reverse: False
+    warmup_time: 5  # seconds

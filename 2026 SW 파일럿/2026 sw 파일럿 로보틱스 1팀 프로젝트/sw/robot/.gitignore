@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+logs/
+models/weights/*.task
+!models/weights/.gitkeep
+.pytest_cache/

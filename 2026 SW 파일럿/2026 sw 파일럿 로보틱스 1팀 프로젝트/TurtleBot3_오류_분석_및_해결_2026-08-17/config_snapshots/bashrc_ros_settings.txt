@@ -1,0 +1,4 @@
+# 2026-08-17 정상화 후 ~/.bashrc의 ROS 모델 관련 설정만 발췌
+export TURTLEBOT3_MODEL=burger
+export LDS_MODEL=LDS-03
+

@@ -1,0 +1,4 @@
+# camera_server/camera_server.py 전용 — 손 인식(mediapipe)은 전혀 필요 없다.
+# 이 컴퓨터(노트북 등)는 카메라 영상만 네트워크로 내보내고, 인식은 젯슨이 한다.
+opencv-contrib-python==4.10.0.84
+flask==3.0.3

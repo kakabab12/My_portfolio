@@ -1,0 +1,13 @@
+# Versions used to create gearbox_svm_source.joblib.
+numpy==2.2.6
+# 1.0.0 is not a published PyPI release; 0.11.0 provides the APIs used here.
+librosa==0.11.0
+soundfile==0.14.0
+# The model records 1.9.0, which is not published for this Jetson/Python build.
+# 1.7.2 is the newest available compatible runtime and is verified on load below.
+scikit-learn==1.7.2
+pandas==2.3.3
+joblib==1.5.3
+sounddevice==0.5.6
+# Ubuntu 22.04 system coverage 6.2 is incompatible with the bundled numba.
+coverage==7.15.4

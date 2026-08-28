@@ -1,0 +1,43 @@
+(base) user@ubuntu:~/sw/robot$ sudo apt update && sudo apt install -y locales
+Hit:1 https://packages.microsoft.com/repos/code stable InRelease
+Hit:2 https://repo.download.nvidia.com/jetson/common r36.5 InRelease           
+Get:3 http://packages.ros.org/ros2/ubuntu jammy InRelease [4,682 B]                                                             
+Hit:4 https://repo.download.nvidia.com/jetson/t234 r36.5 InRelease                                                              
+Hit:5 http://ports.ubuntu.com/ubuntu-ports jammy InRelease              
+Hit:6 https://repo.download.nvidia.com/jetson/ffmpeg r36.5 InRelease
+Err:3 http://packages.ros.org/ros2/ubuntu jammy InRelease
+  The following signatures couldn't be verified because the public key is not available: NO_PUBKEY F42ED6FBAB17C654
+Hit:7 http://ports.ubuntu.com/ubuntu-ports jammy-updates InRelease
+Hit:8 http://ports.ubuntu.com/ubuntu-ports jammy-backports InRelease
+Hit:9 http://ports.ubuntu.com/ubuntu-ports jammy-security InRelease
+Reading package lists... Done
+W: GPG error: http://packages.ros.org/ros2/ubuntu jammy InRelease: The following signatures couldn't be verified because the public key is not available: NO_PUBKEY F42ED6FBAB17C654
+E: The repository 'http://packages.ros.org/ros2/ubuntu jammy InRelease' is not signed.
+N: Updating from such a repository can't be done securely, and is therefore disabled by default.
+N: See apt-secure(8) manpage for repository creation and user configuration details.
+(base) user@ubuntu:~/sw/robot$ sudo locale-gen en_US en_US.UTF-8
+Generating locales (this might take a while)...
+  en_US.ISO-8859-1... done
+  en_US.UTF-8... done
+Generation complete.
+(base) user@ubuntu:~/sw/robot$ sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+(base) user@ubuntu:~/sw/robot$ sudo apt install -y software-properties-common
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+software-properties-common is already the newest version (0.99.22.9).
+0 upgraded, 0 newly installed, 0 to remove and 265 not upgraded.
+(base) user@ubuntu:~/sw/robot$ sudo add-apt-repository universe
+Adding component(s) 'universe' to all repositories.
+Press [ENTER] to continue or Ctrl-c to cancel.
+Hit:1 https://packages.microsoft.com/repos/code stable InRelease
+Hit:2 https://repo.download.nvidia.com/jetson/common r36.5 InRelease                          
+Hit:3 https://repo.download.nvidia.com/jetson/t234 r36.5 InRelease                                                               
+Hit:4 http://ports.ubuntu.com/ubuntu-ports jammy InRelease          
+Get:5 http://packages.ros.org/ros2/ubuntu jammy InRelease [4,682 B]
+Hit:6 https://repo.download.nvidia.com/jetson/ffmpeg r36.5 InRelease             
+Hit:7 http://ports.ubuntu.com/ubuntu-ports jammy-updates InRelease               
+Hit:8 http://ports.ubuntu.com/ubuntu-ports jammy-backports InRelease
+Hit:9 http://ports.ubuntu.com/ubuntu-ports jammy-security InRelease
+Err:5 http://packages.ros.org/ros2/ubuntu jammy InRelease
+  The following signatures couldn't be verified because the public key is not available: NO_PUBKEY F42ED6FBAB17C654

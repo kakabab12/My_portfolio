@@ -1,0 +1,157 @@
+# 터틀봇3 제스처 수동조종 — 젯슨에서 실행되는 gesture_engine(Flask) 설정.
+# 실제 로봇 하드웨어 한계 클램프는 ros2_bridge/cmd_vel_bridge.py에도 별도로 있다
+# (여기 값을 무조건 신뢰하지 않는 마지막 방어선 — robot 섹션 참고).
+
+camera:
+  devices: [0, 2]          # 연결된 Logitech 카메라 2대의 실제 영상 노드 (/dev/video0, /dev/video2)
+                            # 카메라 소스 목록 — 각 항목은 둘 중 하나:
+                            #   ①정수 = 이 컴퓨터(젯슨)에 물린 로컬 장치 번호(/dev/video*)
+                            #   ②문자열(URL) = 다른 컴퓨터(예: 노트북)의 camera_server.py가
+                            #     내보내는 네트워크 스트림, 예: "http://192.168.43.55:8090/cam/0/stream"
+                            #   섞어 써도 된다. URL 항목은 width_px/height_px/fourcc를
+                            #   적용 안 함(송신측이 이미 인코딩한 그대로 받는다)
+  # OpenCR·LiDAR·2대 Logitech 카메라가 Jetson의 같은 USB 호스트 컨트롤러를
+  # 공유한다. 720p/30 두 스트림은 컨트롤러 reset 뒤 xHCI가 정지한 실측 이력이
+  # 있어, 기본값은 충분한 제스처 인식 품질을 유지하는 저부하 모드로 둔다.
+  width_px: 640
+  height_px: 480
+  fps: 15
+  mirror: true             # 조작자 기준 좌/우와 손짓 방향을 일치시킨다
+  fourcc: mjpg             # 두 카메라의 저부하 동시 스트림용 압축 포맷
+  recovery_timeout_sec: 3.0
+  recovery_retry_sec: 2.0
+
+dual_camera:               # 이름은 호환성을 위해 유지하며 3대 이상에도 동일하게 적용
+  switch_margin: 0.15      # 비활성 카메라가 이 점수차 이상 앞서야 전환 후보
+  switch_frames: 8         # 새 카메라가 이 프레임 수만큼 연속 검출돼야 실제 전환
+  sticky_ownership: true   # 활성 카메라가 손을 보는 동안 다른 카메라 점수와 무관하게 고정
+  release_frames: 10       # 활성 카메라가 이 프레임 수만큼 손을 놓쳐야 소유권 해제
+  cooldown_frames: 30      # 전환 직후 이 프레임 동안 재전환 금지
+  good_hand_span_ratio: 0.10   # 손 품질 점수 만점 기준 — 손 폭/프레임 폭 비율
+
+hand_tracker:
+  model_path: models/weights/hand_landmarker.task
+  # 현재 설치된 MediaPipe는 GPU delegate를 포함하지 않아 GPU 요청마다 실패한 뒤
+  # CPU로 전환된다. 처음부터 CPU를 선택해 두 카메라 시작 시의 오류·지연을 없앤다.
+  delegate: cpu
+  gpu_fallback_to_cpu: false
+  # 조작에는 한 사람의 손만 쓰므로 카메라별 2손 검출을 하지 않는다. 두 카메라를
+  # 매 프레임 추론하는 구조에서 이 값을 1로 제한하면 추론 지연이 크게 줄어든다.
+  max_num_hands: 1
+  # 원본 1280x720 영상은 웹 화면용으로 유지하되, 손 모델에는 절반 해상도로
+  # 넣는다. 랜드마크는 원본 좌표로 되돌려 주므로 제스처/커서 동작은 바뀌지 않는다.
+  inference_scale: 0.5
+  # 0.25에서는 사람 입·책상 무늬까지 손 후보로 잡힌 실측이 있어 보수적으로
+  # 높였다. 실제 손은 가까운 거리에서 또렷하게 보여주는 운용을 기준으로 한다.
+  min_detection_conf: 0.65
+  min_presence_conf: 0.65
+  min_tracking_conf: 0.60
+
+primary_hand:              # 여러 손이 잡혀도(붐비는 배경) 조작자 손 하나만 계속 추적
+  min_span_ratio: 0.05     # 손 폭/프레임 폭이 이보다 작으면 후보에서 제외 — 배경의
+                            #   먼 사람 손을 걸러낸다(조작자는 카메라 가까이서 손을 든다고 가정)
+  acquire_frames: 3        # 같은 위치에서 3프레임 연속 검출돼야 새 손으로 획득
+  acquire_center_span_ratio: 1.25 # 획득 중 후보 중심이 손 크기 대비 크게 튀면 다시 셈
+  continuity_span_ratio: 3.5   # 이미 추적 중인 손의 마지막 위치에서 이 배수(그 손 크기
+                            #   기준) 안이면 "같은 손"으로 간주 — 신뢰도가 더 높은 다른
+                            #   사람 손이 나타나도 여기 우선순위가 밀린다
+  release_sec: 1.5         # 추적 손이 이 시간 안 보여도 정체성 유지(짧은 가림 흡수).
+                            #   초과 시 정체성 해제 — 다음은 다시 가장 큰 손으로 새로 잡음
+
+roi_zoom:                  # 손 주변 디지털 줌 — VIDEO 추적 좌표 변동 방지를 위해 비활성
+  enabled: false
+  pad_ratio: 2.5           # crop 한 변 = 손 크기 × 이 배수
+  min_side_px: 320         # crop 최소 한 변
+  move_ratio: 0.15         # 중심 이동이 이 비율(crop 변 기준) 이상일 때만 창 갱신
+  resize_ratio: 0.2        # 크기 변화가 이 비율 이상일 때만 창 갱신
+
+hand_shape:                # gesture_kiosk 실기 튜닝값 그대로 승계 (2026-08-03 확정)
+  extend_ratio: 1.03       # 비스듬히 편 손가락도 놓치지 않도록 펴짐 문턱 완화
+  min_valid_fingers: 3
+  curl_confirm_ratio: 0.97 # 펴짐/접힘 사이의 불명 구간을 좁혀 실제 포즈 인식률 개선
+  confirm_frames: 3        # 입·책상 무늬 및 전환 중 짧은 오인식을 명령에서 제외
+  confirm_frames_by_shape:
+    four: 3                # 3↔4 전환 중 중복 입력 없이 3프레임에 확정
+    back: 4                # Nav2 목표 호출은 오작동 방지용 추가 확인
+    joystick_toggle: 4     # 제어권 전환은 우발 접촉 방지용 추가 확인
+  hold_open_on_unknown_sec: 0.20 # 확정된 open의 아주 짧은 null만 흡수
+
+point_filter:               # 손끝 One Euro 필터 — 정지 시 떨림 억제, 빠른 이동은 추종
+  min_cutoff_hz: 1.0
+  beta: 0.15               # 급격한 랜드마크 오차가 커서에 바로 반영되지 않도록 완화
+  d_cutoff_hz: 1.0
+
+camera_motion:              # 카메라/로봇 이동·회전·배율 변화가 커서로 들어오는 현상 보정
+  enabled: true
+  analysis_scale: 0.25      # 저해상도 배경 광학 흐름으로 연산량 절약
+  max_corners: 160
+  min_points: 12            # 배경 특징점이 충분할 때만 보정해 오보정 방지
+  max_shift_ratio: 0.08     # 한 프레임의 비정상적으로 큰 추정값은 무시
+  max_rotation_deg: 8.0     # 프레임 사이 정상적인 회전은 보정, 비정상 추정은 무시
+  min_scale: 0.85
+  max_scale: 1.15
+
+dpad:                      # 리모컨 D-pad 방식 — 방향 존을 가리키는 동안 고정 속도로
+                           #   계속 움직이고(리모컨 버튼처럼), 존을 벗어나거나 손을
+                           #   놓치면 그 프레임부터 즉시 멈춘다(dwell 방식 아님)
+  engage_shape: open        # 이 손모양일 때만 주행 — 그 외(주먹 등)는 항상 정지
+  graphic_cx_ratio: 0.5     # /video_feed에 그리는 D-pad 나침반의 화면 고정 위치(폭 비율).
+  graphic_cy_ratio: 0.5     # 높이 비율. 재중심·캘리브레이션으로 neutral이 바뀌어도
+                            #   이 그래픽 자체는 화면에서 움직이지 않는다(main_dpad.py의
+                            #   --cx-ratio/--cy-ratio와 동일 발상) — 커서 점만 움직인다
+  cursor_sensitivity: 1.9   # 손끝 오프셋 증폭 배율(main_dpad.py CURSOR_SENSITIVITY와
+                            #   동일값) — 팔을 크게 안 휘둘러도 존에 닿게 한다.
+                            #   1.0=증폭 없음. 커서가 과민하면 낮출 것
+  center_radius_ratio: 0.10 # 중심(neutral) 기준 이 반경(프레임 짧은 변 비율) 안이면
+                            #   center 존(정지). 그 밖은 각도로 상/하/좌/우 판정
+                            #   (cursor_sensitivity 적용 후 값 기준)
+  axis_dominance: 1.3       # 한 축이 이만큼 우세해야 방향 확정 — 대각선 애매구간은
+                            #   정지(main_dpad.py는 "직전 방향 유지"였지만, 구동은
+                            #   불확실할 때 도는 것보다 멈추는 쪽이 안전해 다르게 함)
+  linear_mps: 0.12          # 상/하 존일 때 고정 전진/후진 속도 — 버거 한계(0.22)보다 보수적
+  angular_radps: 0.8        # 좌/우 존일 때 고정 회전 속도 — 버거 한계(2.84)보다 보수적
+  invert_x: false           # 손이 오른쪽=우회전이 반대로 느껴지면 true로
+  invert_y: false           # 손이 위=전진이 반대로 느껴지면 true로
+  recenter:                 # main_dpad.py의 "허공에 가만히 -> 재정렬"과 동일 —
+                            #   손이 처음 나타난 자리가 이미 기준(0점)이라, 이건
+                            #   중간에 위치가 틀어졌을 때의 재조정용
+    enabled: true
+    still_radius_ratio: 0.035
+    still_sec: 2.5          # 이 시간 이상 가만히 있으면 그 자리를 새 중심으로
+  v_sign_recenter:          # 검지+중지 V 제스처로 현재 손 위치를 새 중앙 원점으로
+    enabled: true
+  lock_toggle:              # 주행 잠금/해제 — D-pad 중앙 존 PLAY/PAUSE 버튼에 대응.
+                            #   armed가 false면 손이 무엇을 하든 항상 정지 —
+                            #   shape/존 게이트보다 우선
+    enabled: false          # 잠금 모드 없이 서버 시작 직후부터 손바닥 제스처 허용
+    start_armed: false      # 안전 기본값 — 엔진 시작 시 잠금 상태, 최초 1회는
+                            #   반드시 아래 동작으로 명시적으로 풀어야 주행 가능
+    require_shape: open     # 이 손모양으로 center 존에 머물러야 카운트
+    hold_sec: 1.2           # 이 시간 유지하면 armed 반전 — center 존을 벗어나야 재장전
+
+safety:
+  # 손 미검출/미인게이지는 gesture_loop가 유예 없이 그 프레임부터 즉시 0,0을
+  # 낸다(별도 타임아웃 없음 — 지연 없는 정지가 가장 안전하다). 아래 값은
+  # gesture_engine 프로세스 자체가 멈추거나 응답이 끊긴 경우를 위한 것 —
+  # 실제 워치독은 ros2_bridge가 age_sec을 보고 적용한다(여기는 문서화용 기준값).
+  command_stale_sec: 0.5
+
+server:
+  host: 0.0.0.0
+  port: 5000
+  video_feed_enabled: true
+  jpeg_quality: 70
+
+control:
+  mode: finger_commands     # finger_commands=새 손가락 개수 모드, dpad=기존 방식 보존
+  wave:
+    amplitude_ratio: 0.05   # 직전 극점 기준 프레임 폭의 5% 이상 좌우 왕복
+    timeout_sec: 3.0        # 이 시간 안에 3회 흔들기 완료
+
+logging:
+  level: INFO
+  save_dir: logs/
+
+robot:                      # ros2_bridge 최종 클램프 참고값 — 터틀봇3 버거 공식 한계
+  burger_max_linear_mps: 0.22
+  burger_max_angular_radps: 2.84

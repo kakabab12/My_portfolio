@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=소음 이상감지 단독 실행
+Comment=C270 웹캠 마이크와 OpenCR LED만 실행합니다 (P5U·Nav2·제스처·순찰 미실행)
+Exec=/bin/bash /home/user/sw/robot/scripts/run_sound_anomaly_only.sh
+Terminal=true
+Categories=Robotics;

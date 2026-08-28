@@ -1,0 +1,69 @@
+turtlebot3_safety_mission_manager:
+  ros__parameters:
+    scan_topic: "/scan"
+    odom_topic: "/odom"
+    nav_cmd_vel_topic: "/cmd_vel"
+    map_topic: "/map"
+    map_frame: "map"
+    cmd_vel_topic: "/cmd_vel_safety"
+    active_topic: "/safety/active"
+    heartbeat_topic: "/safety/heartbeat"
+    request_topic: "/safety/request"
+    state_topic: "/safety/state"
+    mission_phase_topic: "/safety/mission_phase"
+    nav_status_topic: "/safety/nav_status"
+
+    # 자동 후진을 유발하는 갑툭튀 감지는 진행방향 중앙 ±15도만 본다.
+    # 15 cm 절대 보호정지는 별도 ±30도를 유지해 충돌 직전 보호를 약화하지 않는다.
+    front_angle_deg: 15.0
+    protective_angle_deg: 30.0
+    reference_range: 0.90
+    # 실험자가 진행방향 바로 앞에 넣는 임시 가림판만 35 cm 안에서 잡는다.
+    sudden_trigger_distance: 0.35
+    hard_stop_distance: 0.15
+    hard_release_distance: 0.20
+    sudden_distance_drop: 0.10
+    novelty_match_distance: 0.06
+    # 지도 벽 주변 15 cm의 LiDAR endpoint는 위치추정 오차를 포함한 정적 벽이다.
+    static_map_margin: 0.15
+    occupied_threshold: 65
+    # 절대 보호정지/후방 정지는 3 points, 자동 후진은 8 points 이상이어야 한다.
+    # 실기에서 B 접근 중 생긴 6-point 정적 벽 조각은 자동 후진에서 제외한다.
+    min_obstacle_points: 3
+    min_surprise_points: 8
+    consecutive_scan_frames: 2
+    candidate_timeout_sec: 0.40
+    # 목표 직전의 0.046m/s 저속 정렬은 갑툭튀 자동후진 context에서 제외한다.
+    minimum_forward_speed: 0.06
+    maximum_angular_speed: 0.30
+    # 새 장애물을 본 직후 Nav2가 0 속도를 내더라도 직전 전진 의도를 유지한다.
+    forward_intent_hold_sec: 1.00
+    # 자동 후진은 scan 시각의 map->base_scan TF로 지도에 없음을 확인한
+    # cluster에만 허용한다. TF가 없을 때 raw scan으로 우회하지 않는다.
+    # TF가 센서 stamp보다 늦게 도착하는 실기 환경에서는 최대 80 ms 기다린다.
+    scan_tf_wait_sec: 0.08
+    diagnostic_log_interval_sec: 0.75
+    protective_clear_frames: 3
+
+    # 센서나 연동 미션이 끊기면 계속 주행하지 않고 mux를 정지 상태로 둔다.
+    sensor_timeout_sec: 0.50
+    mission_context_timeout_sec: 1.00
+    cancel_timeout_sec: 3.0
+
+    # Nav2 목표 취소를 확인한 뒤 감지 위치 기준으로 25 cm 직선 후진한다.
+    escape_speed: 0.10
+    escape_distance: 0.25
+    escape_timeout_sec: 6.0
+    rear_angle_deg: 35.0
+    rear_stop_distance: 0.25
+
+    # 후진 뒤에는 전방 전체가 아니라 감지 순간 저장한 지도상 동적 군집이
+    # 사라졌는지 확인한다. 따라서 B/A 주변의 원래 벽은 제거 대기를 막지 않는다.
+    resume_angle_deg: 15.0
+    resume_clear_distance: 0.75
+    clear_match_distance: 0.08
+    clear_stable_sec: 1.0
+    # 0은 시간 제한 없이 조작자가 임시 장애물을 치울 때까지 정지 대기한다.
+    clear_wait_timeout_sec: 0.0
+    resume_timeout_sec: 10.0
+    resume_cooldown_sec: 1.0

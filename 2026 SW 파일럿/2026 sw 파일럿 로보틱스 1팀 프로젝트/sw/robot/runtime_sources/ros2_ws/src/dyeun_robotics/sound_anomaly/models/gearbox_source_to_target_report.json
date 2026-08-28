@@ -1,0 +1,52 @@
+{
+  "machine": "gearbox",
+  "method": "Train on source_test; evaluate only on target_test; average three 3-second predictions per WAV.",
+  "source_training_files": 762,
+  "target_evaluation_files": 645,
+  "file_accuracy": 0.7814,
+  "abnormal_precision": 0.8019,
+  "abnormal_recall": 0.7708,
+  "abnormal_f1": 0.786,
+  "threshold": 0.5,
+  "confusion_matrix_normal_abnormal": [
+    [
+      245,
+      64
+    ],
+    [
+      77,
+      259
+    ]
+  ],
+  "classification_report": {
+    "normal": {
+      "precision": 0.7608695652173914,
+      "recall": 0.7928802588996764,
+      "f1-score": 0.7765451664025357,
+      "support": 309.0
+    },
+    "abnormal": {
+      "precision": 0.8018575851393189,
+      "recall": 0.7708333333333334,
+      "f1-score": 0.7860394537177542,
+      "support": 336.0
+    },
+    "accuracy": 0.7813953488372093,
+    "macro avg": {
+      "precision": 0.7813635751783552,
+      "recall": 0.7818567961165048,
+      "f1-score": 0.781292310060145,
+      "support": 645.0
+    },
+    "weighted avg": {
+      "precision": 0.7822214639674188,
+      "recall": 0.7813953488372093,
+      "f1-score": 0.7814910277016263,
+      "support": 645.0
+    }
+  },
+  "probability_range": [
+    0.0488,
+    0.9764
+  ]
+}

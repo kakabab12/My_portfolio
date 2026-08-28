@@ -1,0 +1,5 @@
+# 수정 전 coin_d4_driver 기본 포트
+/**:
+  ros__parameters:
+    port: "/dev/tb3_lidar"
+

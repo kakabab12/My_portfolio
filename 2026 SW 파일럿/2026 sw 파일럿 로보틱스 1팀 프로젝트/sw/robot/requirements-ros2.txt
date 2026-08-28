@@ -1,0 +1,5 @@
+# ros2_bridge/cmd_vel_bridge.py / glove_gyro_teleop.py 의존성 — rclpy는 pip이
+# 아니라 ROS2 설치(source /opt/ros/<distro>/setup.bash)에서 오므로 여기 없다.
+# ROS2용 파이썬 환경에 이 파일만 추가로 pip install 하면 된다.
+requests==2.32.3
+pyserial==3.5

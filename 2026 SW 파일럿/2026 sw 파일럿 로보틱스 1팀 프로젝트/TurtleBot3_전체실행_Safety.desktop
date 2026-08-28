@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=TurtleBot3 전체 실행 (Safety)
+Comment=기존 전체 실행과 분리하여 갑작스러운 장애물 Safety Stop을 포함해 시작합니다
+Exec=env LDS_MODEL=LDS-03 /bin/bash /home/user/sw/robot/scripts/turtlebot3_전체실행_safety.sh
+Terminal=true
+Categories=Robotics;
