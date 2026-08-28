@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>방명록 — Flask + SQLite</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <h1>📖 방명록</h1>
+    <p class="sub">Flask <span class="sep">+</span> SQLite · 글 <strong>{{ count }}</strong>건</p>
+  </header>
+
+  <!-- 글쓰기 폼 -->
+  <form class="card" method="post" action="{{ url_for('add') }}">
+    <div class="row">
+      <input type="text" name="name" placeholder="이름" maxlength="50" required>
+    </div>
+    <div class="row">
+      <textarea name="message" placeholder="메시지를 남겨주세요" maxlength="500" rows="3" required></textarea>
+    </div>
+    <div class="row right">
+      <button type="submit">남기기</button>
+    </div>
+  </form>
+
+  <!-- 목록 -->
+  {% if entries %}
+    <ul class="list">
+      {# Jinja2 의 for 루프. ASP 의 while not Rs.eof / Rs.MoveNext 와 같은 일을 하는데,
+         커서를 직접 움직이지 않아도 된다. #}
+      {% for e in entries %}
+        <li class="entry">
+          <div class="entry-head">
+            {# ★ |e 는 HTML 이스케이프. Jinja2 는 기본으로 자동 이스케이프하지만
+               명시해도 무해하다. 이게 없으면 <script>alert(1)</script> 를
+               이름에 넣었을 때 실제로 실행된다 (XSS). #}
+            <span class="name">{{ e.name }}</span>
+            <span class="time">{{ e.created_at }}</span>
+          </div>
+          <p class="msg">{{ e.message }}</p>
+          <form class="del" method="post" action="{{ url_for('delete', entry_id=e.id) }}">
+            <button type="submit" title="삭제">✕</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">아직 글이 없습니다. 첫 글을 남겨보세요.</p>
+  {% endif %}
+
+  <footer>
+    <p>
+      API: <code>GET /api/entries</code> · <code>POST /api/entries</code> ·
+      <code>DELETE /api/entries/&lt;id&gt;</code> · <code>GET /health</code>
+    </p>
+  </footer>
+
+</div>
+
+</body>
+</html>

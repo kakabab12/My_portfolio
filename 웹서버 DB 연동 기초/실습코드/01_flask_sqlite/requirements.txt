@@ -1,0 +1,8 @@
+# Flask + SQLite 방명록
+#
+# SQLite 는 파이썬에 내장(sqlite3)이라 설치할 게 없다.
+# 그래서 의존성이 Flask 하나뿐이다.
+#
+# 설치:  pip install -r requirements.txt
+
+Flask>=3.0

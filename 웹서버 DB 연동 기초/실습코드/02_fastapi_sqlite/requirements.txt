@@ -1,0 +1,12 @@
+# FastAPI + SQLite 방명록 (01 과 같은 앱, 웹 서버만 교체)
+#
+# Flask 는 서버(WSGI)까지 내장이라 `py app.py` 로 바로 뜨지만,
+# FastAPI 는 앱 프레임워크일 뿐이라 ASGI 서버(uvicorn)가 따로 필요하다.
+#
+# 설치:  pip install -r requirements.txt
+# 실행:  py -m uvicorn main:app --reload --port 8000
+
+fastapi>=0.115
+uvicorn[standard]>=0.30
+jinja2>=3.1            # HTML 템플릿 (Flask 는 내장, FastAPI 는 별도)
+python-multipart>=0.0.9  # HTML 폼(Form) 파싱에 필요

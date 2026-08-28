@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>방명록 — FastAPI + SQLite</title>
+
+  {# ★ 01(Flask) 판과 딱 여기가 다르다.
+       Flask    : url_for('static', filename='style.css')
+       Starlette: url_for('static', path='style.css')      ← FastAPI 는 Starlette 기반
+
+     같은 Jinja2 인데 url_for 의 인자 이름이 다르다. 그래서 템플릿은
+     "웹 서버를 바꾸면 같이 고쳐야 하는" 계층이다.
+     반대로 db.py 는 한 글자도 안 고치고 그대로 쓴다 — 그게 계층을 나눈 값어치다. #}
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <h1>📖 방명록</h1>
+    <p class="sub">FastAPI <span class="sep">+</span> SQLite · 글 <strong>{{ count }}</strong>건</p>
+  </header>
+
+  <form class="card" method="post" action="{{ url_for('add') }}">
+    <div class="row">
+      <input type="text" name="name" placeholder="이름" maxlength="50" required>
+    </div>
+    <div class="row">
+      <textarea name="message" placeholder="메시지를 남겨주세요" maxlength="500" rows="3" required></textarea>
+    </div>
+    <div class="row right">
+      <button type="submit">남기기</button>
+    </div>
+  </form>
+
+  {% if entries %}
+    <ul class="list">
+      {% for e in entries %}
+        <li class="entry">
+          <div class="entry-head">
+            <span class="name">{{ e.name }}</span>
+            <span class="time">{{ e.created_at }}</span>
+          </div>
+          <p class="msg">{{ e.message }}</p>
+          <form class="del" method="post" action="{{ url_for('delete', entry_id=e.id) }}">
+            <button type="submit" title="삭제">✕</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">아직 글이 없습니다. 첫 글을 남겨보세요.</p>
+  {% endif %}
+
+  <footer>
+    <p>
+      <a href="/docs"><strong>/docs</strong></a> — 자동 생성된 API 문서 (Flask 판에는 없다)
+    </p>
+    <p>
+      API: <code>GET /api/entries</code> · <code>POST /api/entries</code> ·
+      <code>DELETE /api/entries/&lt;id&gt;</code> · <code>GET /health</code>
+    </p>
+  </footer>
+
+</div>
+
+</body>
+</html>

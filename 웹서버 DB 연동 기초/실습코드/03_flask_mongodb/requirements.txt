@@ -1,0 +1,10 @@
+# Flask + MongoDB 방명록 (01 과 같은 앱, DB 만 교체)
+#
+# SQLite 와 달리 MongoDB 는 "서버"라서 별도 설치·실행이 필요하다.
+#   Windows: https://www.mongodb.com/try/download/community
+#   실행:    net start MongoDB   또는   mongod --dbpath C:\data\db
+#
+# 설치:  pip install -r requirements.txt
+
+Flask>=3.0
+pymongo>=4.6
