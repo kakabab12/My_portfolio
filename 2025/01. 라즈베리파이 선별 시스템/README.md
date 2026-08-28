@@ -1,0 +1,69 @@
+<div align="center">
+
+# 🍓 라즈베리파이 객체인식 → 아두이노 선별 시스템
+
+![RaspberryPi](https://img.shields.io/badge/Raspberry_Pi-A22846?style=flat-square&logo=raspberrypi&logoColor=white)
+![YOLO](https://img.shields.io/badge/YOLOv8--seg-00FFFF?style=flat-square&logo=yolo&logoColor=black)
+![ONNX](https://img.shields.io/badge/ONNX_Runtime-005CED?style=flat-square&logo=onnx&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-000000?style=flat-square&logo=flask&logoColor=white)
+![Arduino](https://img.shields.io/badge/Arduino-00979D?style=flat-square&logo=arduino&logoColor=white)
+
+**2025년 2학기 학기 프로젝트**
+
+</div>
+
+---
+
+카메라로 물체를 인식해 **크기(대/중/소)와 불량 여부를 판정**하고,
+결과를 아두이노로 보내 **분류기를 제어**하는 시스템입니다.
+**그래픽카드가 없는 라즈베리파이에서 YOLOv8-seg를 CPU로** 돌리는 것이 핵심 과제였습니다.
+
+```mermaid
+flowchart LR
+    A["📷 Picamera2<br/>FHD · AF · AWB"] --> B["YOLOv8-seg<br/>ONNX · CPU"]
+    B --> C["마스크 면적 → 크기<br/>사각형 비율 → 불량"]
+    C --> D["6가지 분류"]
+    D --> E["🤖 아두이노<br/>SORT:x"]
+    D --> F["🖥️ 웹 대시보드<br/>생산량·불량률 차트"]
+```
+
+---
+
+## 📈 버전별 발전 과정
+
+**같은 기능의 세 세대**가 남아 있어 개선 과정을 볼 수 있습니다.
+
+| 파일 | 역할 | 특징 |
+|---|---|---|
+| `app_base.py` | 초기(Base) | 인식된 픽셀을 **3D 물리 좌표로 변환**해 `MOVE:x,y,z` 전송 |
+| `app_ck.py` | 메인 제어 | 마스크 면적(크기) + 사각형 비율(R값)로 **대/중/소 × 정상/불량 6가지 분류** → `SORT:x` |
+| **`sucess.py`** | ⭐ **최종 안정판** | 불량 판별 기준 강화 + 정확한 무게중심 계산 + 타겟 고정 시 **빨간 십자선 UI** |
+
+---
+
+## 📁 폴더 구조
+
+| 폴더 | 내용 |
+|---|---|
+| [**`RPI-Flask-main/`**](RPI-Flask-main/) | ⭐ **라즈베리파이 본체.** Flask + YOLOv8-seg(ONNX) **CPU 추론** |
+| [`FastAPI_GPU버전-수정본/`](FastAPI_GPU버전-수정본/) | **GPU 버전.** 젯슨으로 옮겨 FastAPI + TensorRT 가속 + Gemini 관제 챗봇 추가 |
+| [`sub/`](sub/) | 학습 데이터 실험 (1000장 / 1500장 세트) |
+| [`Classfication_fruit.v1i.yolov8/`](Classfication_fruit.v1i.yolov8/) | Roboflow 학습용 데이터셋 (YOLOv8 포맷) |
+
+---
+
+## 🔧 주요 파일
+
+| 파일 | 설명 |
+|---|---|
+| `RPI-Flask-main/camera.py` | 라즈베리파이 전용 카메라 모듈. **Picamera2**로 FHD·오토포커스(AF)·화이트밸런스(AWB)를 하드웨어 레벨에서 초기화 |
+| `FastAPI_GPU버전-수정본/camera.py` | **하이브리드 카메라 래퍼.** RealSense 연결을 우선 시도하고 **실패하면 자동으로 USB 웹캠으로 폴백**하는 고가용성 구조. 백그라운드 스레드로 서버 부하 최소화 |
+| `index.html` | 웹 관제 대시보드 — 실시간 스트리밍, CPU/메모리/FPS, 시스템 제어 버튼, **생산량·불량률 동적 차트(Chart.js)** |
+| `prototype.py`, `send_test.py` | 외부 중앙 서버로 탐지 결과를 HTTP POST 전송하는 통신 테스트 |
+
+> 💡 이때 겪은 **"자원이 부족한 보드에서 AI를 어떻게 돌릴 것인가"** 문제의식이
+> 이후 [2026년 캡스톤의 TensorRT 최적화](../../2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/)와
+> [광명테크 인턴의 OpenVINO 전환](../../2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/)으로 이어졌습니다.
+
+📖 파일별 상세 설명: [`RPI-Flask-main/코드설명.md`](RPI-Flask-main/코드설명.md) ·
+[`FastAPI_GPU버전-수정본/코드설명.md`](FastAPI_GPU버전-수정본/코드설명.md)
