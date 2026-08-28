@@ -1,1 +1,11 @@
+# 발표자료(.pptx)는 용량이 커서 Git LFS로 관리한다.
+# 최종보고서 초안 하나가 115MB라 일반 방식으로는 GitHub이 받아주지 않는다.
 *.pptx filter=lfs diff=lfs merge=lfs -text
+
+# ★ 예외 하나.
+#   "20119160 이지용.pptx"(2024 임베디드 리눅스 발표자료)는 LFS를 붙이기 전에
+#   일반 파일로 커밋됐다. 59KB밖에 안 돼 LFS로 옮길 이유가 없는데, 위 규칙에
+#   걸려서 clone 할 때마다
+#     "Encountered 1 file that should have been a pointer, but wasn't"
+#   경고가 떴다. 규칙에서 빼서 경고를 없앤다.
+20119160*.pptx !filter !diff !merge
