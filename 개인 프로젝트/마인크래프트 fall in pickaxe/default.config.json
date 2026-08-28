@@ -1,0 +1,26 @@
+{
+    "CHAT_CONTROL": false,
+    "API_KEY": "YOUR_API_KEY_HERE",
+    "CHANNEL_ID": "YOUR_CHANNEL_ID_HERE",
+    "LIVESTREAM_ID": "YOUR_LIVESTREAM_ID_HERE",
+    "YT_POLL_INTERVAL_SECONDS": 15,
+    "TNT_SPAWN_INTERVAL_SECONDS_MIN": 5,
+    "TNT_SPAWN_INTERVAL_SECONDS_MAX": 30,
+    "TNT_AMOUNT_ON_SUPERCHAT": 10,
+    "FAST_SLOW_INTERVAL_SECONDS_MIN": 5,
+    "FAST_SLOW_INTERVAL_SECONDS_MAX": 30,
+    "FAST_SLOW_DURATION_SECONDS": 5,
+    "RANDOM_PICKAXE_INTERVAL_SECONDS_MIN": 5,
+    "RANDOM_PICKAXE_INTERVAL_SECONDS_MAX": 30,
+    "PICKAXE_ENLARGE_INTERVAL_SECONDS_MIN": 5,
+    "PICKAXE_ENLARGE_INTERVAL_SECONDS_MAX": 30,
+    "PICKAXE_ENLARGE_DURATION_SECONDS": 5,
+    "SAVE_PROGRESS_INTERVAL_SECONDS": 30,
+    "QUEUES_POP_INTERVAL_SECONDS": 5,
+    "DONATION_TIERS": [
+        { "tier": 1, "min_krw": 1000, "max_krw": 4999, "tnt_count": 3, "mega": false, "mega_scale": 1, "shake_duration": 10, "shake_intensity": 10 },
+        { "tier": 2, "min_krw": 5000, "max_krw": 9999, "tnt_count": 6, "mega": false, "mega_scale": 1, "shake_duration": 15, "shake_intensity": 15 },
+        { "tier": 3, "min_krw": 10000, "max_krw": 29999, "tnt_count": 3, "mega": true, "mega_scale": 2, "shake_duration": 20, "shake_intensity": 20 },
+        { "tier": 4, "min_krw": 30000, "max_krw": null, "tnt_count": 5, "mega": true, "mega_scale": 3, "shake_duration": 30, "shake_intensity": 30 }
+    ]
+}
