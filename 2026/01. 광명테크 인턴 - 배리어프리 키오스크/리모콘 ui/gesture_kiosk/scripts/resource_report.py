@@ -19,6 +19,7 @@ import numpy as np
 
 from src.utils.config_loader import load_config
 from src.utils.logger import get_logger, init_logging
+from src.utils.console import enable_utf8_output
 
 DEFAULT_CONFIG_PATH = os.path.join(ROOT_DIR, "configs", "config.yaml")
 WARMUP_COUNT = 10
@@ -34,6 +35,7 @@ def rss_mb():
 
 
 def main():
+    enable_utf8_output()   # cp949 콘솔에서 줄표(—) 등으로 죽는 것 방지
     parser = argparse.ArgumentParser(description="엔진 자원 점유 실측")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--source", choices=["dummy", "camera"], default="dummy")

@@ -44,6 +44,7 @@ from src.postprocess.hand_shape import finger_states, hand_center_point
 from src.utils.calibration import apply_to_config_text, format_report, recommend_thresholds
 from src.utils.config_loader import load_config
 from src.utils.logger import get_logger, init_logging
+from src.utils.console import enable_utf8_output
 
 WINDOW = "gesture_kiosk calibration"
 CONFIG_PATH = os.path.join(ROOT, "configs", "config.yaml")
@@ -238,6 +239,7 @@ def measure_tap(ctx, cfg, measured):
 
 
 def main():
+    enable_utf8_output()   # cp949 콘솔에서 줄표(—) 등으로 죽는 것 방지
     parser = argparse.ArgumentParser(description="gesture_kiosk 임계값 보정")
     parser.add_argument("--dry-run", action="store_true",
                         help="측정·권장값만 출력하고 config는 건드리지 않는다")

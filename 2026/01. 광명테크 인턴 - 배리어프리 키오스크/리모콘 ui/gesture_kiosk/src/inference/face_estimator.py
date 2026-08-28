@@ -19,6 +19,7 @@
 
 모델 파일: models/weights/face_landmarker.task — download_weights.py가 받는다.
 """
+import math
 import time
 from dataclasses import dataclass, field
 
@@ -65,6 +66,79 @@ LMK_NOSE_CLUSTER = (
 BBOX_PAD_RATIO = 0.10  # 랜드마크 묶음 -> 얼굴 박스로 넓히는 패딩
 
 
+def _rotation_matrix_to_euler_deg(rot):
+    """3x3 회전행렬 -> (yaw, pitch, roll) 도(degree).
+
+    ★2026-08-28 신설 — 머리의 실제 3차원 자세를 각도로 쓰기 위한 변환
+    (head_pose 설명은 FaceLandmarks.head_pose 참고).
+
+    회전 순서는 컴퓨터비전에서 널리 쓰는 Tait-Bryan Y-X-Z(yaw-pitch-roll)를
+    따른다. 짐벌락(pitch가 ±90°에 가까워 yaw와 roll이 한 축으로 붙어버리는
+    구간)은 별도 분기로 처리한다 — 키오스크에서 고개를 그만큼 젖힐 일은
+    없지만, 그 구간에서 각도가 튀면 커서가 순간이동하므로 막아 둔다.
+
+    부호 약속 (사용자 기준, 거울 반전된 화면 기준이 아니다):
+      yaw   왼쪽을 보면 음수 / 오른쪽을 보면 양수
+      pitch 위를 보면 양수 / 아래를 보면 음수
+      roll  오른쪽으로 갸웃하면 양수
+
+    R = Ry(yaw) @ Rx(pitch) @ Rz(roll) 로 합성된 행렬을 되짚는 식이다. 전개하면
+
+        R[1][2] = -sin(pitch)
+        R[0][2] =  sin(yaw)·cos(pitch)      R[2][2] = cos(yaw)·cos(pitch)
+        R[1][0] = cos(pitch)·sin(roll)      R[1][1] = cos(pitch)·cos(roll)
+
+    이므로 아래처럼 각각 뽑아낼 수 있다. (2026-08-28: 처음에 Z-Y-X 순서의
+    식을 잘못 가져다 써서 yaw와 pitch가 서로 뒤바뀌어 나왔다 — 단위 테스트로
+    잡았다. tests/test_head_pose.py 참고)
+    """
+    sin_pitch = -rot[1][2]
+    sin_pitch = max(-1.0, min(1.0, sin_pitch))   # 수치 오차로 |sin|>1 이 되는 것 방지
+    # 짐벌락 — cos(pitch)가 0에 붙으면 yaw와 roll이 한 축으로 겹쳐 구분이 안 된다.
+    # 위 네 성분이 전부 0에 수렴하므로 atan2가 무의미해진다. roll을 0으로 두고
+    # 남은 자유도를 전부 yaw로 몰아준다(키오스크에서 고개를 90° 젖힐 일은 없지만,
+    # 그 구간에서 각도가 튀면 커서가 순간이동하므로 막아 둔다)
+    if sin_pitch > 0.99999:
+        return (math.degrees(math.atan2(rot[0][1], rot[0][0])), 90.0, 0.0)
+    if sin_pitch < -0.99999:
+        return (math.degrees(math.atan2(-rot[0][1], rot[0][0])), -90.0, 0.0)
+    pitch = math.asin(sin_pitch)
+    yaw = math.atan2(rot[0][2], rot[2][2])
+    roll = math.atan2(rot[1][0], rot[1][1])
+    return (math.degrees(yaw), math.degrees(pitch), math.degrees(roll))
+
+
+@dataclass
+class HeadPose:
+    """머리의 3차원 자세 — MediaPipe가 돌려주는 4x4 변환행렬에서 뽑아낸 값.
+
+    ★2026-08-28 신설.
+
+    [왜 필요한가]
+    지금까지 커서는 **화면에 투영된 2D 랜드마크 위치**로 움직였다. 그런데
+    코처럼 얼굴에서 튀어나온 점은 고개를 돌리면 원근(perspective) 때문에
+    비선형으로 움직인다 — 좌우로만 돌려도 세로가 활처럼 휘는 현상
+    (ARC_COMPENSATION이 2차식으로 사후 보정하던 그 문제)의 근본 원인이다.
+
+    머리의 **회전각 자체**를 쓰면 애초에 투영 왜곡이 없다. 보정 상수도,
+    그 상수를 카메라 배치마다 다시 재는 일도 필요 없어진다.
+
+    [무엇을 받는가]
+    MediaPipe FaceLandmarker의 facial transformation matrix는 표준 얼굴
+    모형을 지금 검출된 얼굴에 맞추는 4x4 행렬이다(회전 + 평행이동).
+    회전 부분에서 각도를, 평행이동 부분에서 위치를 얻는다.
+    z는 카메라로부터의 거리라, 안구간거리로 거리를 짐작하던 기존 방식보다
+    직접적이다.
+    """
+
+    yaw_deg: float      # 좌우 회전 (도)
+    pitch_deg: float    # 상하 회전 (도)
+    roll_deg: float     # 갸웃 (도)
+    tx: float           # 머리 위치 x (모델 단위 — 대략 cm)
+    ty: float           # 머리 위치 y
+    tz: float           # 머리 위치 z — 카메라로부터의 거리(음수 방향)
+
+
 @dataclass
 class FaceLandmarks:
     """얼굴 1개의 추정 결과 (기획서 4.6 공통 데이터 구조 스타일)."""
@@ -73,6 +147,9 @@ class FaceLandmarks:
     conf: float
     landmarks_px: np.ndarray          # shape (478, 2) — (x_px, y_px)
     blendshapes: dict = field(default_factory=dict)   # category_name -> score(0~1)
+    # 3차원 머리 자세 — HeadPose 설명 참고. MediaPipe 옵션이 꺼져 있거나
+    # 행렬이 안 오면 None이므로, 쓰는 쪽은 반드시 None을 확인해야 한다
+    head_pose: object = None
 
     def landmark_px(self, index):
         """랜드마크 픽셀 좌표 (x, y). 인덱스는 항상 존재 — 신뢰도 게이트가 없다."""
@@ -106,6 +183,26 @@ def select_user_face(faces):
     if not faces:
         return None
     return max(faces, key=lambda face: face.area_px)
+
+
+def _extract_head_pose(result, face_idx):
+    """MediaPipe 결과에서 얼굴 1개의 HeadPose를 뽑는다. 없으면 None.
+
+    ★방어적으로 감쌌다 — 이 값은 "있으면 좋은" 부가 정보라, 뽑다가 실패해도
+    기존 랜드마크 기반 동작은 그대로 굴러가야 한다. 모델이나 mediapipe 버전이
+    바뀌어 행렬이 안 오는 상황에서 트래커 전체가 죽으면 안 된다.
+    """
+    matrices = getattr(result, "facial_transformation_matrixes", None)
+    if not matrices or face_idx >= len(matrices):
+        return None
+    try:
+        m = np.asarray(matrices[face_idx], dtype=np.float64).reshape(4, 4)
+        yaw, pitch, roll = _rotation_matrix_to_euler_deg(m[:3, :3])
+        return HeadPose(yaw_deg=yaw, pitch_deg=pitch, roll_deg=roll,
+                        tx=float(m[0][3]), ty=float(m[1][3]), tz=float(m[2][3]))
+    except Exception:   # noqa: 방어적 — 부가 정보 하나 때문에 추론이 죽으면 안 된다
+        logger.exception("머리 자세(변환행렬) 해석 실패 - 랜드마크 기반 동작은 계속됩니다")
+        return None
 
 
 def _landmarks_to_bbox_px(landmarks_px, frame_shape):
@@ -146,6 +243,11 @@ class FaceEstimator:
             min_face_presence_confidence=face_cfg["min_presence_conf"],
             min_tracking_confidence=face_cfg["min_tracking_conf"],
             output_face_blendshapes=True,   # 입 벌림·눈 감김·입 오므림 판정의 입력
+            # ★2026-08-28 신설 — 머리의 3차원 자세(HeadPose 설명 참고).
+            # 추가 비용은 사실상 없다: MediaPipe가 랜드마크를 뽑는 과정에서
+            # 이미 계산해 둔 행렬을 결과에 실어 보내는 것뿐이라, 새 추론이
+            # 돌지 않는다. 실측으로 확인할 것(scripts/measure_head_pose.py).
+            output_facial_transformation_matrixes=True,
         )
         self._mp = mp
         self._landmarker = FaceLandmarker.create_from_options(options)
@@ -193,6 +295,7 @@ class FaceEstimator:
             faces.append(FaceLandmarks(
                 bbox=_landmarks_to_bbox_px(landmarks_px, frame.shape), conf=1.0,
                 landmarks_px=landmarks_px, blendshapes=blendshapes,
+                head_pose=_extract_head_pose(result, face_idx),
             ))
         return faces
 

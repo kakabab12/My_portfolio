@@ -10,11 +10,16 @@ _SystemCursorHider.install_exit_guards 참고), `taskkill /F`처럼 OS가 프로
 
     py -3.11 scripts/restore_cursor.py
 """
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import ctypes
+from src.utils.console import enable_utf8_output
 
 SPI_SETCURSORS = 0x0057
 
 if __name__ == "__main__":
+    enable_utf8_output()   # cp949 콘솔에서 줄표(—) 등으로 죽는 것 방지
     # 레지스트리에 등록된 기본 커서들을 다시 불러온다 — SetSystemCursor로
     # 바꿔치기한 것 전부가 한 번에 원복되는 윈도우 공식 동작
     ok = ctypes.windll.user32.SystemParametersInfoW(SPI_SETCURSORS, 0, None, 0)

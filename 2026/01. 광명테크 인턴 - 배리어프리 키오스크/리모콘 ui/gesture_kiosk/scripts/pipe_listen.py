@@ -9,16 +9,19 @@ stdout을 익명 파이프로 줄 단위 수신)을 그대로 흉내 내 받은 
     python scripts/pipe_listen.py --config configs/config.yaml
 종료: Ctrl+C (엔진도 함께 종료)
 """
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import os
 import subprocess
 import sys
+from src.utils.console import enable_utf8_output
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_CONFIG_PATH = os.path.join(ROOT_DIR, "configs", "config.yaml")
 
 
 def main():
+    enable_utf8_output()   # cp949 콘솔에서 줄표(—) 등으로 죽는 것 방지
     parser = argparse.ArgumentParser(description="stdio 파이프 수신 확인 (델파이 대역)")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     args = parser.parse_args()

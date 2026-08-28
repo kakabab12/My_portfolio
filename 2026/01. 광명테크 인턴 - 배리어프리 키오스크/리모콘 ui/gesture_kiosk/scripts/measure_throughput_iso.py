@@ -62,6 +62,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)
 
 from forehead import CURSOR_Y_SPAN, _cursor_y_to_screen, put_korean_text  # noqa: E402
+from src.utils.console import enable_utf8_output
 
 WINDOW_NAME = "ISO 9241-411 throughput"
 
@@ -272,6 +273,7 @@ def _fitts_regression(points):
 
 
 def main():
+    enable_utf8_output()   # cp949 콘솔에서 줄표(—) 등으로 죽는 것 방지
     parser = argparse.ArgumentParser(
         description="ISO 9241-411 다방향 탭 시험으로 처리량(bit/s)을 측정한다")
     parser.add_argument("--label", default="forehead",

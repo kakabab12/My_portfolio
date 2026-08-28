@@ -6,10 +6,12 @@ PyInstaller는 시스템 파이썬에 깔지 않는다 — 빌드 전용 임시 
 끝나면 지운다. 결과물(head.exe)만 프로젝트 루트에 남는다. 다른 exe 빌드와
 별도 임시 venv 디렉터리를 쓴다 — 여러 빌드가 겹쳐 돌아도 서로 밟지 않게.
 """
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import os
 import shutil
 import subprocess
 import sys
+from src.utils.console import enable_utf8_output
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,6 +41,7 @@ def _build_exe(build_python):
 
 
 def main():
+    enable_utf8_output()   # cp949 콘솔에서 줄표(—) 등으로 죽는 것 방지
     build_python = _create_build_venv()
     try:
         _build_exe(build_python)

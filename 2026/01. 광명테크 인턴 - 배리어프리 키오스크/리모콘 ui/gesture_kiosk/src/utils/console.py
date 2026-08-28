@@ -39,6 +39,49 @@ logger = get_logger("console")
 MAX_PENDING_LINES = 1000
 
 
+def enable_utf8_output():
+    """한글·특수문자를 print해도 죽지 않게 표준 출력을 UTF-8로 맞춘다.
+
+    ★2026-08-28 신설 — **같은 버그에 네 번째로 걸려서** 공용 함수로 만들었다.
+
+    [무슨 버그인가]
+    한국어 윈도우의 기본 콘솔 인코딩은 cp949인데, 여기엔 줄표(—, U+2014)를
+    담을 자리가 없다. 그래서 `print("... — ...")` 한 줄이 UnicodeEncodeError로
+    **프로그램을 통째로 죽인다.** 정작 하려던 일은 다 끝내 놓고 마지막
+    안내문을 찍다가 죽는 경우가 많아, 겉보기엔 "성공했는데 오류가 났다"로
+    보인다.
+
+    [왜 반복됐나]
+    2026-08-25 트래커 본체에서 고치고, 08-27 빌드 스크립트 4개에서 또 고치고,
+    같은 날 변환 스크립트에서 또 겪었다. 매번 **그 파일에만** 인라인으로
+    고쳤기 때문에, 새 스크립트를 만들면 그대로 재발했다(08-28
+    measure_head_pose.py). 파일마다 고치는 대신 여기 한 곳에 두고 부르게 한다.
+
+    [쓰는 법] 새 스크립트를 만들면 main() 맨 앞에서 한 번 부른다.
+
+        from src.utils.console import enable_utf8_output
+        enable_utf8_output()
+
+    콘솔이 아예 없는 환경(pythonw, 서비스)에서도 안전하다 — 조용히 넘어간다.
+    """
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            if stream.isatty():
+                # 진짜 콘솔 — 인코딩은 콘솔이 정하게 두고, 못 그리는 글자만
+                # 대체 문자로 바꾼다(코드페이지를 강제로 바꾸면 다른 프로그램
+                # 출력까지 영향을 받는 경우가 있다)
+                reconfigure(errors="replace")
+            else:
+                # 파이프·파일로 나가는 중 — UTF-8로 고정하는 게 안전하다
+                reconfigure(encoding="utf-8", errors="replace")
+        except Exception:   # noqa: 방어적 — 인코딩 설정 실패로 본 기능이 죽으면 안 된다
+            pass
+
+
 class _ConsoleWriter:
     def __init__(self):
         self._queue = queue.Queue(maxsize=MAX_PENDING_LINES)

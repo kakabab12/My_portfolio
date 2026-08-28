@@ -478,6 +478,37 @@ ONE_EURO_REFERENCE_DIST_PX = 60.0
 # / 3 = 0.8936. 상쇄하려면 부호를 뒤집는다.
 ARC_COMPENSATION = -0.8936
 
+# ★2026-08-28 신설 — 머리 회전각으로 커서를 움직이는 방식 (기본 꺼짐).
+#
+# [왜 만들었나]
+# 위 ARC_COMPENSATION 이력을 보면 알 수 있듯이, 곡률 보정 계수는
+#   ① 카메라 배치가 바뀔 때마다 다시 재야 하고(연구실은 아래에서 위를 보는
+#      각도, 키오스크는 정면이라 값이 다르다)
+#   ② 재는 것 자체가 까다로워서 어림값을 넣었다가 두 번 되돌렸다.
+#
+# 이 모든 문제의 뿌리는 **화면에 투영된 2D 좌표로 커서를 정한다**는 데 있다.
+# 코처럼 얼굴에서 튀어나온 점은 고개를 돌리면 원근 때문에 비선형으로 움직인다.
+#
+# MediaPipe는 얼굴 변환행렬(4x4)을 함께 내보낼 수 있고, 거기서 머리의 실제
+# 회전각(yaw/pitch/roll)을 얻을 수 있다. **각도를 직접 쓰면 투영 왜곡이
+# 애초에 없다** — 보정 상수도, 카메라 배치마다 다시 재는 일도 사라진다.
+#
+# [검증 상태]
+#   · 회전행렬 -> 각도 변환: 합성-분해 왕복이 정확함 (tests/test_head_pose.py)
+#     ※ 처음에 Z-Y-X 순서 식을 잘못 써서 yaw/pitch가 뒤바뀌었던 것을 이 테스트가 잡았다
+#   · 좌우로만 돌릴 때 세로 이동량 0 (tests/test_head_pose_mapping.py, 소수점 9자리)
+#   · 실기 측정(scripts/measure_head_pose.py): yaw 74.7° 움직이는 동안
+#     pitch는 17.6°에 머물러 축이 섞이지 않음을 확인
+#
+# [아직 안 한 것] ⚠ **실제로 커서를 이 방식으로 움직여 본 적은 없다.**
+#   감도(SENSITIVITY_*)는 지금 2D 좌표 기준으로 맞춰 둔 값이라, 각도 기준으로
+#   바꾸면 배율이 완전히 달라진다. 켜면 감도를 처음부터 다시 맞춰야 한다.
+#   그래서 기본을 꺼 둔다 — 실기로 확인한 뒤에 기본값을 바꿀 것.
+#
+# [켜는 법] 아래를 True로 바꾸고 실행. 이 모드에서는 ARC_COMPENSATION이
+#   무시된다(각도에는 보정할 왜곡이 없다).
+HEAD_POSE_MAPPING = False
+
 # 자동 재정렬(가만히 있으면 스스로 중심을 다시 잡는 기능) — ★2026-08-20 끔.
 # head.py와 동일 이유(그 파일 상수 설명 참고) — 사용자 결정 "몇 초 가만히
 # 있으면 캘리브레이션 되는 거 없애자". 시작할 때의 캘리브레이션은 그대로 둔다
@@ -1280,6 +1311,7 @@ def main():
     config["head_tracker"]["pointer"]["one_euro_distance_adaptive"] = ONE_EURO_DISTANCE_ADAPTIVE
     config["head_tracker"]["pointer"]["one_euro_reference_dist_px"] = ONE_EURO_REFERENCE_DIST_PX
     config["head_tracker"]["pointer"]["arc_compensation"] = arc_compensation
+    config["head_tracker"]["pointer"]["head_pose_mapping"] = HEAD_POSE_MAPPING
 
     mouse = _Win32Mouse()
     logger.info("화면 해상도 %dx%d 감지 — 커서는 세로 %d~%dpx 구간(%s %.0f%%)만 사용",

@@ -39,6 +39,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)
 
 from forehead import _cursor_y_to_screen  # noqa: E402
+from src.utils.console import enable_utf8_output
 
 SAMPLE_INTERVAL_SEC = 1.0 / 60
 MIN_SAMPLES = 120
@@ -100,6 +101,7 @@ def _fit_quadratic(xs, ys):
 
 
 def main():
+    enable_utf8_output()   # cp949 콘솔에서 줄표(—) 등으로 죽는 것 방지
     parser = argparse.ArgumentParser(
         description="가로 이동 시 세로가 휘는 양을 실측해 보정 계수를 계산한다")
     parser.add_argument("--seconds", type=float, default=25.0,

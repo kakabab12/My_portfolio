@@ -64,6 +64,12 @@ MIN_INTEROCULAR_DIST_PX = 10.0  # 이보다 좁으면(검출 불량) 정규화 �
 ONE_EURO_ADAPT_MIN_SCALE = 0.5
 ONE_EURO_ADAPT_MAX_SCALE = 1.0
 
+# 각도 기반 매핑에서 회전각을 자르는 한도 (도).
+# tan(θ)는 90°에서 발산한다 — 키오스크에서 고개를 그만큼 돌릴 일은 없지만,
+# 한 프레임이라도 튀면 커서가 화면 밖으로 순간이동한다. 사람이 화면을 보며
+# 조작하는 범위를 넉넉히 감싸는 값으로 자른다
+HEAD_POSE_MAX_ANGLE_DEG = 60.0
+
 EVENT_SELECT = "select"            # 입 벌리기 / 1.5초 응시 — 선택·확인 (구 ok, 2026-07-30 개명)
 EVENT_HOME = "home"               # 양 눈 감고 버티기 — 처음으로
 EVENT_CALIBRATION = "calibration" # 응시(또는 입 오므리기, 기본 비활성) — 커서 중심 재정렬
@@ -259,7 +265,7 @@ class _CursorMapper:
                  face_local=True, face_local_gain=2.0,
                  one_euro_enabled=False, one_euro_min_cutoff=1.0, one_euro_beta=0.0,
                  one_euro_distance_adaptive=False, one_euro_reference_dist_px=60.0,
-                 arc_compensation=0.0):
+                 arc_compensation=0.0, head_pose_mapping=False):
         """one_euro_enabled(2026-08-27 forehead.py 대응 신설, OneEuroFilter 독스트링
         참고) — 기본 False라 head.py·eyebrow.py는 예전과 완전히 동일한 단순 EMA
         평활을 그대로 쓴다(동작 변화 없음). True면 EMA 대신 1€ 필터로 최종 커서
@@ -313,6 +319,9 @@ class _CursorMapper:
         # 내려준다는 뜻이다. 실측으로 맞추는 게 정확하다:
         # scripts/measure_arc.py 참고
         self._arc_compensation = arc_compensation
+        # ★각도 기반 매핑 — HEAD_POSE_MAPPING 설명 참고. 기본 False라
+        # 이 값을 안 넘기는 기존 호출부는 동작이 전혀 바뀌지 않는다
+        self._head_pose_mapping = head_pose_mapping
         self._one_euro_base_cutoff = one_euro_min_cutoff
         self._one_euro_distance_adaptive = one_euro_distance_adaptive
         self._one_euro_reference_dist_px = max(1.0, one_euro_reference_dist_px)
@@ -399,7 +408,40 @@ class _CursorMapper:
         self._one_euro_y.prime(0.5, now_sec)
         return True
 
-    def update(self, cursor_px, eye_left_px, eye_right_px, now_sec):
+    def _measure_head_pose(self, head_pose):
+        """머리 회전각을 커서 좌표 재료로 바꾼다 (head_pose_mapping 전용).
+
+        ★2026-08-28 신설 — HEAD_POSE_MAPPING 설명 참고.
+
+        각도를 그대로 쓰지 않고 **탄젠트**를 쓴다. 고개를 각도 θ만큼 돌렸을 때
+        사용자가 바라보는 화면 위의 지점은 tan(θ)에 비례해 움직이지 θ에 비례하지
+        않는다 — 눈에서 화면까지가 직선 거리이기 때문이다. θ를 그대로 쓰면 화면
+        가장자리로 갈수록 커서가 실제 시선보다 뒤처진다.
+
+        _measure()가 돌려주는 값과 단위를 맞춰 둔다 — 뒤쪽 계산(중앙값
+        캘리브레이션 -> 차이 -> 민감도 -> 클램프)이 두 방식에서 완전히 같게
+        흘러가야 하기 때문이다. 그래서 여기서도 부호 없는 무차원 값을 낸다.
+        """
+        if head_pose is None:
+            return None
+        yaw = math.radians(head_pose.yaw_deg)
+        pitch = math.radians(head_pose.pitch_deg)
+        # 고개를 90°에 가깝게 돌리면 tan이 발산한다 — 키오스크에서 그럴 일은
+        # 없지만, 한 프레임이라도 튀면 커서가 화면 밖으로 순간이동한다
+        limit = math.radians(HEAD_POSE_MAX_ANGLE_DEG)
+        yaw = max(-limit, min(limit, yaw))
+        pitch = max(-limit, min(limit, pitch))
+        # pitch 부호를 뒤집는다 — 위를 보면 pitch가 양수인데, 화면 좌표는
+        # 위쪽이 0이라 커서도 위(작은 값)로 가야 한다
+        return (math.tan(yaw), -math.tan(pitch))
+
+    def update(self, cursor_px, eye_left_px, eye_right_px, now_sec, head_pose=None):
+        # ★각도 기반 매핑 (HEAD_POSE_MAPPING) — 켜져 있고 자세 정보가 실제로
+        # 올 때만 이 경로를 탄다. 자세가 안 오면(옵션 꺼짐·모델 미지원) 조용히
+        # 기존 랜드마크 방식으로 되돌아간다 — 갑자기 커서가 멈추면 안 된다
+        if self._head_pose_mapping and head_pose is not None:
+            return self._update_from_head_pose(head_pose, now_sec)
+
         interocular_dist_px = _dist(eye_left_px, eye_right_px)
         if interocular_dist_px < MIN_INTEROCULAR_DIST_PX:
             return self.cursor_x_ratio, self.cursor_y_ratio   # 검출 불량 — 마지막 값 유지
@@ -466,6 +508,51 @@ class _CursorMapper:
             # OneEuroFilter 독스트링 참고 — head.py·eyebrow.py는 이 분기를 타지
             # 않는다(one_euro_enabled 기본 False)
             self._apply_distance_adaptive_cutoff()   # 멀수록 더 세게 평활
+            self.cursor_x_ratio = self._one_euro_x(raw_x, now_sec)
+            self.cursor_y_ratio = self._one_euro_y(raw_y, now_sec)
+        else:
+            self.cursor_x_ratio += self._smoothing_alpha * (raw_x - self.cursor_x_ratio)
+            self.cursor_y_ratio += self._smoothing_alpha * (raw_y - self.cursor_y_ratio)
+        return self.cursor_x_ratio, self.cursor_y_ratio
+
+    def _update_from_head_pose(self, head_pose, now_sec):
+        """머리 회전각으로 커서를 정한다 (HEAD_POSE_MAPPING 전용).
+
+        위 update()의 랜드마크 경로와 **뒤쪽 계산이 완전히 같다** — 중앙값
+        캘리브레이션 -> 중심 대비 차이 -> 민감도 -> 클램프 -> 평활. 재료를
+        "화면에 투영된 좌표"에서 "회전각의 탄젠트"로 바꿨을 뿐이다.
+
+        곡률 보정(_arc_compensation)이 여기엔 없다. 그 보정은 3차원 점이 2차원
+        화면에 투영될 때 생기는 왜곡을 2차식으로 되돌리는 장치인데, 회전각은
+        애초에 투영을 거치지 않아 왜곡될 것이 없다. **보정 상수를 카메라 배치마다
+        다시 재야 하는 문제 자체가 사라지는 것**이 이 방식의 핵심이다.
+        """
+        measured = self._measure_head_pose(head_pose)
+        if measured is None:
+            return self.cursor_x_ratio, self.cursor_y_ratio
+
+        center = self._center_calibrator.update(measured, now_sec)
+        if center is None:
+            return None, None   # 캘리브레이션 중 — 커서 미확정
+
+        if self.cursor_x_ratio is None:
+            logger.info("커서 중심 캘리브레이션 완료 (머리 회전각 기준)")
+            self.cursor_x_ratio, self.cursor_y_ratio = 0.5, 0.5
+            self._one_euro_x.prime(0.5, now_sec)
+            self._one_euro_y.prime(0.5, now_sec)
+            return self.cursor_x_ratio, self.cursor_y_ratio
+
+        offset_x = (measured[0] - center[0]) * self._sensitivity_x
+        offset_y = (measured[1] - center[1]) * self._sensitivity_y
+        offset_x = _clamp(offset_x, self._max_offset_ratio)
+        offset_y = _clamp(offset_y, self._max_offset_ratio)
+        raw_x, raw_y = 0.5 + offset_x, 0.5 + offset_y
+
+        if self._one_euro_enabled:
+            # 거리 적응 평활은 안구간거리를 쓰는데 이 경로에선 그 값을 갱신하지
+            # 않는다. 대신 자세의 tz(실제 거리)가 있으니 그걸 쓸 수 있지만,
+            # 단위가 달라 그대로 넣으면 배율이 어긋난다 — 먼저 실측한 뒤에
+            # 붙일 일이라 지금은 고정 평활만 쓴다
             self.cursor_x_ratio = self._one_euro_x(raw_x, now_sec)
             self.cursor_y_ratio = self._one_euro_y(raw_y, now_sec)
         else:
@@ -620,6 +707,9 @@ class HeadTracker:
             one_euro_distance_adaptive=pointer.get("one_euro_distance_adaptive", False),
             one_euro_reference_dist_px=pointer.get("one_euro_reference_dist_px", 60.0),
             arc_compensation=pointer.get("arc_compensation", 0.0),
+            # ★각도 기반 매핑 — HEAD_POSE_MAPPING 설명 참고. 기본 False라
+            # 이 키가 없는 기존 설정은 동작이 그대로다
+            head_pose_mapping=pointer.get("head_pose_mapping", False),
         )
 
         mouth = ht["mouth_click"]
@@ -687,7 +777,8 @@ class HeadTracker:
         eye_left_px = face.landmark_px(LMK_LEFT_EYE_OUTER)
         eye_right_px = face.landmark_px(LMK_RIGHT_EYE_OUTER)
         cursor_x, cursor_y = self._cursor_mapper.update(
-            cursor_source_px, eye_left_px, eye_right_px, now_sec)
+            cursor_source_px, eye_left_px, eye_right_px, now_sec,
+            head_pose=getattr(face, "head_pose", None))
         # 코 캘리브레이션과 같은 구간에서 입/눈/오므림 평상시 기준선도 함께 잡는다
         jaw_baseline = self._jaw_baseline.update(jaw_open_score, now_sec)
         eye_baseline = self._eye_baseline.update(eye_close_score, now_sec)

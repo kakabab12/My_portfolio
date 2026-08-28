@@ -18,6 +18,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)
 
 from src.utils.config_loader import load_config
+from src.utils.console import enable_utf8_output
 
 DEFAULT_CONFIG_PATH = os.path.join(ROOT_DIR, "configs", "config.yaml")
 
@@ -33,6 +34,7 @@ def check(label, is_ok, detail=""):
 
 
 def main():
+    enable_utf8_output()   # cp949 콘솔에서 줄표(—) 등으로 죽는 것 방지
     config = load_config(DEFAULT_CONFIG_PATH)
 
     expected_python = config["runtime"]["python_version"]
