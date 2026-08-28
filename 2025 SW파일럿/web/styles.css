@@ -1,0 +1,29 @@
+  /* styles.css */
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+
+button {
+  width: 5cm;
+  height: 5cm;
+  font-size: 1.5rem;
+}
+
+canvas {
+  border: 2px solid #333;
+  background-color: #eee;
+}
+
+#coords {
+  font-size: 1.2rem;
+  color: #333;
+}

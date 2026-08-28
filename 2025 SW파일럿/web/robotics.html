@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>로봇 이동</title>
+  <script src="https://cdn.jsdelivr.net/npm/roslib/build/roslib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 0; }
+    header {
+      background-color: #333; color: white;
+      padding: 15px; text-align: center;
+      font-size: 24px;
+    }
+    #container { display: flex; height: calc(100vh - 60px); }
+    #leftPanel {
+      width: 250px; padding: 10px;
+      border-right: 1px solid #ddd; background: #f9f9f9;
+    }
+    #coordList { list-style: none; padding-left: 10px; font-size: 14px; }
+    #main { flex-grow: 1; text-align: center; padding: 10px; position: relative; }
+    canvas { border: 1px solid #ccc; }
+    #coords, #mousePos { margin: 10px 0; }
+    #mousePos {
+      position: absolute; top: 5px; right: 20px;
+      font-size: 13px; color: #555;
+      background: #eee; padding: 4px 8px; border-radius: 5px;
+    }
+    button { padding: 8px 16px; font-size: 16px; margin-top: 5px; }
+    .highlight { font-weight: bold; color: green; }
+  </style>
+</head>
+<body>
+
+<header>Robotics Team Project</header>
+
+<div id="container">
+  <div id="leftPanel">
+    <h3>📍 전송된 좌표</h3>
+    <ul id="coordList"></ul>
+  </div>
+
+  <div id="main">
+    <canvas id="mapCanvas" width="800" height="600"></canvas>
+    <div id="mousePos">마우스 위치: - , -</div>
+    <div id="coords">클릭한 좌표: 없음</div>
+    <button id="sendBtn">좌표 전송</button>
+  </div>
+</div>
+
+<script>
+  // ROS 연결
+  const ros = new ROSLIB.Ros({ url: 'ws://localhost:9090' });
+  ros.on('connection', () => console.log('✅ ROS 연결됨'));
+  ros.on('error', err => console.error('❌ ROS 연결 오류:', err));
+  ros.on('close', () => console.log('🔌 ROS 연결 종료됨'));
+
+  const goalTopic = new ROSLIB.Topic({
+    ros: ros,
+    name: '/move_base_simple/goal',
+    messageType: 'geometry_msgs/PoseStamped'
+  });
+
+  // 변수
+  const canvas = document.getElementById('mapCanvas');
+  const ctx = canvas.getContext('2d');
+  const coordsDiv = document.getElementById('coords');
+  const mousePos = document.getElementById('mousePos');
+  const coordList = document.getElementById('coordList');
+
+  let clickedX = null, clickedY = null;
+  let robotX = 100, robotY = 100;
+  const sentGoals = []; // { x, y } 리스트
+
+  // 그리드 + 좌표축
+  function drawGridAndAxes() {
+    const gridSize = 50;
+    ctx.strokeStyle = '#ddd';
+    for (let x = 0; x <= canvas.width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+    for (let y = 0; y <= canvas.height; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+    }
+
+    // 좌표 축 (중앙 기준 X=0, Y=0)
+    ctx.strokeStyle = '#888';
+    ctx.beginPath(); ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height); ctx.stroke(); // Y축
+    ctx.beginPath(); ctx.moveTo(0, canvas.height/2); ctx.lineTo(canvas.width, canvas.height/2); ctx.stroke(); // X축
+
+    // 숫자 라벨
+    ctx.fillStyle = "#666";
+    ctx.font = "12px Arial";
+    for (let x = 100; x < canvas.width; x += 100) {
+      ctx.fillText(`${x}`, x + 2, canvas.height / 2 + 12);
+    }
+    for (let y = 100; y < canvas.height; y += 100) {
+      ctx.fillText(`${canvas.height - y}`, canvas.width / 2 + 5, y);
+    }
+  }
+
+  function drawRobot(x, y) {
+    ctx.font = "28px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🤖", x, y);
+  }
+
+  function drawScene() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGridAndAxes();
+
+    // 클릭된 좌표 (아직 미전송) → 파란색
+    if (clickedX !== null && clickedY !== null) {
+      ctx.beginPath();
+      ctx.arc(clickedX, clickedY, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = 'blue';
+      ctx.fill();
+    }
+
+    // 전송된 좌표들 → 초록색
+    for (const pt of sentGoals) {
+      ctx.beginPath();
+      ctx.arc(pt.canvasX, pt.canvasY, 6, 0, 2 * Math.PI);
+      ctx.fillStyle = 'green';
+      ctx.fill();
+    }
+
+    drawRobot(robotX, robotY);
+  }
+
+  function moveRobotTo(x, y) {
+    const steps = 30;
+    const dx = (x - robotX) / steps;
+    const dy = (y - robotY) / steps;
+    let step = 0;
+
+    const interval = setInterval(() => {
+      robotX += dx;
+      robotY += dy;
+      drawScene();
+      step++;
+      if (step >= steps) clearInterval(interval);
+    }, 20);
+  }
+
+  // 마우스 위치 실시간 표시
+  canvas.addEventListener('mousemove', function (e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    mousePos.textContent = `마우스 위치: (${x.toFixed(1)}, ${y.toFixed(1)})`;
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    mousePos.textContent = "마우스 위치: -, -";
+  });
+
+  // 좌표 클릭
+  canvas.addEventListener('click', function (e) {
+    const rect = canvas.getBoundingClientRect();
+    clickedX = e.clientX - rect.left;
+    clickedY = e.clientY - rect.top;
+
+    coordsDiv.textContent = `클릭한 좌표: (${clickedX.toFixed(1)}, ${clickedY.toFixed(1)})`;
+    moveRobotTo(clickedX, clickedY);
+  });
+
+  // 전송 버튼
+  document.getElementById('sendBtn').addEventListener('click', function () {
+    if (clickedX === null || clickedY === null) {
+      Swal.fire("❗ 먼저 좌표를 클릭하세요!");
+      return;
+    }
+
+    Swal.fire({
+      title: '좌표를 전송할까요?',
+      text: `(${clickedX.toFixed(1)}, ${clickedY.toFixed(1)})`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: '전송',
+      cancelButtonText: '취소'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const scale = 0.05;
+        const rosX = clickedX * scale;
+        const rosY = (canvas.height - clickedY) * scale;
+
+        const goalPose = new ROSLIB.Message({
+          header: {
+            seq: 0,
+            stamp: { secs: 0, nsecs: 0 },
+            frame_id: 'map'
+          },
+          pose: {
+            position: { x: rosX, y: rosY, z: 0.0 },
+            orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+          }
+        });
+
+        goalTopic.publish(goalPose);
+        console.log("📡 전송됨:", goalPose);
+
+        // 기록 저장
+        sentGoals.push({ x: rosX, y: rosY, canvasX: clickedX, canvasY: clickedY });
+
+        // 좌측 목록에 추가
+        const li = document.createElement('li');
+        li.innerHTML = `🟢 <span class="highlight">(${rosX.toFixed(2)}, ${rosY.toFixed(2)})</span>`;
+        coordList.insertBefore(li, coordList.firstChild);
+
+        drawScene();
+        Swal.fire('✅ 전송 완료', '', 'success');
+      }
+    });
+  });
+
+  drawScene(); // 초기화면
+</script>
+</body>
+</html>
