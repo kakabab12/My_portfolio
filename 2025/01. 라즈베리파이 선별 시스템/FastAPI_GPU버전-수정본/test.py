@@ -1,3 +1,4 @@
+import os
 import google.genai as genai
 import sys
 import io
@@ -6,7 +7,11 @@ import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # 본인의 API 키를 입력하세요
-client = genai.Client(api_key="AIzaSyC6xJAAPG0dN7hrjsyxswU6-quK8mqaVbE")
+# API 키는 환경변수로 받는다 -- 코드에 키를 직접 적으면 저장소를 공개하는
+# 순간 그대로 노출된다. 실행 전에 GEMINI_API_KEY 를 설정할 것.
+#   (Windows) set GEMINI_API_KEY=발급받은_키
+#   (Linux)   export GEMINI_API_KEY=발급받은_키
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
 
 print("=== Gemini Model List (English Only) ===")
 try:

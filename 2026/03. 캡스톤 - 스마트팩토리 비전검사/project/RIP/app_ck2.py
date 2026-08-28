@@ -214,7 +214,11 @@ def process_decision(objs):
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 app.add_middleware(CORSMiddleware, allow_origins=["*"])
-gemini_client = genai.Client(api_key="AIzaSyC6xJAAPG0dN7hrjsyxswU6-quK8mqaVbE")
+# API 키는 환경변수로 받는다 -- 코드에 키를 직접 적으면 저장소를 공개하는
+# 순간 그대로 노출된다. 실행 전에 GEMINI_API_KEY 를 설정할 것.
+#   (Windows) set GEMINI_API_KEY=발급받은_키
+#   (Linux)   export GEMINI_API_KEY=발급받은_키
+gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
 
 @app.get("/")
 async def index(request: Request):
