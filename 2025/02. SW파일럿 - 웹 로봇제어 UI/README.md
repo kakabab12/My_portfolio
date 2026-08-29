@@ -26,14 +26,14 @@ flowchart LR
 
 | 파일 | 설명 |
 |---|---|
-| `web/robotics.html` | 메인 UI. 캔버스에 이동 경로를 클릭으로 지정하고 좌표 목록을 좌측 패널에 표시합니다. 마우스 위치를 실시간으로 보여주고 SweetAlert2로 알림을 띄운다 |
+| `web/robotics.html` | 메인 UI. 캔버스에 이동 경로를 클릭으로 지정하고 좌표 목록을 좌측 패널에 표시합니다. 마우스 위치를 실시간으로 보여주고 SweetAlert2로 알림을 띄웁니다 |
 | `web/styles.css` | 스타일시트 |
 
 ## 사용 기술
 
 | 분류 | 내용 |
 |---|---|
-| 로봇 통신 | **roslib.js** (rosbridge WebSocket) — 브라우저에서 ROS 토픽을 직접 발행한다 |
+| 로봇 통신 | **roslib.js** (rosbridge WebSocket) — 브라우저에서 ROS 토픽을 직접 발행합니다 |
 | 프론트 | HTML5 Canvas, JavaScript, SweetAlert2 |
 
 > 본격적인 로봇 프로젝트는

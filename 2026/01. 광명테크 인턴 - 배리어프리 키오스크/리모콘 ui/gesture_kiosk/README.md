@@ -101,8 +101,8 @@ gesture_kiosk/
 | `py scriptsenchmark.py` | 추론 단독 FPS 측정 (기획서 6.1 — KPI 30 FPS) |
 | `py -m unittest discover tests -v` | 판정·손 추적·손모양·시나리오 단위 테스트 |
 | `py scripts\measure_head_pose.py` | **머리 3차원 자세 실측** (2026-08-28 신설) — yaw/pitch/roll이 축 섞임 없이 나오는지 확인 |
-| `py scripts\measure_arc.py` | 좌우 이동 시 세로 휨(곡률) 실측 — `ARC_COMPENSATION` 계수를 뽑는다 |
-| 실행 중 `tune` (+Enter) | **실시간 감도·곡률 조절 슬라이더** (2026-08-28 신설) — 창을 닫아도 값이 유지된다 |
+| `py scripts\measure_arc.py` | 좌우 이동 시 세로 휨(곡률) 실측 — `ARC_COMPENSATION` 계수를 뽑습니다 |
+| 실행 중 `tune` (+Enter) | **실시간 감도·곡률 조절 슬라이더** (2026-08-28 신설) — 창을 닫아도 값이 유지됩니다 |
 
 ## 헤드트래커 — 커서 기준점 방식 (2026-08 진행)
 

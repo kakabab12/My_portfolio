@@ -39,9 +39,9 @@ flowchart LR
 
 | 파일 | 역할 | 특징 |
 |---|---|---|
-| `app_base.py` | 초기(Base) | 인식된 픽셀을 **3D 물리 좌표로 변환**해 `MOVE:x,y,z`를 보낸다 |
-| `app_ck.py` | 메인 제어 | 마스크 면적(크기)과 사각형 비율(R값)로 **대/중/소 × 정상/불량 6가지**로 나눠 `SORT:x`를 보낸다 |
-| **`sucess.py`** | ★ **최종 안정판** | 불량 판별 기준을 강화하고, 무게중심 계산을 정확히 하고, 타겟 고정 시 **빨간 십자선 UI**를 띄운다 |
+| `app_base.py` | 초기(Base) | 인식된 픽셀을 **3D 물리 좌표로 변환**해 `MOVE:x,y,z`를 보냅니다 |
+| `app_ck.py` | 메인 제어 | 마스크 면적(크기)과 사각형 비율(R값)로 **대/중/소 × 정상/불량 6가지**로 나눠 `SORT:x`를 보냅니다 |
+| **`sucess.py`** | ★ **최종 안정판** | 불량 판별 기준을 강화하고, 무게중심 계산을 정확히 하고, 타겟 고정 시 **빨간 십자선 UI**를 띄웁니다 |
 
 ---
 
@@ -49,8 +49,8 @@ flowchart LR
 
 | 폴더 | 내용 |
 |---|---|
-| [**`RPI-Flask-main/`**](RPI-Flask-main/) | ★ **라즈베리파이 본체.** Flask와 YOLOv8-seg(ONNX)를 **CPU로** 돌린다 |
-| [`FastAPI_GPU버전-수정본/`](FastAPI_GPU버전-수정본/) | **GPU 버전.** 젯슨으로 옮겨 FastAPI + TensorRT 가속에 Gemini 관제 챗봇을 더했다 |
+| [**`RPI-Flask-main/`**](RPI-Flask-main/) | ★ **라즈베리파이 본체.** Flask와 YOLOv8-seg(ONNX)를 **CPU로** 돌립니다 |
+| [`FastAPI_GPU버전-수정본/`](FastAPI_GPU버전-수정본/) | **GPU 버전.** 젯슨으로 옮겨 FastAPI + TensorRT 가속에 Gemini 관제 챗봇을 더했습니다 |
 | [`sub/`](sub/) | 학습 데이터 실험 (1000장 / 1500장 세트) |
 | [`Classfication_fruit.v1i.yolov8/`](Classfication_fruit.v1i.yolov8/) | Roboflow 학습용 데이터셋 (YOLOv8 포맷) |
 
@@ -60,8 +60,8 @@ flowchart LR
 
 | 파일 | 설명 |
 |---|---|
-| `RPI-Flask-main/camera.py` | 라즈베리파이 전용 카메라 모듈. **Picamera2**로 FHD·오토포커스(AF)·화이트밸런스(AWB)를 하드웨어 레벨에서 초기화한다 |
-| `FastAPI_GPU버전-수정본/camera.py` | **하이브리드 카메라 래퍼.** RealSense 연결을 먼저 시도하고 **실패하면 자동으로 USB 웹캠으로 폴백**하는 고가용성 구조입니다. 백그라운드 스레드로 읽어 서버 부하를 줄인다 |
+| `RPI-Flask-main/camera.py` | 라즈베리파이 전용 카메라 모듈. **Picamera2**로 FHD·오토포커스(AF)·화이트밸런스(AWB)를 하드웨어 레벨에서 초기화합니다 |
+| `FastAPI_GPU버전-수정본/camera.py` | **하이브리드 카메라 래퍼.** RealSense 연결을 먼저 시도하고 **실패하면 자동으로 USB 웹캠으로 폴백**하는 고가용성 구조입니다. 백그라운드 스레드로 읽어 서버 부하를 줄입니다 |
 | `index.html` | 웹 관제 대시보드 — 실시간 스트리밍, CPU/메모리/FPS, 시스템 제어 버튼, **생산량·불량률 동적 차트(Chart.js)** |
 | `prototype.py`, `send_test.py` | 외부 중앙 서버로 탐지 결과를 HTTP POST로 보내는 통신 테스트 |
 

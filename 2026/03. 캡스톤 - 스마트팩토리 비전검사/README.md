@@ -49,22 +49,22 @@ Intel RealSense와 일반 USB 웹캠 조합으로 **아키텍처를 갈아엎고
 
 | 파일 | 설명 |
 |---|---|
-| **`project/jetson_USB2.py`**, `jetson_USB.py` | ★ **최종 완성본.** 듀얼 카메라 하이브리드 제어 서버. FastAPI 멀티스레딩으로 두 카메라의 YOLO 추론(무게 숫자 / 박스 분류)을 병렬 처리하고 아두이노 시리얼로 보낸다 |
-| `project/jetson_csi_final.py`, `jetson_main1(9).py` | **Plan A 버전.** 하드웨어 파손 이전의 CSI 카메라 기반 코드. `nvarguscamerasrc` GStreamer 파이프라인으로 하드웨어 인코딩 영상을 가져오는 고성능 지향 설계였다 |
+| **`project/jetson_USB2.py`**, `jetson_USB.py` | ★ **최종 완성본.** 듀얼 카메라 하이브리드 제어 서버. FastAPI 멀티스레딩으로 두 카메라의 YOLO 추론(무게 숫자 / 박스 분류)을 병렬 처리하고 아두이노 시리얼로 보냅니다 |
+| `project/jetson_csi_final.py`, `jetson_main1(9).py` | **Plan A 버전.** 하드웨어 파손 이전의 CSI 카메라 기반 코드. `nvarguscamerasrc` GStreamer 파이프라인으로 하드웨어 인코딩 영상을 가져오는 고성능 지향 설계였습니다 |
 | `project/jetson_main1.py` | **초기 프로토타입.** 아두이노 시리얼 통신 규격(`MOVE:RIGHT` 등)을 확립하고 TensorRT 로딩을 최초로 테스트한 뼈대 코드 |
 
 ### AI 모델 최적화
 
 | 파일 | 설명 |
 |---|---|
-| **`project/turnonnx.py`** | PyTorch(`.pt`)를 **TensorRT 엔진(`.engine`)** 으로 변환합니다. `half=True`로 **FP16 반정밀도 연산**을 켜서 추론 속도를 크게 끌어올린 핵심 최적화 코드다 |
+| **`project/turnonnx.py`** | PyTorch(`.pt`)를 **TensorRT 엔진(`.engine`)** 으로 변환합니다. `half=True`로 **FP16 반정밀도 연산**을 켜서 추론 속도를 크게 끌어올린 핵심 최적화 코드입니다 |
 | `project/box.*` / `number.*` | 박스 분류 / 무게 숫자 인식 모델 (`.pt` → `.onnx` → `.engine`) |
 
 ### 디버깅 도구
 
 | 파일 | 설명 |
 |---|---|
-| `project/cam_check.py` | 듀얼 카메라 멀티스레딩 안정성 테스트. 두 카메라가 충돌 없이 YOLO 루프를 도는지, **프레임 락이 걸리지 않는지** 점검한다 |
+| `project/cam_check.py` | 듀얼 카메라 멀티스레딩 안정성 테스트. 두 카메라가 충돌 없이 YOLO 루프를 도는지, **프레임 락이 걸리지 않는지** 점검합니다 |
 | `project/imx.py` | 단일 카메라 연결 확인용 초경량 스크립트 |
 
 ### 프론트엔드
