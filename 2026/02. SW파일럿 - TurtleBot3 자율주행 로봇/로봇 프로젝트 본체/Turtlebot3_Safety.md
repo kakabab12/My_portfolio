@@ -6,7 +6,7 @@
 
 - 전체 A→B→C→D→A 시연을 완료했습니다.
 - Safety 복구는 **즉시 정지 → Nav2 목표 취소 → 직선 후진 → 장애물 제거 확인 → 기존 목표 재개**만 수행합니다.
-- Safety 자체 좌우 회전 로직은 없습니다. 주행 중 보이는 회전은 Nav2의 경로 추종 또는 자체 recovery다.
+- Safety 자체 좌우 회전 로직은 없습니다. 주행 중 보이는 회전은 Nav2의 경로 추종 또는 자체 recovery입니다.
 - Safety는 A→B `auto_to_b`, D→A `auto_to_a` 자율주행 구간에서만 활성화됩니다.
 - 제스처·컨트롤러·장갑·조이스틱 등 수동 구간에서는 Safety가 전혀 개입하지 않습니다.
 - 제스처 모드에서 손 입력이 15초 동안 없으면 정지 후 컨트롤러 모드로 자동 전환됩니다.
@@ -31,7 +31,7 @@ waypoint 원본: `/home/user/sw/robot/ros2_bridge/waypoint_handoff_mission.py`
 | C | `(1.232, -1.355, -2.081)` | 제스처 구간 도착점 |
 | D | `(-0.067, -1.253, 1.627)` | 컨트롤러 구간 도착점 |
 
-- Nav2 XY goal tolerance는 0.10m다.
+- Nav2 XY goal tolerance는 0.10m입니다.
 - Nav2 성공 후 상위 미션은 최신 `map→base_link` TF로 실제 도착을 다시 검증합니다.
 - 검증 계산에는 수치 오차용 0.02m 여유가 있어 최대 0.12m까지 허용합니다.
 - yaw tolerance는 `2π`이므로 도착 방향은 강제하지 않습니다.

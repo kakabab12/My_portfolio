@@ -67,7 +67,7 @@ INFO: Uvicorn running on http://0.0.0.0:5001
 
 ## 5. LLM 판정(Ollama) — 꺼져 있어도 데모는 돈다
 
-맥 설정(`configs/config_mac.yaml`)은 판정 백엔드가 `ollama`(로컬 LLM, qwen3:4b)다.
+맥 설정(`configs/config_mac.yaml`)은 판정 백엔드가 `ollama`(로컬 LLM, qwen3:4b)입니다.
 
 - Ollama는 `brew services start ollama` 로 백그라운드 서비스 등록돼 있어 보통 자동으로 떠 있습니다
 - 확인: 터미널에서 `curl -s localhost:11434/api/version` 이 응답하면 정상
