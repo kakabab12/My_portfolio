@@ -113,6 +113,18 @@ def main():
                     help="카메라 위치. side = 측면 촬영(좌우 pan 은 관측 불가)")
     ap.add_argument("--pan", type=float, default=0.0,
                     help="shoulder_pan 을 고정할 각도 (--view side 또는 --lock-pan 일 때 적용)")
+    ap.add_argument("--model", default="full", choices=["lite","full","heavy"],
+                    help="pose 모델 정확도 등급. heavy 가 가장 정확하지만 느리다")
+    ap.add_argument("--hand-interval", type=int, default=2,
+                    help="손 추론 주기(프레임). 2 면 두 프레임에 한 번만 손을 추론해 "
+                         "속도를 올린다. 1 이면 매 프레임")
+    ap.add_argument("--no-anatomy", action="store_true",
+                    help="뼈 길이 제약 기반 깊이 재계산을 끈다")
+    ap.add_argument("--no-enhance", action="store_true",
+                    help="조도 보정(CLAHE+감마) 을 끈다")
+    ap.add_argument("--no-world", action="store_true",
+                    help="3D world landmark 대신 2D(x,y) 방식으로 계산한다. "
+                         "기본은 3D 사용 - 팔을 카메라 쪽으로 뻗어도 각도가 정확하다")
     ap.add_argument("--pan-mode", default="depth",
                     choices=["depth", "azimuth", "lateral"],
                     help="shoulder_pan 계산 방식. "
@@ -193,7 +205,11 @@ def main():
                          pan_mode=args.pan_mode, depth_scale=args.depth_scale,
                          pan_gain=args.pan_gain, pan_deadzone=args.pan_deadzone,
                          depth_span=args.depth_span,
-                         pan_cutoff=args.pan_cutoff, pan_beta=args.pan_beta)
+                         pan_cutoff=args.pan_cutoff, pan_beta=args.pan_beta,
+                         use_world=not args.no_world,
+                         model=args.model, enhance=not args.no_enhance,
+                         hand_interval=args.hand_interval,
+                         use_anatomy=not args.no_anatomy)
     period = 1.0 / args.fps
 
     # 급출발 방지: 첫 명령은 로봇의 현재 자세에서 출발한다.
