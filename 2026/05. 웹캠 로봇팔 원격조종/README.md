@@ -12,7 +12,7 @@
 
 ---
 
-사람이 **팔꿈치를 90° 굽히면 로봇도 90° 굽도록**, 관절 각도를 1:1로 전달하는 것이 목표였다.
+사람이 **팔꿈치를 90° 굽히면 로봇도 90° 굽도록**, 관절 각도를 1:1로 전달하는 것이 목표였습니다.
 
 ```mermaid
 flowchart LR
@@ -50,4 +50,4 @@ flowchart LR
 | [`lerobot 연동판/`](lerobot%20연동판/) | lerobot 연동 버전 |
 
 주요 파일은 `arm_tracker.py`(관절각 계산) · `teleop_so101.py`(로봇 전송) ·
-`download_models.py`(MediaPipe 모델 받기) · `tuning.json`(조정값)이다.
+`download_models.py`(MediaPipe 모델 받기) · `tuning.json`(조정값)입니다.

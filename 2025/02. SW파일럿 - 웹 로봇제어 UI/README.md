@@ -13,7 +13,7 @@
 ---
 
 **웹 브라우저에서 캔버스에 좌표를 찍어 로봇을 이동시키는** 관제 UI다.
-브라우저와 ROS를 직접 연결하는 **roslib(rosbridge)** 를 썼다.
+브라우저와 ROS를 직접 연결하는 **roslib(rosbridge)** 를 썼습니다.
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,7 @@ flowchart LR
 
 | 파일 | 설명 |
 |---|---|
-| `web/robotics.html` | 메인 UI. 캔버스에 이동 경로를 클릭으로 지정하고 좌표 목록을 좌측 패널에 표시한다. 마우스 위치를 실시간으로 보여주고 SweetAlert2로 알림을 띄운다 |
+| `web/robotics.html` | 메인 UI. 캔버스에 이동 경로를 클릭으로 지정하고 좌표 목록을 좌측 패널에 표시합니다. 마우스 위치를 실시간으로 보여주고 SweetAlert2로 알림을 띄운다 |
 | `web/styles.css` | 스타일시트 |
 
 ## 사용 기술

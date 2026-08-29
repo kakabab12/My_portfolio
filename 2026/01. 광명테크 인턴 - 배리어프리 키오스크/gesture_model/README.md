@@ -2,7 +2,7 @@
 
 키오스크 조작용 손 제스처 인식 파이프라인. 웹캠 → MediaPipe Hand Landmarker(손) +
 rtmlib RTMPose(포즈) → **"손등팔등"(손등 + 팔꿈치까지) 판정** → 안정적으로
-유지되면 `next_item` 이벤트 확정. **동작 하나만 쓰는 단순화 버전**(2026-07)이다.
+유지되면 `next_item` 이벤트 확정. **동작 하나만 쓰는 단순화 버전**(2026-07)입니다.
 
 ## 지금 상태
 
@@ -18,29 +18,29 @@ rtmlib RTMPose(포즈) → **"손등팔등"(손등 + 팔꿈치까지) 판정** �
 `is_back_of_hand()`. 클래스 이름은 `손등팔등`.
 
 - 주먹을 쥐면 손가락 마디가 접혀 랜드마크가 흔들리기 쉬운데, 손을 뒤집었는지(방향)
-  자체는 훨씬 안정적으로 바뀌어서 더 견고하다.
+  자체는 훨씬 안정적으로 바뀌어서 더 견고합니다.
 - 학습이 필요 없다 — 순수 기하 계산.
 - 부호는 이론적으로 유도했고(주석 참고) 실제 웹캠에서 뒤집기(`flip_orientation`)
-  없이 바로 맞는 것까지 확인됐다. 다른 카메라/각도에서 반대로 나오면
-  `configs/config.yaml`의 `model.mediapipe.flip_orientation: true`로 뒤집으면 된다.
+  없이 바로 맞는 것까지 확인됐습니다. 다른 카메라/각도에서 반대로 나오면
+  `configs/config.yaml`의 `model.mediapipe.flip_orientation: true`로 뒤집으면 됩니다.
 
 **팔꿈치까지 요구** — 손만 프레임 가장자리에 걸쳐 들어온 경우(팔 전체가 안 보임)를
 걸러내기 위해, 손등 방향과 별개로 **같은 쪽 팔꿈치가 포즈 추정(rtmlib)에서 신뢰도
 있게 보여야만** 이벤트가 확정된다 — `src/postprocess/person_lock.py`의
 `_is_elbow_visible()`. 손 판정(MediaPipe Hand Landmarker)과 팔꿈치 판정(RTMPose
-포즈)은 서로 다른 모델이지만 같은 프레임 좌표계를 쓰므로 그대로 결합했다. 이
+포즈)은 서로 다른 모델이지만 같은 프레임 좌표계를 쓰므로 그대로 결합했습니다. 이
 조건 때문에 `person_lock.enabled: false`로 끄면(포즈 추정 자체가 꺼짐) 이벤트가
-전혀 발화하지 않는다.
+전혀 발화하지 않습니다.
 
 **이전에 있던 select/pause_voice/cancel/go_home/sos_call/prev_item 등 다른
 동작들과 손모양 6클래스(fist/palm/ok/one/like/none) 분류·사용자 손 든 높이 판정은
-전부 제거했다.** 필요해지면 git 히스토리에서 복구 가능.
+전부 제거했습니다.** 필요해지면 git 히스토리에서 복구 가능.
 
 **남아있는 미사용 코드 — 정리 필요 여부 확인 요망:** `scripts/collect_landmarks.py`,
 `scripts/train_classifier.py`, `src/inference/hand_pose_classifier.py`,
 `src/inference/hand_landmark_extractor.py`는 "우리가 직접 학습시킨 손모양
 분류기"를 만들려던 이전 시도의 산물인데, 지금 방식(손등 방향, 학습 불필요)에서는
-더 이상 실제 파이프라인에 연결되어 있지 않다. 학습 모델 자체가 여전히 목표라면
+더 이상 실제 파이프라인에 연결되어 있지 않습니다. 학습 모델 자체가 여전히 목표라면
 남겨두고, 아니라면 삭제 대상.
 
 ## 폴더 구조
@@ -71,7 +71,7 @@ gesture_model/
 ```
 
 **직접 실행하는 파일은 1개**: `scripts/run_demo.py`. 나머지는 이 스크립트가
-가져다 쓰는 내부 모듈이거나 설정 파일이다.
+가져다 쓰는 내부 모듈이거나 설정 파일입니다.
 
 ## 0. 설치
 
@@ -81,11 +81,11 @@ gesture_model/
 pip install -r requirements.txt
 ```
 
-`models/weights/hand_landmarker.task`는 이미 받아뒀으므로 추가로 할 일 없다.
+`models/weights/hand_landmarker.task`는 이미 받아뒀으므로 추가로 할 일 없습니다.
 
 **중요 — 첫 실행 시 자동 다운로드**: `person_lock`이 켜져 있으면(기본값) `rtmlib`이
-RTMPose 포즈 모델(약 40MB)을 처음 한 번 `~/.cache/rtmlib`에 자동으로 받는다.
-인터넷 연결이 필요하고, 처음 실행할 때 몇 초~수십 초 더 걸린다. 이후에는 캐시를 쓴다.
+RTMPose 포즈 모델(약 40MB)을 처음 한 번 `~/.cache/rtmlib`에 자동으로 받습니다.
+인터넷 연결이 필요하고, 처음 실행할 때 몇 초~수십 초 더 걸립니다. 이후에는 캐시를 씁니다.
 
 ---
 
@@ -112,8 +112,8 @@ python scripts/run_demo.py
 ```
 
 웹캠 창에 검출 박스, 사용자 잠금 얼굴 박스, 손목 위치(L/R), FPS, 최근 확정
-이벤트가 표시된다. 제스처가 확정되면 콘솔에 `>>> GESTURE: next_item (0.9x)`
-형태로 출력된다. `q`로 종료.
+이벤트가 표시됩니다. 제스처가 확정되면 콘솔에 `>>> GESTURE: next_item (0.9x)`
+형태로 출력됩니다. `q`로 종료.
 
 **팀원 키오스크 프레임워크와 연동하는 지점**은 파일 상단의 이 함수 하나뿐:
 
@@ -123,7 +123,7 @@ def on_gesture_detected(label: str, confidence: float):
 ```
 
 이 함수 내용을 실제 키오스크 동작(화면 전환 함수 호출, 이벤트 큐에 넣기 등)으로
-바꿔 끼우면 된다. `label`은 항상 `next_item`이다.
+바꿔 끼우면 됩니다. `label`은 항상 `next_item`입니다.
 
 또는 `configs/config.yaml`의 `event_output.mode`를 `udp`로 바꾸면 같은 이벤트를
 JSON으로 UDP 전송한다 (`class_name`/`conf`/`ts_sec`/`hand_side`).
