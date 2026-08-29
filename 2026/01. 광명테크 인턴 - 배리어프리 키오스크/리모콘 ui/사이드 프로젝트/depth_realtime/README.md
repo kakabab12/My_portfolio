@@ -239,5 +239,5 @@ py -3.11 depth_lighting.py          # 조명 단계만 자체 검증 (모델 불
   거리 측정 용도로는 못 씁니다.
 - 이 노트북 CPU는 15W라 오래 돌리면 발열 제한이 걸린다 — 같은 설정에서
   70ms~160ms까지 흔들립니다. 위 수치는 지속 부하 기준입니다.
-- 더 빠르게 하려면 결국 GPU다. 이 PC에 외장 GPU가 있다면 onnxruntime-directml로
+- 더 빠르게 하려면 결국 GPU입니다. 이 PC에 외장 GPU가 있다면 onnxruntime-directml로
   바꾸는 것만으로 원본에 가까운 속도가 나올 가능성이 높습니다.

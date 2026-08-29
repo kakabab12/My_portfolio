@@ -97,6 +97,6 @@ flowchart TD
 ---
 
 > ⚠ `turtlebot3`, `DynamixelSDK`, `ld08_driver`, `coin_d4_driver` 등은
-> **ROBOTIS 공식 오픈소스**다. 이 팀이 직접 작성한 것은
+> **ROBOTIS 공식 오픈소스**입니다. 이 팀이 직접 작성한 것은
 > `turtlebot3_waypoint_patrol`(순찰·안전정지), 제스처 파이프라인, ESP32 펌웨어,
 > 소리 이상감지 패키지, LED 상태 노듭니다.
