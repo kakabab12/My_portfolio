@@ -2,9 +2,9 @@
 
 # 웹캠 하나로 로봇팔 원격조종
 
-![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
-![MediaPipe](https://img.shields.io/badge/MediaPipe-0097A7?style=flat-square&logo=google&logoColor=white)
-![HuggingFace](https://img.shields.io/badge/lerobot-FFD21E?style=flat-square&logo=huggingface&logoColor=black)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)](../../기술_용어집.md#python)
+[![MediaPipe](https://img.shields.io/badge/MediaPipe-0097A7?style=flat-square&logo=google&logoColor=white)](../../기술_용어집.md#mediapipe)
+[![HuggingFace](https://img.shields.io/badge/lerobot-FFD21E?style=flat-square&logo=huggingface&logoColor=black)](../../기술_용어집.md#lerobot)
 
 **장갑도 센서도 없이, 웹캠의 2D 좌표만으로 6축 로봇팔을 조종한다**
 

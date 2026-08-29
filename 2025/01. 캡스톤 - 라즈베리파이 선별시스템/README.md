@@ -2,11 +2,11 @@
 
 # 라즈베리파이 객체인식 → 아두이노 선별 시스템
 
-![RaspberryPi](https://img.shields.io/badge/Raspberry_Pi-A22846?style=flat-square&logo=raspberrypi&logoColor=white)
+[![RaspberryPi](https://img.shields.io/badge/Raspberry_Pi-A22846?style=flat-square&logo=raspberrypi&logoColor=white)](../../기술_용어집.md#raspberrypi)
 ![YOLO](https://img.shields.io/badge/YOLOv8--seg-00FFFF?style=flat-square&logo=yolo&logoColor=black)
-![ONNX](https://img.shields.io/badge/ONNX_Runtime-005CED?style=flat-square&logo=onnx&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-000000?style=flat-square&logo=flask&logoColor=white)
-![Arduino](https://img.shields.io/badge/Arduino-00979D?style=flat-square&logo=arduino&logoColor=white)
+[![ONNX](https://img.shields.io/badge/ONNX_Runtime-005CED?style=flat-square&logo=onnx&logoColor=white)](../../기술_용어집.md#onnx)
+[![Flask](https://img.shields.io/badge/Flask-000000?style=flat-square&logo=flask&logoColor=white)](../../기술_용어집.md#flask)
+[![Arduino](https://img.shields.io/badge/Arduino-00979D?style=flat-square&logo=arduino&logoColor=white)](../../기술_용어집.md#arduino)
 
 **캡스톤 디자인 1단계** · 2025년 2학기
 

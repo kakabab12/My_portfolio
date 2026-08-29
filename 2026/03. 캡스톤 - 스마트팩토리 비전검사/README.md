@@ -2,11 +2,11 @@
 
 # 캡스톤 — 스마트팩토리 비전 검사 시스템
 
-![Jetson](https://img.shields.io/badge/Jetson_Orin_Nano-76B900?style=flat-square&logo=nvidia&logoColor=white)
-![TensorRT](https://img.shields.io/badge/TensorRT_FP16-76B900?style=flat-square&logo=nvidia&logoColor=white)
-![YOLO](https://img.shields.io/badge/YOLO-00FFFF?style=flat-square&logo=yolo&logoColor=black)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
-![Arduino](https://img.shields.io/badge/Arduino-00979D?style=flat-square&logo=arduino&logoColor=white)
+[![Jetson](https://img.shields.io/badge/Jetson_Orin_Nano-76B900?style=flat-square&logo=nvidia&logoColor=white)](../../기술_용어집.md#jetson)
+[![TensorRT](https://img.shields.io/badge/TensorRT_FP16-76B900?style=flat-square&logo=nvidia&logoColor=white)](../../기술_용어집.md#tensorrt)
+[![YOLO](https://img.shields.io/badge/YOLO-00FFFF?style=flat-square&logo=yolo&logoColor=black)](../../기술_용어집.md#yolo)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](../../기술_용어집.md#fastapi)
+[![Arduino](https://img.shields.io/badge/Arduino-00979D?style=flat-square&logo=arduino&logoColor=white)](../../기술_용어집.md#arduino)
 
 **캡스톤 디자인 2단계(최종)** · 2026년 1학기 · 최종 전시회 출품작
 
