@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      
+      th, td {
+        text-align: left;
+        padding: 8px;
+      }
+      
+      tr:nth-child(even){background-color: #f2f2f2}
+      
+      th {
+        background-color: #04AA6D;
+        color: white;
+      }
+      .header {
+  padding: 60px;
+  text-align: center;
+  background: #1abc9c;
+  color: white;
+  font-size: 30px;
+}
+      </style>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+  </head>
+  <body>
+    <div class="header">
+      <h2><h1><%= title %></h1>
+        <p>여기는 댓글을 쓸 수 있고 글쓴것을 볼 수 있는 곳이야</p></h2>
+    </div>
+    <ul class="navbar-nav"></ul>
+    <a href="/" class="nav-link">홈으로 돌아가기</a></li>
+    <ul class="navbar-nav">
+    </ul>
+    <table>
+      <tr>
+        <th><h1>제목 : <%=board.title%> </h1></th>
+      <tr>
+      <td> <h3>글쓴이 : <%=board.contents%> </h3>
+        <h3>내용 : <%=board.author%> </h3></td>
+      </tr>
+      </table>
+    <hr>
+    <ul class="navbar-nav"></ul>
+    <a href="/" class="nav-link">홈으로 돌아가기</a></li>
+    <ul class="navbar-nav">
+    </ul>
+    
+    <table>
+      <tr>
+        <th>댓글</th>
+      <tr>
+      <td><% if (board.comments !== null) {
+        var comment = board.comments;
+          for(var i = 0; i < board.comments.length; i++) {%>
+    <h4>작성자 : <%=comment[i].author%></h4>
+    <h4>내용 : <%=comment[i].contents%></h4>
+    <hr>
+    <%}}%> </td>
+    </tr>
+    </table>
+
+    <table>
+      <tr>
+        <th>댓글 쓰는 곳.</th>
+      <tr>
+      <td> <h3><form action="/comment/write" method="post">
+        <input type="text" name="id" value="<%=board._id%>" hidden>
+        글 : <textarea name="contents"></textarea><br>
+        글쓴이 : <input type="text" name="author"><br>
+        <input type="submit" value="확인">
+      </form> </h3></td>
+    </tr>
+    </table>
+
+    
+  </body>
+</html>

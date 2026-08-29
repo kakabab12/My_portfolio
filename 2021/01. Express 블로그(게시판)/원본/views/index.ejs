@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      
+      th, td {
+        text-align: left;
+        padding: 8px;
+      }
+      
+      tr:nth-child(even){background-color: #f2f2f2}
+      
+      th {
+        background-color: #04AA6D;
+        color: white;
+      }
+      .header {
+  padding: 60px;
+  text-align: center;
+  background: #1abc9c;
+  color: white;
+  font-size: 30px;
+}
+      </style>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+  </head>
+  <body>
+    <div class="header">
+      <h2><h1><%= title %></h1>
+        <p>내 블로그에 온 것을 환영해</p></h2>
+    </div>
+   
+    <table>
+      <tr>
+        <th><a href="write">글쓰기</a><br></th>
+      <tr>
+      <td><% if (board !== null){
+        for(var i = 0; i < board.length; i++) { %>
+            <a href="/board/<%= board[i]._id%>"><h3><%= i+1 %> - <%=board[i].title%></h3></a>
+      <%  }} %></td>
+      
+    </tr>
+  </table>
+
+  
+
+  </body>
+</html>

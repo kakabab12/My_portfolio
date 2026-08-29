@@ -6,23 +6,31 @@
 
 <br>
 
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![C++](https://img.shields.io/badge/C%2FC%2B%2B-00599C?style=for-the-badge&logo=cplusplus&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
-![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)
-![ROS2](https://img.shields.io/badge/ROS_2_Humble-22314E?style=for-the-badge&logo=ros&logoColor=white)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](기술_용어집.md#python)
+[![C++](https://img.shields.io/badge/C%2FC%2B%2B-00599C?style=for-the-badge&logo=cplusplus&logoColor=white)](기술_용어집.md#cpp)
+[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](기술_용어집.md#javascript)
+[![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)](기술_용어집.md#opencv)
+[![ROS2](https://img.shields.io/badge/ROS_2_Humble-22314E?style=for-the-badge&logo=ros&logoColor=white)](기술_용어집.md#ros2)
 
-![NVIDIA](https://img.shields.io/badge/Jetson_·_TensorRT-76B900?style=for-the-badge&logo=nvidia&logoColor=white)
-![Intel](https://img.shields.io/badge/OpenVINO-0071C5?style=for-the-badge&logo=intel&logoColor=white)
-![MediaPipe](https://img.shields.io/badge/MediaPipe-0097A7?style=for-the-badge&logo=google&logoColor=white)
-![RaspberryPi](https://img.shields.io/badge/Raspberry_Pi-A22846?style=for-the-badge&logo=raspberrypi&logoColor=white)
-![Arduino](https://img.shields.io/badge/Arduino_·_ESP32-00979D?style=for-the-badge&logo=arduino&logoColor=white)
+[![NVIDIA](https://img.shields.io/badge/Jetson_·_TensorRT-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](기술_용어집.md#tensorrt)
+[![Intel](https://img.shields.io/badge/OpenVINO-0071C5?style=for-the-badge&logo=intel&logoColor=white)](기술_용어집.md#openvino)
+[![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](기술_용어집.md#pytorch)
+[![ONNX](https://img.shields.io/badge/ONNX_Runtime-005CED?style=for-the-badge&logo=onnx&logoColor=white)](기술_용어집.md#onnx)
+[![MediaPipe](https://img.shields.io/badge/MediaPipe-0097A7?style=for-the-badge&logo=google&logoColor=white)](기술_용어집.md#mediapipe)
+[![RaspberryPi](https://img.shields.io/badge/Raspberry_Pi-A22846?style=for-the-badge&logo=raspberrypi&logoColor=white)](기술_용어집.md#raspberrypi)
+[![Arduino](https://img.shields.io/badge/Arduino_·_ESP32-00979D?style=for-the-badge&logo=arduino&logoColor=white)](기술_용어집.md#arduino)
 
-![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
-![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+[![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)](기술_용어집.md#flask)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](기술_용어집.md#fastapi)
+[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](기술_용어집.md#nodejs)
+[![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](기술_용어집.md#mongodb)
+[![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](기술_용어집.md#mysql)
+
+</div>
+
+<div align="center">
+
+**배지를 누르면** 그 기술이 무엇이고 어디에 왜 썼는지 볼 수 있다 → [**기술 용어집**](기술_용어집.md)
 
 </div>
 
@@ -95,10 +103,10 @@ My_project
 ├── 2024/
 │   ├── 01. 임베디드 리눅스 - 배달감지 카메라
 │   └── 02. ASP + DB 연동
-└── 개인 프로젝트/            ← 연도 무관 · 상시 개발
+├── 2021/
+│   └── 01. Express 블로그(게시판)      ← 가장 오래된 작업
+└── 개인 프로젝트/            ← 시기를 특정하기 어려운 것들
     ├── 고클린 - 윈도우 최적화 도구
-    ├── Express 도서관 웹앱
-    ├── XAMPP 웹 자기소개서
     └── [외부코드] 마인크래프트 falling-pickaxe
 ```
 
@@ -112,16 +120,20 @@ gantt
     dateFormat YYYY-MM
     axisFormat %Y-%m
 
+    section 2021
+    Express 블로그 (게시판)            :2021-06, 1M
+
     section 2024
     임베디드 리눅스 (배달감지 카메라)   :2024-09, 4M
     ASP + DB 연동                      :2024-09, 4M
 
     section 2025
     SW파일럿 (웹 로봇제어 UI)          :2025-03, 6M
-    라즈베리파이 선별 시스템            :2025-09, 4M
+    XAMPP 웹 자기소개서                 :2025-07, 1M
+    캡스톤 1단계 (라즈베리파이)          :2025-09, 4M
 
     section 2026
-    캡스톤 (스마트팩토리 비전검사)      :2026-03, 4M
+    캡스톤 2단계 (젯슨·TensorRT)        :2026-03, 4M
     메디컬 머신러닝 대회                :2026-05, 1M
     광명테크 인턴 (배리어프리 키오스크) :crit, 2026-07, 2M
     SW파일럿 (TurtleBot3 자율주행)     :2026-08, 1M
@@ -135,11 +147,11 @@ gantt
 |:-:|---|:-:|:-:|---|---|
 | **1** | **[배리어프리 키오스크 입력 장치](2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/)** | `2026.07~08` | **기업 인턴** | 손을 못 쓰는 사용자를 위해 **고개·입 움직임으로 마우스를 대체**한다. 웹캠 1대만 쓴다 | `MediaPipe` `OpenVINO` `OpenCV` `델파이7` |
 | **2** | **[TurtleBot3 자율주행 로봇](2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/)** | `2026.08` | 팀 | 손 제스처·자이로 장갑 조종 + **SLAM 지도 기반 자율 순찰** + 소리 이상감지 | `ROS 2` `Nav2/SLAM` `Jetson` `ESP32` |
-| **3** | **[스마트팩토리 비전 검사](2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/)** | `2026.상반기` | 캡스톤 | 듀얼 카메라로 박스를 분류·검사하고 로봇팔을 제어한다. **TensorRT 추론 가속** | `YOLO` `TensorRT` `FastAPI` `Jetson` |
+| **3** | **[스마트팩토리 비전 검사](2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/)** | `2026.상반기` | **캡스톤 2단계** | 듀얼 카메라로 박스를 분류·검사하고 로봇팔을 제어한다. **캡스톤 2단계 · TensorRT 가속** | `YOLO` `TensorRT` `FastAPI` `Jetson` |
 | **4** | **[수술 위험도 예측 AI](2026/04.%20메디컬%20머신러닝%20대회/)** | `2026.05` | 대회 | 수술 **전** 데이터만으로 ICU 위험도·수술시간을 예측하고 **판단 근거까지 설명**한다 | `LightGBM` `XGBoost` `SHAP` `Flask` |
 | **5** | **[웹캠 로봇팔 원격조종](2026/05.%20웹캠%20로봇팔%20원격조종/)** | `2026` | 개인 | 센서 없이 **웹캠 2D 좌표만으로** 6축 로봇팔을 1:1 각도로 제어한다 | `MediaPipe` `lerobot` `1€ Filter` |
 | **6** | **[웹서버+DB 학습 교재](2026/06.%20웹서버%20DB%20연동%20기초/)** | `2026` | 학습 | 같은 앱을 **서버 3종 × DB 2종**으로 만들어 차이를 정리했다. **15챕터 직접 집필** | `Flask` `FastAPI` `SQLite` `MongoDB` |
-| **7** | **[라즈베리파이 선별 시스템](2025/01.%20라즈베리파이%20선별%20시스템/)** | `2025.2학기` | 학기 | YOLO로 크기·불량을 판정해 아두이노 분류기를 제어한다 | `YOLOv8-seg` `ONNX` `Flask` `Arduino` |
+| **7** | **[라즈베리파이 선별 시스템](2025/01.%20라즈베리파이%20선별%20시스템/)** | `2025.2학기` | **캡스톤 1단계** | YOLO로 크기·불량을 판정해 아두이노 분류기를 제어한다. **캡스톤 1단계** | `YOLOv8-seg` `ONNX` `Flask` `Arduino` |
 | **8** | **[윈도우 최적화 도구 '고클린'](개인%20프로젝트/고클린%20-%20윈도우%20최적화%20도구/)** | `개인` | 개인 | PC 청소·게임모드·진단을 한 번에. **exe로 빌드해 배포** | `Python` `tkinter` `PyInstaller` |
 
 ---
@@ -160,7 +172,9 @@ gantt
 </td></tr>
 <tr><td><b>추론 최적화</b></td><td>
 
-`TensorRT`(FP16 양자화) · `OpenVINO` · `ONNX Runtime`
+[`PyTorch`](기술_용어집.md#pytorch) · [`ONNX Runtime`](기술_용어집.md#onnx) · [`TensorRT`](기술_용어집.md#tensorrt)(FP16 양자화) · [`OpenVINO`](기술_용어집.md#openvino)
+
+학습은 PyTorch, 배포는 ONNX/TensorRT/OpenVINO로 변환해서 쓴다
 
 </td></tr>
 <tr><td><b>로보틱스</b></td><td>
@@ -330,9 +344,9 @@ flowchart TD
 
 <div align="center">
 
-| [**2026년 작업**](2026/) | [**2025년 작업**](2025/) | [**2024년 작업**](2024/) | [**개인 프로젝트**](개인%20프로젝트/) |
-|:-:|:-:|:-:|:-:|
-| 인턴 · 로보틱스 · 캡스톤<br>대회 · 학습교재 | 라즈베리파이 선별<br>웹 로봇제어 UI | 임베디드 리눅스<br>ASP DB 연동 | 개인 도구 · 웹 실습 |
+| [**2026년**](2026/) | [**2025년**](2025/) | [**2024년**](2024/) | [**2021년**](2021/) | [**개인 프로젝트**](개인%20프로젝트/) |
+|:-:|:-:|:-:|:-:|:-:|
+| 인턴 · 로보틱스<br>캡스톤 · 대회 | 라즈베리파이 선별<br>웹 로봇제어 · XAMPP | 임베디드 리눅스<br>ASP DB 연동 | Express<br>블로그 | 고클린<br>외부코드 |
 
 </div>
 

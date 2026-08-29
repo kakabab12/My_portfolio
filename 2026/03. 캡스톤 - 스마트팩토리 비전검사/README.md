@@ -8,7 +8,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![Arduino](https://img.shields.io/badge/Arduino-00979D?style=flat-square&logo=arduino&logoColor=white)
 
-**2026년 1학기 캡스톤 프로젝트** · 최종 전시회 출품작
+**캡스톤 디자인 2단계(최종)** · 2026년 1학기 · 최종 전시회 출품작
 
 </div>
 
@@ -16,6 +16,10 @@
 
 카메라 2대를 동시에 돌려 **박스를 분류**하고 **무게 숫자를 읽어**,
 결과를 아두이노로 보내 **로봇팔을 제어**하는 시스템이다.
+
+> ★ **캡스톤 디자인의 2단계이자 최종 결과물**이다. 1단계는
+> [2025년 라즈베리파이 선별 시스템](../../2025/01.%20라즈베리파이%20선별%20시스템/)으로,
+> 거기서 확인한 CPU 추론의 한계를 **젯슨나노 + TensorRT**로 넘어섰다.
 
 ```mermaid
 flowchart LR

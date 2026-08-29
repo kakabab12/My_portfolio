@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      
+      th, td {
+        text-align: left;
+        padding: 8px;
+      }
+      
+      tr:nth-child(even){background-color: #f2f2f2}
+      
+      th {
+        background-color: #04AA6D;
+        color: white;
+      }
+      .header {
+  padding: 60px;
+  text-align: center;
+  background: #1abc9c;
+  color: white;
+  font-size: 30px;
+}
+      </style>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+  </head>
+  <body>
+    <div class="header">
+      <h2><h1><%= title %></h1>
+        <p>여기는 글을 쓰는 곳이야</p></h2>
+    </div>
+    
+    <table>
+      <tr>
+        <th>글 쓰는 곳</th>
+      <tr>
+      <td><form action="/board/write" method="post">
+        제목    : <input type="text" name="title"><br>
+        글쓴이  : <input type="text" name="author"></textarea><br>
+        내용    : <textarea name="contents"></textarea><br>
+        <input type="submit" value="확인">
+      </form><ul class="navbar-nav"></ul>
+      <a href="/" class="nav-link">홈으로 돌아가기</a></li>
+      <ul class="navbar-nav">
+    </td>
+      
+    </tr>
+    </table>
+  </body>
+</html>
+

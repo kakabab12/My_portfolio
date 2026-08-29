@@ -2,7 +2,7 @@
 
 # 개인 프로젝트
 
-연도와 무관하게, 필요해서 만들거나 궁금해서 파본 것들
+시기를 특정하기 어렵거나, 연도와 무관하게 이어 온 것들
 
 </div>
 
@@ -11,22 +11,23 @@
 | 프로젝트 | 무엇인가 | 분류 |
 |---|---|:-:|
 | [**고클린 — 윈도우 최적화 도구**](고클린%20-%20윈도우%20최적화%20도구/) | PC 청소·게임모드·핑테스트·PC정보를 한 화면에 모았다. **exe로 빌드해 배포** | 개인 도구 |
-| [**Express 도서관 웹앱**](Express%20도서관%20웹앱/) | Node.js + Express + MongoDB 도서관 관리 웹앱 | 수업 실습 |
-| [**XAMPP 웹 자기소개서**](XAMPP%20웹%20자기소개서/) | XAMPP(Apache+PHP+MySQL) 기반 웹 자기소개서 | 수업 과제 |
 | [**마인크래프트 falling-pickaxe**](%5B외부코드%5D%20마인크래프트%20falling-pickaxe/) | ⚠ **타인 오픈소스** — 학습·개조 목적으로 받아둔 코드 | 외부 |
 
-> 웹캠 로봇팔 원격조종도 개인 프로젝트지만 2026년 작업이라
-> [`2026/05. 웹캠 로봇팔 원격조종/`](../2026/05.%20웹캠%20로봇팔%20원격조종/)에 있다.
+> **연도가 확인된 것들은 연도 폴더로 옮겼다.**
+> · Express 블로그(게시판) → [`2021/01.`](../2021/01.%20Express%20블로그(게시판)/) (2021-06)
+> · XAMPP 웹 자기소개서 → [`2025/03.`](../2025/03.%20XAMPP%20웹%20자기소개서/) (2025-07)
+> · 임베디드 리눅스 · ASP DB 연동 → [`2024/`](../2024/) (2024-2학기)
+> · 웹캠 로봇팔 원격조종 → [`2026/05.`](../2026/05.%20웹캠%20로봇팔%20원격조종/) (2026)
 
 ---
 
 ## 고클린 — 윈도우 최적화 도구
 
-> ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
-> ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)
-> PyInstaller로 단일 exe를 빌드했다
+> [![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)](../기술_용어집.md#python)
+> [![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)](../기술_용어집.md#python)
+> [![PyInstaller](https://img.shields.io/badge/PyInstaller-306998?style=flat-square)](../기술_용어집.md#pyinstaller)
 
-시스템 관리 기능을 한 화면에 모은 개인 유틸리티다.
+시스템 관리 기능을 한 화면에 모은 개인 유틸리티다. 내가 쓰려고 만들었다.
 
 | 기능 | 내용 |
 |---|---|
@@ -38,27 +39,22 @@
 
 **기술 포인트**
 
-- **관리자 권한 자동 획득** — 권한을 확인하고 없으면 UAC 창을 띄워 스스로 재실행한다
-- **GUI 멈춤 방지** — 모든 작업을 `threading.Thread(daemon=True)`로 분리해 "응답 없음"을 막았다
+- **관리자 권한 자동 획득** — 권한을 확인하고 없으면 UAC 창을 띄워 스스로 재실행한다.
+  시스템 파일 삭제나 네트워크 설정 변경에는 관리자 권한이 필수이기 때문이다
+- **GUI 멈춤 방지** — 모든 작업을 `threading.Thread(daemon=True)`로 분리했다.
+  `subprocess` 명령이 끝날 때까지 기다리면 창이 "응답 없음"이 된다
 - 터미널 인코딩을 UTF-8(`chcp 65001`)로 바꿔 한글 깨짐을 막았다
 
 | 폴더 | 버전 |
 |---|---|
 | `alpha.ver/` | **GUI 버전**과 exe 빌드 결과물 |
-| `초기.ver/` | 초기 배치파일(.bat) 버전 |
+| `초기.ver/` | 초기 배치파일(.bat) 버전 — `fltmc` 명령으로 권한을 확인하는 방식이었다 |
 
----
+**실행**
 
-## Express 도서관 웹앱
-
-Node.js **Express + MongoDB** 기반 도서관 관리 웹앱이다.
-도서·저자·장르·대출 상태를 관리하는 CRUD 구조를 익혔다. 실행화면 캡처 4장이 함께 있다.
-
----
-
-## XAMPP 웹 자기소개서
-
-**XAMPP**(Apache + PHP + MySQL) 환경에서 만든 웹 자기소개서 페이지다.
+```bash
+python alpha.ver/alpha_test1.py     # 또는 alpha.ver/alpha_test1.exe
+```
 
 ---
 
