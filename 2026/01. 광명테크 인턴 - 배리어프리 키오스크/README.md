@@ -6,7 +6,7 @@
 [![MediaPipe](https://img.shields.io/badge/MediaPipe-0097A7?style=flat-square&logo=google&logoColor=white)](../../기술_용어집.md#mediapipe)
 [![OpenVINO](https://img.shields.io/badge/OpenVINO-0071C5?style=flat-square&logo=intel&logoColor=white)](../../기술_용어집.md#openvino)
 [![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=flat-square&logo=opencv&logoColor=white)](../../기술_용어집.md#opencv)
-![Windows](https://img.shields.io/badge/Windows_CPU_only-0078D6?style=flat-square&logo=windows&logoColor=white)
+[![Windows](https://img.shields.io/badge/Windows_CPU_only-0078D6?style=flat-square&logo=windows&logoColor=white)](../../기술_용어집.md#windows)
 
 **(주)광명테크 인턴 프로젝트** · `2026.07 ~ 08`
 
