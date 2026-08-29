@@ -6,7 +6,7 @@
 [![XGBoost](https://img.shields.io/badge/XGBoost-EB0C0C?style=flat-square)](../../기술_용어집.md#xgboost)
 [![SHAP](https://img.shields.io/badge/SHAP_(XAI)](../../기술_용어집.md#shap)-0088CC?style=flat-square)
 [![Flask](https://img.shields.io/badge/Flask-000000?style=flat-square&logo=flask&logoColor=white)](../../기술_용어집.md#flask)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=flat-square&logo=scikitlearn&logoColor=white)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=flat-square&logo=scikitlearn&logoColor=white)](../../기술_용어집.md#lightgbm)
 
 **머신러닝 대회** · `2026.05` · 데이터셋: **INSPIRE** (공개 수술기간 의료 데이터)
 
