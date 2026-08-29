@@ -194,7 +194,7 @@ export ROS_DOMAIN_ID=30
 source ~/.bashrc
 ```
 
-주의: 파일 이름은 `~/.bashrc`다. `~/.bashrcrc`는 오타입니다.
+주의: 파일 이름은 `~/.bashrc`입니다. `~/.bashrcrc`는 오타입니다.
 
 ## 7. USB 장치 확인
 
