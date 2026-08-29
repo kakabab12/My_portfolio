@@ -1,7 +1,7 @@
 # 개발 PC 셋업 가이드 (VS Code — 빈 환경 기준)
 
 > 이 문서는 **개발용 보조 PC**(맥/윈도우/x86 리눅스)에서 코드를 고치고 빠르게
-> 확인하고 싶을 때 쓰는 선택 사항이다. 배포(윈도우 + NVIDIA) 설치는 [설치가이드.md](../설치가이드.md)를 볼 것.
+> 확인하고 싶을 때 쓰는 선택 사항입니다. 배포(윈도우 + NVIDIA) 설치는 [설치가이드.md](../설치가이드.md)를 볼 것.
 
 작성: 2026-07-08. 맥(Apple Silicon)·윈도우·리눅스(우분투 x86) 공통, OS별 차이는 각 단계에 표기.
 
@@ -43,7 +43,7 @@ source venv/bin/activate        # 맥·리눅스 공통 / 윈도우: venv\Script
 `Cmd+Shift+P`(윈도우 `Ctrl+Shift+P`) → **Python: Select Interpreter** → `./venv` 선택.
 이후 터미널 프롬프트 앞에 `(venv)`가 붙어 있는지 항상 확인.
 
-## 5. 라이브러리 설치 — 이 한 줄이 "빈깡통"을 채운다
+## 5. 라이브러리 설치 — 이 한 줄이 "빈깡통"을 채웁니다
 
 ```bash
 pip install -r requirements.txt

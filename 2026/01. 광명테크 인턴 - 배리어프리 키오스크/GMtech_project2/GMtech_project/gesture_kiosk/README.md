@@ -116,7 +116,7 @@ gesture_kiosk/
 | `py main.py` | 엔진 — 이벤트가 stdout에 한 줄씩 (공식 실행 — 시스템 파이썬) |
 | 실행 중 `cam on` / `cam off` (+Enter) | 카메라·계기판 창 켜기/끄기 — 재실행 불필요 |
 | `py main.py --debug` | 창을 켠 채 시작 |
-| `py scripts\calibrate.py` | 임계값 자동 보정 — 실제 동작을 재서 config 반영 |
+| `py scripts\calibrate.py` | 임계값 자동 보정 — 실제 동작을 측정해서 config 반영 |
 | `py scripts\pipe_listen.py` | 델파이 대역 — 파이프 수신 규격 자가 검증 |
 | `py scripts\benchmark.py` | 추론 단독 FPS 측정 (기획서 6.1 — KPI 30 FPS) |
 | `py -m unittest discover tests -v` | 판정·손 추적·손모양·시나리오 단위 테스트 |

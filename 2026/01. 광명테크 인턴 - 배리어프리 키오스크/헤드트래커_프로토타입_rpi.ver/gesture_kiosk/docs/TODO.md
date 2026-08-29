@@ -2,7 +2,7 @@
 
 작성: 2026-07-22 (win.ver에서 이식). win.ver의 changelog 전체 이력은
 `헤드트래커_프로토타입_win.ver/gesture_kiosk/docs/TODO.md` 참고 — 여기는 이 판
-자체의 진행 상황만 기록한다.
+자체의 진행 상황만 기록합니다.
 
 ## ✅ 완료 (2026-07-22 — 라즈베리파이5 이식)
 
@@ -11,7 +11,7 @@
       플랫폼 무관이라 그대로 복사. 카메라 캡처(`src/capture/camera_stream.py`)와
       프로세스 우선순위(`src/pipeline/realtime_loop.py`)만 새로 작성.
 - [x] **카메라 백엔드 2종**: v4l2(USB 웹캠, 기본) + picamera2(공식 카메라 모듈 —
-      libcamera 하드웨어 ISP로 리사이즈·BGR 변환을 대신해 CPU를 아낀다). config의
+      libcamera 하드웨어 ISP로 리사이즈·BGR 변환을 대신해 CPU를 아낍니다). config의
       `camera.backend`로 선택.
 - [x] **systemd 배포 유닛**(`deploy/gesture_kiosk.service`) 신설 — 리눅스는 일반
       사용자가 프로세스 우선순위를 못 올려(윈도우와 다름) `Nice=-5`로 확실히 보장.
@@ -63,7 +63,7 @@
 ## 메모
 
 이 판의 `head_tracker.*` 제스처 임계값은 win.ver 2026-07-21(입 오므리기로 재정렬
-제스처 확정된 시점) 기준을 그대로 가져왔다. win.ver에서 이후 제스처·임계값이
+제스처 확정된 시점) 기준을 그대로 가져왔습니다. win.ver에서 이후 제스처·임계값이
 바뀌면 이 판에도 반영할지 판단 필요(브랜치 간 자동 동기화 없음 — CLAUDE.md
 "브랜치 간 merge 금지" 원칙에 따라 수동으로 `git checkout` 후 재적용하는 방식과
 동일하게, 필요한 파일만 골라 옮길 것).

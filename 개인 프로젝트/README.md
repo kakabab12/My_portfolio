@@ -27,7 +27,7 @@
 > [![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)](../기술_용어집.md#python)
 > [![PyInstaller](https://img.shields.io/badge/PyInstaller-306998?style=flat-square)](../기술_용어집.md#pyinstaller)
 
-시스템 관리 기능을 한 화면에 모은 개인 유틸리팁니다. 내가 쓰려고 만들었습니다.
+시스템 관리 기능을 한 화면에 모은 개인 유틸리티입니다. 내가 쓰려고 만들었습니다.
 
 | 기능 | 내용 |
 |---|---|

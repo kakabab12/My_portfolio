@@ -3,7 +3,7 @@
 ## 1. 구성 개요
 
 기어박스 소리를 USB 마이크로 계속 수집하여 정상, 이상 또는 무감지 상태로
-판정하고 `/opencr_led_status` 토픽을 통해 OpenCR LED를 제어한다.
+판정하고 `/opencr_led_status` 토픽을 통해 OpenCR LED를 제어합니다.
 
 | 감지 상태 | OpenCR 모드 | LED 동작 |
 |---|---:|---|
@@ -12,7 +12,7 @@
 | `IDLE` | 1 | 초록·빨간 LED 모두 계속 켜짐 |
 
 `IDLE`은 입력 소리가 무음 기준보다 작거나, 아직 판정할 오디오가 충분하지
-않거나, 추론 오류가 발생한 경우에 사용한다.
+않거나, 추론 오류가 발생한 경우에 사용합니다.
 
 ## 2. 현재 설치 정보
 
@@ -28,8 +28,8 @@
 
 ## 3. TurtleBot3 및 OpenCR 실행
 
-LED 명령을 OpenCR로 전달하려면 `turtlebot3_node`가 실행 중이어야 한다.
-첫 번째 터미널에서 다음 명령을 실행한다.
+LED 명령을 OpenCR로 전달하려면 `turtlebot3_node`가 실행 중이어야 합니다.
+첫 번째 터미널에서 다음 명령을 실행합니다.
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -37,7 +37,7 @@ source ~/turtlebot3_ws/install/setup.bash
 ros2 launch turtlebot3_bringup robot.launch.py
 ```
 
-LiDAR 없이 TurtleBot3 노드만 시험할 때는 다음 명령을 사용할 수 있다.
+LiDAR 없이 TurtleBot3 노드만 시험할 때는 다음 명령을 사용할 수 있습니다.
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -49,7 +49,7 @@ ros2 run turtlebot3_node turtlebot3_ros -i /dev/ttyACM0 \
 
 ## 4. 소리 이상감지 패키지 실행
 
-두 번째 터미널에서 다음 명령을 실행한다.
+두 번째 터미널에서 다음 명령을 실행합니다.
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -58,12 +58,12 @@ source ~/ros2_ws/install/setup.bash
 ros2 launch sound_anomaly sound_anomaly.launch.py
 ```
 
-launch 파일은 이상감지 노드가 예기치 않게 종료되면 2초 뒤 다시 실행한다.
-터미널을 닫거나 `Ctrl+C`를 누르면 launch도 종료된다.
+launch 파일은 이상감지 노드가 예기치 않게 종료되면 2초 뒤 다시 실행합니다.
+터미널을 닫거나 `Ctrl+C`를 누르면 launch도 종료됩니다.
 
 ## 5. 감지 결과 확인
 
-새 터미널에서 ROS 2 환경을 적용한다.
+새 터미널에서 ROS 2 환경을 적용합니다.
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -117,15 +117,15 @@ ros2 node list | grep sound_anomaly
 | `idle_led_mode` | `1` | 두 LED 모두 상시 점등 |
 | `shutdown_led_mode` | `0` | 이상감지 노드 종료 시 두 LED 모두 끄기 |
 
-설정을 변경한 후에는 실행 중인 launch를 `Ctrl+C`로 종료하고 다시 실행한다.
+설정을 변경한 후에는 실행 중인 launch를 `Ctrl+C`로 종료하고 다시 실행합니다.
 `--symlink-install`로 빌드되어 있으므로 YAML 값만 바꾼 경우 일반적으로 재빌드할
-필요가 없다.
+필요가 없습니다.
 
 전체 시스템을 종료할 때는 이상감지 노드를 먼저 종료해야 모드 `0`이 실행 중인
-TurtleBot3 노드를 거쳐 OpenCR에 전달된다. 그 다음 Nav2, 순찰 노드와 TurtleBot3
-bringup을 종료한다.
+TurtleBot3 노드를 거쳐 OpenCR에 전달됩니다. 그 다음 Nav2, 순찰 노드와 TurtleBot3
+bringup을 종료합니다.
 
-Python 코드, launch 구성 또는 패키지 메타데이터를 변경했다면 다시 빌드한다.
+Python 코드, launch 구성 또는 패키지 메타데이터를 변경했다면 다시 빌드합니다.
 
 ```bash
 cd ~/ros2_ws
@@ -149,9 +149,9 @@ ALSA에서 USB 마이크 확인:
 arecord -l
 ```
 
-현재 확인된 USB 마이크는 ALSA 기준 `card 2, device 0`이다. USB 장치를 다시
+현재 확인된 USB 마이크는 ALSA 기준 `card 2, device 0`입니다. USB 장치를 다시
 연결하면 카드 번호는 바뀔 수 있지만 ROS 설정은 장치 이름을 사용하므로
-PortAudio 장치 번호 변경의 영향을 받지 않는다.
+PortAudio 장치 번호 변경의 영향을 받지 않습니다.
 
 ## 8. LED가 동작하지 않을 때
 
@@ -168,19 +168,19 @@ ros2 topic info /opencr_led_status
 ```
 
 `Subscription count`가 0이면 수정된 로컬 `turtlebot3_node`가 실행 중인지
-확인한다.
+확인합니다.
 
 ```bash
 ros2 pkg prefix turtlebot3_node
 ```
 
-다음 로컬 경로가 출력되어야 한다.
+다음 로컬 경로가 출력되어야 합니다.
 
 ```text
 /home/user/turtlebot3_ws/install/turtlebot3_node
 ```
 
-두 노드의 `ROS_DOMAIN_ID`도 같아야 한다. 현재 기본값은 `30`이다.
+두 노드의 `ROS_DOMAIN_ID`도 같아야 합니다. 현재 기본값은 `30`입니다.
 
 ```bash
 echo $ROS_DOMAIN_ID
@@ -188,9 +188,9 @@ echo $ROS_DOMAIN_ID
 
 ## 9. 주의 사항
 
-- 현재 모델은 3초 길이의 소리 구간을 사용하여 판정한다.
+- 현재 모델은 3초 길이의 소리 구간을 사용하여 판정합니다.
 - 공개 MIMII 기어박스 데이터로 학습된 모델이므로 실제 설비 및 현장 소음에서
-  정상·이상 음원으로 반드시 재검증해야 한다.
-- 이 모델의 판정만을 설비 안전 정지의 단독 근거로 사용하면 안 된다.
+  정상·이상 음원으로 반드시 재검증해야 합니다.
+- 이 모델의 판정만을 설비 안전 정지의 단독 근거로 사용하면 안 됩니다.
 - 부팅 후 자동 백그라운드 실행은 마이크와 LED 현장 시험을 완료한 뒤 systemd
-  서비스로 등록한다.
+  서비스로 등록합니다.

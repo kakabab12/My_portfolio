@@ -1,6 +1,6 @@
 # Jetson Orin Nano ROS 2 LED test
 
-물리 헤더 핀(BOARD) 31번은 초록색, 33번은 빨간색으로 사용합닙니다. 각 LED에는 적절한 직렬 저항을 사용하고 Jetson과 모듈의 GND를 공통으로 연결하세요. GPIO에는 5 V를 인가하지 마세요.
+물리 헤더 핀(BOARD) 31번은 초록색, 33번은 빨간색으로 사용합니다. 각 LED에는 적절한 직렬 저항을 사용하고 Jetson과 모듈의 GND를 공통으로 연결하세요. GPIO에는 5 V를 인가하지 마세요.
 
 ## 빌드
 
@@ -23,7 +23,7 @@ ros2 run led_status_node led_status --ros-args -p mock:=true
 ros2 launch led_status_node led_test.launch.py
 ```
 
-다른 터미널에서 상태를 한 번씩 발행합닙니다.
+다른 터미널에서 상태를 한 번씩 발행합니다.
 
 ```bash
 source /opt/ros/humble/setup.bash

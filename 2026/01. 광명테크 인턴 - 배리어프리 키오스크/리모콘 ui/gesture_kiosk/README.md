@@ -96,7 +96,7 @@ gesture_kiosk/
 | `py main.py` | 엔진 — 이벤트가 stdout에 한 줄씩 (공식 실행 — 시스템 파이썬) |
 | 실행 중 `cam on` / `cam off` (+Enter) | 카메라·계기판 창 켜기/끄기 — 재실행 불필요 |
 | `py main.py --debug` | 창을 켠 채 시작 |
-| `py scripts\calibrate.py` | 임계값 자동 보정 — 실제 동작을 재서 config 반영 |
+| `py scripts\calibrate.py` | 임계값 자동 보정 — 실제 동작을 측정해서 config 반영 |
 | `py scripts\pipe_listen.py` | 델파이 대역 — 파이프 수신 규격 자가 검증 |
 | `py scriptsenchmark.py` | 추론 단독 FPS 측정 (기획서 6.1 — KPI 30 FPS) |
 | `py -m unittest discover tests -v` | 판정·손 추적·손모양·시나리오 단위 테스트 |
@@ -120,7 +120,7 @@ gesture_kiosk/
 세 방식 모두 **화면에 투영된 2D 좌표**로 커서를 정합니다. 코처럼 얼굴에서
 튀어나온 점은 고개를 돌리면 원근 때문에 비선형으로 움직여서, 좌우로만
 돌려도 세로가 활처럼 휩니다. 이를 2차식(`ARC_COMPENSATION`)으로 사후 보정해
-왔는데, 그 계수는 **카메라 배치가 바뀌면 다시 재야 한다**.
+왔는데, 그 계수는 **카메라 배치가 바뀌면 다시 측정해야 한다**.
 
 MediaPipe가 함께 내보내는 **얼굴 변환행렬**에서 머리의 실제 회전각을 얻으면
 투영 왜곡이 애초에 없어 보정이 필요 없습니다. `forehead.py`의

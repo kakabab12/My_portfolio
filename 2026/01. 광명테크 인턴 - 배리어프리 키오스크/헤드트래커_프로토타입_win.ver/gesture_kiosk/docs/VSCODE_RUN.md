@@ -2,7 +2,7 @@
 
 > 작성 2026-07-10. 대상: 맥 + VS Code. 처음 환경을 만드는 법은 [CODE_SETUP.md](CODE_SETUP.md),
 > 맥에서 겪은 문제와 해결 기록은 [MAC_RUN_LOG.md](MAC_RUN_LOG.md) 참고.
-> 이 문서는 **이미 만들어진 환경(venv·모델·설정)을 VS Code에서 실행하는 법**만 다룬다.
+> 이 문서는 **이미 만들어진 환경(venv·모델·설정)을 VS Code에서 실행하는 법**만 다룹니다.
 
 ## 0. 한눈 요약
 
@@ -10,18 +10,18 @@
 VS Code로 gesture_kiosk 폴더 열기 → F5 → "데모 실행 (맥 — localhost:5001)" → 브라우저 접속
 ```
 
-나머지는 전부 자동이다. 아래는 각 단계의 확인 포인트와 문제 해결.
+나머지는 전부 자동입니다. 아래는 각 단계의 확인 포인트와 문제 해결.
 
 ## 1. 폴더 열기
 
 - VS Code 메뉴 → File → Open Folder → `~/Desktop/GMtech_project/GMtech_project/gesture_kiosk`
 - **상위 폴더(GMtech_project)가 아니라 gesture_kiosk 를 열어야 한다** —
-  `.vscode/` 설정(인터프리터·실행 구성)이 이 폴더 기준으로 저장돼 있다.
+  `.vscode/` 설정(인터프리터·실행 구성)이 이 폴더 기준으로 저장돼 있습니다.
 - 터미널에서 여는 법: `"/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" ~/Desktop/GMtech_project/GMtech_project/gesture_kiosk`
 
 ## 2. 인터프리터 확인 (자동)
 
-`.vscode/settings.json` 이 파이썬 인터프리터를 `./venv`(**Python 3.10.20**)로 자동 지정한다. 확인만 하면 된다:
+`.vscode/settings.json` 이 파이썬 인터프리터를 `./venv`(**Python 3.10.20**)로 자동 지정합니다. 확인만 하면 된다:
 
 - VS Code 우측 하단 상태바에 `3.10.20 ('venv')` 표시가 있는지 확인
 - 다르게 나오면: `Cmd+Shift+P` → "Python: Select Interpreter" → `./venv/bin/python` 선택
@@ -37,14 +37,14 @@ VS Code로 gesture_kiosk 폴더 열기 → F5 → "데모 실행 (맥 — localh
 
 실행 전 확인 2가지:
 
-1. **다른 데모가 떠 있으면 먼저 종료** — 포트 5001은 하나만 쓸 수 있다.
+1. **다른 데모가 떠 있으면 먼저 종료** — 포트 5001은 하나만 쓸 수 있습니다.
    Terminal(`run_demo_mac.command`)로 띄운 게 있으면 그 창에서 `Ctrl+C`,
    또는 아무 터미널에서 `pkill -f run_demo.py`
 2. **카메라 권한** — VS Code에서 처음 실행하면 macOS가
    "Visual Studio Code가 카메라에 접근하려고 합니다" 팝업을 띄운다 → **허용**.
    (팝업을 놓쳤으면 시스템 설정 → 개인정보 보호 및 보안 → 카메라에서 Visual Studio Code 켜기)
 
-실행되면 VS Code 내장 터미널에 로그가 흐른다. 정상 기동 로그 순서:
+실행되면 VS Code 내장 터미널에 로그가 흐릅니다. 정상 기동 로그 순서:
 
 ```
 [capture]     카메라 캡처 스레드 시작 (device_id=0)
@@ -58,7 +58,7 @@ INFO: Uvicorn running on http://0.0.0.0:5001
 ## 4. 브라우저 확인
 
 - **http://localhost:5001** 접속 → FINOK 무인민원발급기 화면
-- 음성안내가 기본 켬이지만, 크롬 정책상 **페이지를 한 번 클릭해야 소리가 나기 시작**할 수 있다
+- 음성안내가 기본 켬이지만, 크롬 정책상 **페이지를 한 번 클릭해야 소리가 나기 시작**할 수 있습니다
 - 우하단 PIP(카메라 화면)에서 확인할 것:
   - 초록 박스 = 손 검출, **하늘색 원+십자 = 오토포커스 잠금 영역** (원 밖의 손은 무시)
   - 추론 FPS ≈ 60 (상한 고정), 카메라 FPS ≈ 30
@@ -69,16 +69,16 @@ INFO: Uvicorn running on http://0.0.0.0:5001
 
 맥 설정(`configs/config_mac.yaml`)은 판정 백엔드가 `ollama`(로컬 LLM, qwen3:4b)다.
 
-- Ollama는 `brew services start ollama` 로 백그라운드 서비스 등록돼 있어 보통 자동으로 떠 있다
+- Ollama는 `brew services start ollama` 로 백그라운드 서비스 등록돼 있어 보통 자동으로 떠 있습니다
 - 확인: 터미널에서 `curl -s localhost:11434/api/version` 이 응답하면 정상
 - **Ollama가 꺼져 있어도 데모는 정상 구동된다** — LLM 호출이 실패하면 경고 로그 후
-  자동으로 규칙(rule) 판정으로 폴백된다. 로그에 `LLM 판정 실패 … 규칙 폴백` 이 보이면 이 상태다
+  자동으로 규칙(rule) 판정으로 폴백됩니다. 로그에 `LLM 판정 실패 … 규칙 폴백` 이 보이면 이 상태입니다
 - 아예 규칙 판정만 쓰려면: `configs/config_mac.yaml` → `judge.backend: rule`
 
 ## 6. 종료·재시작
 
 - 종료: **Shift+F5** (디버그 중지) 또는 내장 터미널에서 `Ctrl+C`
-- 코드(파이썬)를 고쳤으면 재시작해야 반영된다. **UI(demo_ui/index.html)는 재시작 없이
+- 코드(파이썬)를 고쳤으면 재시작해야 반영됩니다. **UI(demo_ui/index.html)는 재시작 없이
   브라우저 새로고침만으로 반영**된다 (서버가 요청마다 파일을 다시 읽음)
 - 설정(`configs/*.yaml`) 변경도 재시작 필요
 
@@ -107,4 +107,4 @@ grep gesture_event logs/*.log | tail                 # 최근 판정 이벤트 �
 
 > 용어: **F5(디버그 실행)** — `.vscode/launch.json`에 적힌 구성대로 프로그램을 실행하고
 > 중단점(breakpoint)을 걸 수 있는 모드. 코드 줄번호 왼쪽을 클릭해 빨간 점을 찍으면
-> 그 줄에서 실행이 멈춰 변수 값을 들여다볼 수 있다 — 판정 로직 디버깅에 유용하다.
+> 그 줄에서 실행이 멈춰 변수 값을 들여다볼 수 있다 — 판정 로직 디버깅에 유용합니다.

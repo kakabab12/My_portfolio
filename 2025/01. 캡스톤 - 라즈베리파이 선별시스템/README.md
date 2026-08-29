@@ -61,7 +61,7 @@ flowchart LR
 | 파일 | 설명 |
 |---|---|
 | `RPI-Flask-main/camera.py` | 라즈베리파이 전용 카메라 모듈. **Picamera2**로 FHD·오토포커스(AF)·화이트밸런스(AWB)를 하드웨어 레벨에서 초기화한다 |
-| `FastAPI_GPU버전-수정본/camera.py` | **하이브리드 카메라 래퍼.** RealSense 연결을 먼저 시도하고 **실패하면 자동으로 USB 웹캠으로 폴백**하는 고가용성 구좁니다. 백그라운드 스레드로 읽어 서버 부하를 줄인다 |
+| `FastAPI_GPU버전-수정본/camera.py` | **하이브리드 카메라 래퍼.** RealSense 연결을 먼저 시도하고 **실패하면 자동으로 USB 웹캠으로 폴백**하는 고가용성 구조입니다. 백그라운드 스레드로 읽어 서버 부하를 줄인다 |
 | `index.html` | 웹 관제 대시보드 — 실시간 스트리밍, CPU/메모리/FPS, 시스템 제어 버튼, **생산량·불량률 동적 차트(Chart.js)** |
 | `prototype.py`, `send_test.py` | 외부 중앙 서버로 탐지 결과를 HTTP POST로 보내는 통신 테스트 |
 
