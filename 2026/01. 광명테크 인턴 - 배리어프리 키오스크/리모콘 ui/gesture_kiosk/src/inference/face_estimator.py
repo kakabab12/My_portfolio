@@ -154,6 +154,18 @@ class FaceLandmarks:
     # 3차원 머리 자세 — HeadPose 설명 참고. MediaPipe 옵션이 꺼져 있거나
     # 행렬이 안 오면 None이므로, 쓰는 쪽은 반드시 None을 확인해야 한다
     head_pose: object = None
+    # ★2026-08-31 신설 — 변환행렬의 회전 부분 (3, 3), 직교화 완료.
+    #
+    # 왜 오일러 각(head_pose)과 별도로 행렬을 통째로 두나: 오일러 각은 축
+    # 규약(어느 회전이 양수인가)을 알아야만 쓸 수 있는데, 행렬 그대로면
+    # "중립 대비 상대 회전"(R_now @ R_neutral^T)으로 규약 자체를 소거할 수
+    # 있다 — head_orientation.py의 매핑이 정확히 그렇게 쓴다.
+    #
+    # 랜드마크 정합(Kabsch) 대신 이걸 우선하는 근거는 실측이다: 랜드마크는
+    # 원근 투영을 거친 이미지 좌표라 좌우 회전에 세로가 딸려오는 잔여 곡률이
+    # 남는데(실측 +1.88), MediaPipe 변환행렬은 카메라 모델을 넣은 정식 3D
+    # 정합이라 훨씬 곧다(실측 -0.65). 행렬이 안 오면 None — 쓰는 쪽이 확인
+    head_rotation: object = None
 
     def landmark_px(self, index):
         """랜드마크 픽셀 좌표 (x, y). 인덱스는 항상 존재 — 신뢰도 게이트가 없다."""
@@ -187,6 +199,28 @@ def select_user_face(faces):
     if not faces:
         return None
     return max(faces, key=lambda face: face.area_px)
+
+
+def _extract_head_rotation(result, face_idx):
+    """변환행렬의 회전 부분(3x3)을 직교화해서 뽑는다. 없으면 None.
+
+    직교화(SVD)를 거치는 이유: 행렬에 척도나 수치 오차가 섞여 있어도
+    가장 가까운 순수 회전으로 만들어 두면, 이걸 받는 쪽(상대 회전 계산)이
+    전치 = 역행렬이라는 회전의 성질을 안심하고 쓸 수 있다.
+    """
+    matrices = getattr(result, "facial_transformation_matrixes", None)
+    if not matrices or face_idx >= len(matrices):
+        return None
+    try:
+        m = np.asarray(matrices[face_idx], dtype=np.float64).reshape(4, 4)[:3, :3]
+        u, _s, vt = np.linalg.svd(m)
+        rot = u @ vt
+        if np.linalg.det(rot) < 0:      # 반사가 섞이면 회전이 아니다 — 뒤집는다
+            u[:, -1] = -u[:, -1]
+            rot = u @ vt
+        return rot
+    except Exception:   # noqa: 방어적 — 부가 정보 하나 때문에 추론이 죽으면 안 된다
+        return None
 
 
 def _extract_head_pose(result, face_idx):
@@ -250,7 +284,8 @@ class FaceEstimator:
             # ★2026-08-28 신설 — 머리의 3차원 자세(HeadPose 설명 참고).
             # 추가 비용은 사실상 없다: MediaPipe가 랜드마크를 뽑는 과정에서
             # 이미 계산해 둔 행렬을 결과에 실어 보내는 것뿐이라, 새 추론이
-            # 돌지 않는다. 실측으로 확인할 것(scripts/measure_head_pose.py).
+            # 돌지 않는다. 2026-08-31 실측으로 확인 완료(개발일지 참고 —
+            # 측정 도구는 역할을 다해 같은 날 정리로 삭제).
             output_facial_transformation_matrixes=True,
         )
         self._mp = mp
@@ -312,6 +347,7 @@ class FaceEstimator:
                 landmarks_px=landmarks_px, blendshapes=blendshapes,
                 landmarks_3d=landmarks_3d,
                 head_pose=_extract_head_pose(result, face_idx),
+                head_rotation=_extract_head_rotation(result, face_idx),
             ))
         return faces
 

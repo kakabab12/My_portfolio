@@ -258,7 +258,7 @@ face_tracker:               # 얼굴 랜드마크 — MediaPipe FaceLandmarker (
   infer_scale_ratio: 1.0    # 추론 입력 추가 축소 배율.
                             #   ★2026-08-31 실측 — 예전 주석은 "더 약한 CPU에서 FPS
                             #   부족하면 0.5~0.75"였는데, 재 보니 **속도 이득이 없다**.
-                            #   scripts/measure_infer_scale.py로 같은 프레임 90장에
+                            #   같은 프레임 90장에 (측정 도구는 역할을 다해 삭제)
                             #   배율만 바꿔 돌린 결과(i5-10210U, 405x720 입력):
                             #
                             #     배율   추론 중앙값(순서 뒤집어 2회)   커서 오차
@@ -349,6 +349,17 @@ head_tracker:               # 얼굴 신호 -> 커서·select·home·calibration
     # 세로를 가로보다 작게 두는 이유: 고개는 위아래보다 좌우로 훨씬 넓게 돌아간다.
     orientation_half_span_x_deg: 15.0
     orientation_half_span_y_deg: 10.0
+    # 회전을 어디서 얻을지 — auto(변환행렬 우선, 없으면 랜드마크 정합) | matrix | landmarks.
+    # 행렬을 우선하는 근거는 실측이다: 랜드마크 정합은 원근 투영을 거친 이미지
+    # 좌표라 잔여 곡률이 남고(+1.88), MediaPipe 변환행렬은 카메라 모델을 넣은
+    # 정식 3D 정합이라 훨씬 곧다(-0.65). head_orientation.py 참고
+    orientation_rotation_source: auto
+    # 잔여 곡률 자동 소거 (src/postprocess/auto_arc.py) — 쓰는 동안 세로가
+    # 가로의 제곱에 딸려오는 계통 오차(포물선)를 스스로 추정해 뺀다.
+    # 사람이 재서 넣던 ARC_COMPENSATION의 자동판 — 카메라를 어디에 어떤
+    # 각도로 달아도 다시 잴 일이 없어진다. 의도한 움직임(대각선·원·세로)은
+    # 2차항에 안 실리는 것을 단위 테스트로 확인했다 (test_auto_arc.py)
+    orientation_auto_arc: true
     face_local: true        # 2026-08-20 신설 — 커서를 "얼굴이 향한 방향"으로만 움직인다.
                             #   얼굴 좌표계(두 눈 중점 원점 + 두 눈 사이 거리 단위)에서
                             #   기준점 위치를 재므로, 몸이 움직이거나 카메라와의 거리가

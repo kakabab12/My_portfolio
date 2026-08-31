@@ -35,6 +35,26 @@
 가 최소제곱 최적해다. 가운데 d 가 반사(거울상)를 막는다 — 이걸 빼먹으면
 잡음이 클 때 얼굴이 뒤집힌 해가 나와 커서가 순간이동한다.
 
+★회전의 재료 두 가지 (2026-08-31 확장)
+--------------------------------------
+같은 "중립 대비 상대 회전"이라도 회전을 어디서 얻느냐가 갈린다.
+
+  1) 랜드마크 정합(Kabsch) — 이미지 좌표(+의사 z)의 강체 점 22개를 정합.
+     원근 투영을 거친 좌표라 좌우 회전에 세로가 딸려오는 **잔여 곡률**이
+     남는다 (실기 곡률 +1.88).
+  2) MediaPipe 변환행렬 — 카메라 모델을 넣고 표준 얼굴 모형을 정식 3D
+     정합한 결과의 회전 부분. 원근을 이미 소화한 값이라 훨씬 곧다
+     (같은 조건 실기 곡률 -0.65).
+
+그래서 기본은 **행렬을 우선**하고, 행렬이 안 오는 프레임은 랜드마크 정합으로
+자동 폴백한다. 중요한 것은 두 경로 모두 "중립 대비 상대"라는 것 —
+행렬의 축 규약(어느 회전이 양수인가)을 알 필요가 없다. 카메라를 M만큼
+돌려 달면 중립도 현재도 M이 곱해져 R_now @ R_neutral^T 에서 소거된다.
+
+여러 장으로 중립 행렬을 잡을 때는 성분 평균을 SVD로 다시 회전에 사영하는
+코달 평균을 쓴다 (Hartley, Trumpf, Dai, Li (2013). "Rotation Averaging."
+International Journal of Computer Vision 103, 267-305 — L2 chordal mean).
+
 근거 (원문 확인)
   · Kabsch, W. (1976). "A solution for the best rotation to relate two sets of
     vectors." Acta Crystallographica A32, 922-923.
@@ -197,15 +217,25 @@ class HeadOrientation:
     들어 있으므로 상대 회전에서 사라진다.
     """
 
-    def __init__(self):
+    def __init__(self, rotation_source="auto"):
+        """rotation_source — "auto"(행렬 우선, 없으면 랜드마크) | "matrix" | "landmarks".
+
+        기본이 auto인 이유는 위 독스트링 "회전의 재료 두 가지" 참고 — 행렬이
+        실측으로 더 곧고, 안 오는 프레임에서도 커서가 죽지 않아야 한다.
+        """
+        self._rotation_source = rotation_source
         self._neutral_points = None
+        self._neutral_rotation = None      # 중립의 변환행렬 회전 (3,3) — 코달 평균
         self._axes = None
         self._samples = []
+        self._rotation_samples = []
 
     def reset(self):
         self._neutral_points = None
+        self._neutral_rotation = None
         self._axes = None
         self._samples = []
+        self._rotation_samples = []
 
     def add_calibration_sample(self, face):
         """중립을 잡기 위해 표본을 모은다 (시작 캘리브레이션 구간에서 매 프레임).
@@ -220,6 +250,9 @@ class HeadOrientation:
         if points is None:
             return False
         self._samples.append(points)
+        rot = getattr(face, "head_rotation", None)
+        if rot is not None:
+            self._rotation_samples.append(np.asarray(rot, dtype=np.float64))
         return True
 
     def finalize_neutral(self):
@@ -232,7 +265,15 @@ class HeadOrientation:
             return False
         self._neutral_points = median
         self._axes = axes
+        # 중립 회전 행렬 — 표본 절반 이상에서 행렬이 왔을 때만 확정한다.
+        # 평균은 코달 평균(성분 평균 -> SVD로 회전에 사영, 위 독스트링의
+        # Hartley et al. 2013): 회전들의 "중간"으로 수렴하고 반사가 안 생긴다
+        if len(self._rotation_samples) * 2 >= len(self._samples):
+            self._neutral_rotation = _chordal_mean(self._rotation_samples)
+        else:
+            self._neutral_rotation = None
         self._samples = []
+        self._rotation_samples = []
         return True
 
     @property
@@ -253,6 +294,9 @@ class HeadOrientation:
             return False
         self._neutral_points = points
         self._axes = axes
+        rot = getattr(face, "head_rotation", None)
+        self._neutral_rotation = (np.asarray(rot, dtype=np.float64)
+                                  if rot is not None else None)
         return True
 
     def pointing_offset(self, face):
@@ -265,10 +309,22 @@ class HeadOrientation:
         """
         if not self.is_ready:
             return None
-        points = extract_rigid_points(face)
-        if points is None:
-            return None
-        rot = estimate_rotation(self._neutral_points, points)
+        rot = None
+        # 1순위: 변환행렬 상대 회전 (독스트링 "회전의 재료 두 가지" 참고)
+        if self._rotation_source in ("auto", "matrix") and self._neutral_rotation is not None:
+            cur = getattr(face, "head_rotation", None)
+            if cur is not None:
+                # R_rel = R_now @ R_neutral^T — 회전이라 전치 = 역행렬.
+                # 카메라를 M만큼 돌려 달면 양쪽에 M이 곱해져 여기서 소거된다
+                rot = np.asarray(cur, dtype=np.float64) @ self._neutral_rotation.T
+        if rot is None and self._rotation_source == "matrix":
+            return None      # 행렬 강제인데 이 프레임엔 행렬이 없다
+        # 2순위(폴백): 랜드마크 정합
+        if rot is None:
+            points = extract_rigid_points(face)
+            if points is None:
+                return None
+            rot = estimate_rotation(self._neutral_points, points)
         if rot is None:
             return None
 
@@ -284,6 +340,21 @@ class HeadOrientation:
         # 쪽과 곱해지는 쪽이 같은 축에서 나오므로 비율에서 상쇄된다.
         # abs를 쓰면 뒤통수를 보이는 각도에서도 부호가 안 뒤집힌다
         return (horizontal / abs(forward), vertical / abs(forward))
+
+
+def _chordal_mean(rotations):
+    """회전행렬들의 코달 평균 — 성분 평균을 SVD로 가장 가까운 회전에 사영.
+
+    Hartley et al. (2013) IJCV 103의 L2 chordal mean. 표본 몇 개가 튀어도
+    반사 없는 순수 회전으로 수렴한다.
+    """
+    mean = np.mean(np.stack(rotations, axis=0), axis=0)
+    u, _s, vt = np.linalg.svd(mean)
+    rot = u @ vt
+    if np.linalg.det(rot) < 0:
+        u[:, -1] = -u[:, -1]
+        rot = u @ vt
+    return rot
 
 
 def extract_rigid_points(face):

@@ -41,6 +41,7 @@ from src.inference.face_estimator import (
     LMK_LEFT_EYE_OUTER, LMK_NOSE_TIP, LMK_RIGHT_EYE_OUTER,
 )
 from src.postprocess.gesture_filter import GestureEvent
+from src.postprocess.auto_arc import OnlineArcCompensator
 from src.postprocess.head_orientation import HeadOrientation
 from src.utils.logger import get_logger
 
@@ -284,7 +285,8 @@ class _CursorMapper:
                  one_euro_distance_adaptive=False, one_euro_reference_dist_px=60.0,
                  arc_compensation=0.0, head_pose_mapping=False,
                  orientation_mapping=False,
-                 orientation_half_span_x_deg=15.0, orientation_half_span_y_deg=10.0):
+                 orientation_half_span_x_deg=15.0, orientation_half_span_y_deg=10.0,
+                 orientation_rotation_source="auto", orientation_auto_arc=True):
         """one_euro_enabled(2026-08-27 forehead.py 대응 신설, OneEuroFilter 독스트링
         참고) — 기본 False라 head.py·eyebrow.py는 예전과 완전히 동일한 단순 EMA
         평활을 그대로 쓴다(동작 변화 없음). True면 EMA 대신 1€ 필터로 최종 커서
@@ -336,7 +338,7 @@ class _CursorMapper:
         # 계수는 커서 좌표계 기준이라 감각적으로 읽힌다 — 예를 들어 0.2면
         # 화면 좌우 끝(가로offset 0.5)에서 화면 높이의 0.2 x 0.25 = 5%만큼
         # 내려준다는 뜻이다. 실측으로 맞추는 게 정확하다:
-        # scripts/measure_arc.py 참고
+        # (measure_arc.py는 2026-08-31 정리로 삭제 — auto_arc.py가 자동 대체)
         self._arc_compensation = arc_compensation
         # ★각도 기반 매핑 — HEAD_POSE_MAPPING 설명 참고. 기본 False라
         # 이 값을 안 넘기는 기존 호출부는 동작이 전혀 바뀌지 않는다
@@ -345,7 +347,14 @@ class _CursorMapper:
         # 카메라를 어떻게 달아도 잴 것이 없다. 감도는 배율이 아니라
         # "고개를 몇 도 돌리면 화면 끝인가"라는 사람 기준 각도로 준다
         self._orientation_mapping = orientation_mapping
-        self._orientation = HeadOrientation() if orientation_mapping else None
+        # 회전 재료(auto=변환행렬 우선) — head_orientation.py "회전의 재료 두 가지" 참고
+        self._orientation = (HeadOrientation(rotation_source=orientation_rotation_source)
+                             if orientation_mapping else None)
+        # 잔여 곡률 자동 소거 — auto_arc.py 참고. 어떤 카메라 배치에서 어떤
+        # 곡률이 남든, 쓰는 동안 스스로 2차항을 추정해 빼 준다.
+        # 사람이 재서 넣던 ARC_COMPENSATION의 자동판이다
+        self._auto_arc = (OnlineArcCompensator()
+                          if (orientation_mapping and orientation_auto_arc) else None)
         # tan으로 미리 바꿔 둔다 — 매 프레임 삼각함수를 다시 부르지 않게
         self._orientation_tan_x = math.tan(math.radians(
             max(1.0, min(60.0, orientation_half_span_x_deg))))
@@ -381,6 +390,8 @@ class _CursorMapper:
         # 달라져 이전 중립에 맞춘 회전이 통째로 틀어진다
         if self._orientation is not None:
             self._orientation.reset()
+        if self._auto_arc is not None:
+            self._auto_arc.reset()      # 사람이 바뀌면 곡률도 그 사람 것이 아니다
         self._orientation_calibrating = True
         self._orientation_started_sec = None
         self._smoothed_dist_px = None
@@ -623,9 +634,16 @@ class _CursorMapper:
             # 여기서 기존 경로로 넘기면 두 방식이 프레임마다 번갈아 나와 커서가 튄다
             return (self.cursor_x_ratio, self.cursor_y_ratio)
 
+        raw_tan_x, raw_tan_y = offset
+        # 잔여 곡률 자동 소거 (auto_arc.py) — 탄젠트 단계에서 뺀다.
+        # 화면 비율로 바꾼 뒤에 빼면 half_span을 조절할 때마다 계수의 의미가
+        # 달라지지만, 탄젠트끼리는 감도와 무관한 순수 기하 관계라 그대로 남는다
+        if self._auto_arc is not None:
+            raw_tan_y = self._auto_arc.update(raw_tan_x, raw_tan_y)
+
         # 반쪽 화면을 채우는 각도로 나눈다 -> 그 각도에서 정확히 화면 끝
-        offset_x = _clamp(offset[0] / self._orientation_tan_x * 0.5, self._max_offset_ratio)
-        offset_y = _clamp(offset[1] / self._orientation_tan_y * 0.5, self._max_offset_ratio)
+        offset_x = _clamp(raw_tan_x / self._orientation_tan_x * 0.5, self._max_offset_ratio)
+        offset_y = _clamp(raw_tan_y / self._orientation_tan_y * 0.5, self._max_offset_ratio)
         raw_x, raw_y = 0.5 + offset_x, 0.5 + offset_y
 
         if self.cursor_x_ratio is None:
@@ -844,6 +862,8 @@ class HeadTracker:
             orientation_mapping=pointer.get("orientation_mapping", False),
             orientation_half_span_x_deg=pointer.get("orientation_half_span_x_deg", 15.0),
             orientation_half_span_y_deg=pointer.get("orientation_half_span_y_deg", 10.0),
+            orientation_rotation_source=pointer.get("orientation_rotation_source", "auto"),
+            orientation_auto_arc=pointer.get("orientation_auto_arc", True),
         )
 
         mouth = ht["mouth_click"]

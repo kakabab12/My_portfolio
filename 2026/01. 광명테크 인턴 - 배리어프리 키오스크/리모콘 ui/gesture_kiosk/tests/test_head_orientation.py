@@ -415,3 +415,117 @@ def test_calibration_sample_rejects_face_without_depth():
     ho = HeadOrientation()
     assert ho.add_calibration_sample(NoDepth()) is False
     assert ho.sample_count == 0
+
+
+# ------------------------------- 변환행렬 소스 (2026-08-31 확장) — 규약 무관성
+
+class _MatrixFace(_FakeFace):
+    """랜드마크 + 변환행렬 회전을 함께 갖춘 얼굴."""
+
+    def __init__(self, points_3d, rotation):
+        super().__init__(points_3d)
+        self.head_rotation = rotation
+
+
+def _matrix_pair(head_turn, convention):
+    """중립·현재의 '변환행렬 회전'을 임의 규약으로 만든다.
+
+    MediaPipe의 행렬은 표준 얼굴 -> 카메라 변환이라, 우리가 모르는 고정
+    규약(표준 얼굴의 축 정의) C가 오른쪽에 곱혀 있다: R_관측 = R_실제 @ C.
+    상대 회전에서 C가 소거되는지가 이 설계의 핵심 주장이다:
+        R2 C (R1 C)^T = R2 C C^T R1^T = R2 R1^T
+    """
+    return np.eye(3) @ convention, head_turn @ convention
+
+
+@pytest.mark.parametrize("convention_axis,convention_deg", [
+    ((1.0, 0.0, 0.0), 0.0),        # 규약 없음
+    ((0.0, 1.0, 0.0), 90.0),       # 어떤 축 정의든
+    ((0.3, -0.8, 0.5), 137.0),     # 완전히 임의의 규약
+])
+def test_matrix_source_is_convention_free(convention_axis, convention_deg):
+    """★행렬의 축 규약을 몰라도 결과가 같아야 한다 — 상대 회전의 핵심."""
+    neutral_pts = _synthetic_head()
+    convention = _rot_about(convention_axis, convention_deg)
+    axes = _orthonormal_frame(neutral_pts[list(RIGID_LANDMARKS)])
+    turn = _rot_about(axes[1], 12.0)              # 머리 세로축 좌우 회전
+    turned_pts = _apply(turn, neutral_pts)
+
+    r_neutral, r_current = _matrix_pair(turn, convention)
+    ho = HeadOrientation(rotation_source="matrix")
+    assert ho.set_neutral(_MatrixFace(neutral_pts, r_neutral))
+    got = ho.pointing_offset(_MatrixFace(turned_pts, r_current))
+    assert got is not None
+
+    # 기준: 랜드마크 정합으로 얻은 값 (이미 검증된 경로)
+    base = HeadOrientation(rotation_source="landmarks")
+    assert base.set_neutral(_FakeFace(neutral_pts))
+    expected = base.pointing_offset(_FakeFace(turned_pts))
+    assert got[0] == pytest.approx(expected[0], abs=1e-9)
+    assert got[1] == pytest.approx(expected[1], abs=1e-9)
+
+
+def test_matrix_source_camera_mount_invariance():
+    """행렬 경로에서도 카메라를 어떻게 달든 커서가 같아야 한다.
+
+    카메라를 M만큼 돌려 달면 행렬은 왼쪽에 M이 곱힌다: R' = M R.
+    R2' R1'^T = M R2 R1^T M^T 이고 축들도 M으로 돌므로 내적이 보존된다.
+    """
+    neutral_pts = _synthetic_head()
+    axes = _orthonormal_frame(neutral_pts[list(RIGID_LANDMARKS)])
+    turn = _rot_about(axes[1], 14.0)
+    turned_pts = _apply(turn, neutral_pts)
+
+    def offset_under(mount):
+        r_neutral = mount @ np.eye(3)
+        r_current = mount @ turn
+        ho = HeadOrientation(rotation_source="matrix")
+        assert ho.set_neutral(_MatrixFace(_apply(mount, neutral_pts), r_neutral))
+        return ho.pointing_offset(_MatrixFace(_apply(mount, turned_pts), r_current))
+
+    base = offset_under(np.eye(3))
+    for label, mount in (("밑에서 30도", _rot_about((1.0, 0.0, 0.0), 30.0)),
+                         ("옆으로 20도", _rot_about((0.0, 0.0, 1.0), 20.0)),
+                         ("비스듬히", _rot_about((0.5, -0.4, 0.3), 25.0))):
+        got = offset_under(mount)
+        assert got is not None, label
+        assert got[0] == pytest.approx(base[0], abs=1e-9), label
+        assert got[1] == pytest.approx(base[1], abs=1e-9), label
+
+
+def test_auto_source_falls_back_to_landmarks_per_frame():
+    """auto — 행렬이 안 오는 프레임은 랜드마크 정합으로 이어져야 한다."""
+    neutral_pts = _synthetic_head()
+    axes = _orthonormal_frame(neutral_pts[list(RIGID_LANDMARKS)])
+    turn = _rot_about(axes[1], 10.0)
+    turned_pts = _apply(turn, neutral_pts)
+
+    ho = HeadOrientation(rotation_source="auto")
+    assert ho.set_neutral(_MatrixFace(neutral_pts, np.eye(3)))
+    with_matrix = ho.pointing_offset(_MatrixFace(turned_pts, turn))
+    without_matrix = ho.pointing_offset(_FakeFace(turned_pts))   # 행렬 없음 -> 폴백
+    assert with_matrix is not None and without_matrix is not None
+    # 합성 데이터에서는 두 경로가 같은 회전을 봐야 한다
+    assert with_matrix[0] == pytest.approx(without_matrix[0], abs=1e-6)
+    assert with_matrix[1] == pytest.approx(without_matrix[1], abs=1e-6)
+
+
+def test_matrix_forced_returns_none_without_matrix():
+    """matrix 강제인데 행렬이 없으면 None — 조용히 다른 값으로 채우지 않는다."""
+    neutral_pts = _synthetic_head()
+    ho = HeadOrientation(rotation_source="matrix")
+    assert ho.set_neutral(_MatrixFace(neutral_pts, np.eye(3)))
+    assert ho.pointing_offset(_FakeFace(neutral_pts)) is None
+
+
+def test_chordal_mean_neutral_matrix_resists_one_bad_frame():
+    """중립 행렬을 여러 장으로 잡을 때 한 장이 튀어도 안 끌려가야 한다."""
+    from src.postprocess.head_orientation import _chordal_mean
+
+    good = [np.eye(3)] * 20
+    spike = _rot_about((0.0, 1.0, 0.0), 40.0)
+    mean = _chordal_mean(good + [spike])
+    # 21장 중 1장이 40도 튀었으면 평균은 2도 근처여야 한다
+    angle = math.degrees(math.acos(max(-1.0, min(1.0, (np.trace(mean) - 1.0) / 2.0))))
+    assert angle < 4.0
+    assert np.linalg.det(mean) == pytest.approx(1.0, abs=1e-9)
