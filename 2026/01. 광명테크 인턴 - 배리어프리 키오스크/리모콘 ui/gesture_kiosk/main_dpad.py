@@ -607,6 +607,21 @@ def main():
     face_anchor = FaceAnchor(config) if mode_switch_enabled else None
     head_shake = HeadShakeDetector(config) if mode_switch_enabled else None
     head_tracker = HeadTracker(config) if mode_switch_enabled else None
+    # 모델 로딩 완료를 연동 GUI(델파이)에 알린다 — 팀장님 요청(2026-08-31).
+    # 델파이는 엔진을 자식 프로세스로 띄우고 stdout을 익명 파이프로 줄 단위
+    # 수신하며 준비 완료를 기다린다 (docs/델파이7_연동가이드.md 참고).
+    #
+    # ★flush가 반드시 필요하다. 파이프로 나가는 stdout은 줄 단위가 아니라
+    # 블록 단위(약 8KB)로 버퍼링된다 — 그냥 print만 하면 이 한 줄이 버퍼에
+    # 갇혀 델파이가 못 받는다. 한참 뒤 좌표가 쌓여 버퍼가 찰 때 함께 밀려
+    # 나가는데, 그때는 "준비됐다"는 신호로서 이미 쓸모가 없다.
+    # (이 프로젝트는 -u 나 PYTHONUNBUFFERED 를 쓰지 않는다 — 확인함)
+    #
+    # 카메라를 열기 **전**에 찍는다. 요청은 "모델 로딩 완료"이고, 카메라
+    # 오픈은 정상 장치도 십수 초 걸리는 경우가 있어(2026-08-26 실측) 그것까지
+    # 기다리면 신호가 그만큼 늦어진다.
+    print("Models Loaded", flush=True)
+
     camera = CameraStream(config, config_path=args.config).start()
 
     fingertip_filter = PointFilter(args.min_cutoff_hz, args.filter_beta, FILTER_D_CUTOFF_HZ)

@@ -41,6 +41,7 @@ from src.inference.face_estimator import (
     LMK_LEFT_EYE_OUTER, LMK_NOSE_TIP, LMK_RIGHT_EYE_OUTER,
 )
 from src.postprocess.gesture_filter import GestureEvent
+from src.postprocess.head_orientation import HeadOrientation
 from src.utils.logger import get_logger
 
 logger = get_logger("postprocess")
@@ -96,6 +97,15 @@ def _clamp(value, limit):
     return max(-limit, min(limit, value))
 
 
+
+# 얼굴이 이만큼 이어서 안 보여야 "새 사용자"로 보고 처음부터 다시 잡는다.
+# 그보다 짧은 끊김은 검출이 잠깐 놓친 것으로 보고 중립을 그대로 들고 있는다
+# (HeadTracker.update의 설명 참고 — 이걸 0으로 두면 한 프레임만 놓쳐도
+# 캘리브레이션이 처음으로 돌아가, 검출이 불안정한 배치에서 커서가 영영
+# 안 나온다). 1초면 30fps에서 30프레임 연속 미검출이라, 사람이 실제로
+# 자리를 뜬 경우와 한두 프레임 놓친 경우가 확실히 갈린다.
+FACE_LOST_RESET_SEC = 1.0
+
 class _MedianCalibrator:
     """calibration_window_sec 동안 표본을 모아 중앙값을 낸다 — 캘리브레이션 공용 로직.
 
@@ -107,6 +117,13 @@ class _MedianCalibrator:
     def __init__(self, window_sec):
         self._window_sec = window_sec
         self.reset()
+
+    @property
+    def window_sec(self):
+        """표본을 모으는 구간 길이 — 상대 회전 매핑이 중립을 잡을 때 같은 구간을
+        쓰려고 읽는다(_update_from_orientation 참고). 두 캘리브레이션이 같은 시간에
+        끝나야 커서가 확정되는 시점이 하나로 맞는다."""
+        return self._window_sec
 
     def reset(self):
         self._start_sec = None
@@ -265,7 +282,9 @@ class _CursorMapper:
                  face_local=True, face_local_gain=2.0,
                  one_euro_enabled=False, one_euro_min_cutoff=1.0, one_euro_beta=0.0,
                  one_euro_distance_adaptive=False, one_euro_reference_dist_px=60.0,
-                 arc_compensation=0.0, head_pose_mapping=False):
+                 arc_compensation=0.0, head_pose_mapping=False,
+                 orientation_mapping=False,
+                 orientation_half_span_x_deg=15.0, orientation_half_span_y_deg=10.0):
         """one_euro_enabled(2026-08-27 forehead.py 대응 신설, OneEuroFilter 독스트링
         참고) — 기본 False라 head.py·eyebrow.py는 예전과 완전히 동일한 단순 EMA
         평활을 그대로 쓴다(동작 변화 없음). True면 EMA 대신 1€ 필터로 최종 커서
@@ -322,6 +341,18 @@ class _CursorMapper:
         # ★각도 기반 매핑 — HEAD_POSE_MAPPING 설명 참고. 기본 False라
         # 이 값을 안 넘기는 기존 호출부는 동작이 전혀 바뀌지 않는다
         self._head_pose_mapping = head_pose_mapping
+        # ★상대 회전 매핑 (2026-08-31) — head_orientation.py 참고.
+        # 카메라를 어떻게 달아도 잴 것이 없다. 감도는 배율이 아니라
+        # "고개를 몇 도 돌리면 화면 끝인가"라는 사람 기준 각도로 준다
+        self._orientation_mapping = orientation_mapping
+        self._orientation = HeadOrientation() if orientation_mapping else None
+        # tan으로 미리 바꿔 둔다 — 매 프레임 삼각함수를 다시 부르지 않게
+        self._orientation_tan_x = math.tan(math.radians(
+            max(1.0, min(60.0, orientation_half_span_x_deg))))
+        self._orientation_tan_y = math.tan(math.radians(
+            max(1.0, min(60.0, orientation_half_span_y_deg))))
+        self._orientation_calibrating = True
+        self._orientation_started_sec = None
         self._one_euro_base_cutoff = one_euro_min_cutoff
         self._one_euro_distance_adaptive = one_euro_distance_adaptive
         self._one_euro_reference_dist_px = max(1.0, one_euro_reference_dist_px)
@@ -346,13 +377,20 @@ class _CursorMapper:
     def reset(self):
         """새 사용자·추적 끊김 — 캘리브레이션부터 다시 한다."""
         self._center_calibrator.reset()
+        # 상대 회전 매핑의 중립도 함께 버린다 — 사람이 바뀌면 얼굴 모양이
+        # 달라져 이전 중립에 맞춘 회전이 통째로 틀어진다
+        if self._orientation is not None:
+            self._orientation.reset()
+        self._orientation_calibrating = True
+        self._orientation_started_sec = None
         self._smoothed_dist_px = None
         self.cursor_x_ratio = None
         self.cursor_y_ratio = None
         self._one_euro_x.reset()
         self._one_euro_y.reset()
 
-    def set_tuning(self, sensitivity_x=None, sensitivity_y=None, arc_compensation=None):
+    def set_tuning(self, sensitivity_x=None, sensitivity_y=None, arc_compensation=None,
+                   half_span_x_deg=None, half_span_y_deg=None):
         """감도·곡률 보정을 실행 중에 바꾼다 (2026-08-28 신설 — 볼륨 조절
         같은 실시간 조절 UI, scripts/tuning_ui.py 대응).
 
@@ -368,6 +406,22 @@ class _CursorMapper:
             self._sensitivity_y = sensitivity_y
         if arc_compensation is not None:
             self._arc_compensation = arc_compensation
+        # ★상대 회전 매핑의 감도 (2026-08-31).
+        #
+        # 이 경로에서는 위의 sensitivity_x/y·arc_compensation이 쓰이지 않는다.
+        # 그대로 두면 실시간 조절 UI의 슬라이더를 움직여도 아무 일이 안 일어나
+        # "고장 난 것처럼" 보인다 — 그래서 각도 손잡이도 같이 받는다.
+        if half_span_x_deg is not None:
+            self._orientation_tan_x = math.tan(math.radians(
+                max(1.0, min(60.0, half_span_x_deg))))
+        if half_span_y_deg is not None:
+            self._orientation_tan_y = math.tan(math.radians(
+                max(1.0, min(60.0, half_span_y_deg))))
+
+    @property
+    def is_orientation_mapping(self):
+        """지금 상대 회전 경로로 도는가 — 조절 UI가 어떤 손잡이를 보여줄지 정할 때."""
+        return bool(self._orientation_mapping)
 
     def _measure(self, cursor_px, eye_left_px, eye_right_px):
         """이번 프레임의 기준점 위치를 재서 (가로, 세로) 한 쌍으로 돌려준다.
@@ -393,9 +447,19 @@ class _CursorMapper:
         local_y = (-vx * uy + vy * ux) / dist     # 얼굴 세로축 성분
         return (local_x * self._face_local_gain, local_y * self._face_local_gain)
 
-    def recenter_instant(self, cursor_px, eye_left_px=None, eye_right_px=None):
+    def recenter_instant(self, cursor_px, eye_left_px=None, eye_right_px=None, face=None):
         """지금 이 자세를 새 중심으로 즉시 확정한다 (HeadTracker.recenter_cursor 전용).
         reset()과 달리 표본을 다시 모으지 않아 is_tracking이 끊기지 않는다."""
+        if self._orientation_mapping and face is not None:
+            # 상대 회전 경로는 중립이 곧 중심이다 — 지금 얼굴을 새 중립으로 삼는다
+            if self._orientation.set_neutral(face):
+                self._orientation_calibrating = False
+                self.cursor_x_ratio, self.cursor_y_ratio = 0.5, 0.5
+                now_sec = time.monotonic()
+                self._one_euro_x.prime(0.5, now_sec)
+                self._one_euro_y.prime(0.5, now_sec)
+                return True
+            return False
         measured = self._measure(cursor_px, eye_left_px, eye_right_px)
         if measured is None:
             return False   # 눈 사이 거리가 너무 짧다(검출 불량) — 호출자가 다시 시도하게
@@ -435,7 +499,14 @@ class _CursorMapper:
         # 위쪽이 0이라 커서도 위(작은 값)로 가야 한다
         return (math.tan(yaw), -math.tan(pitch))
 
-    def update(self, cursor_px, eye_left_px, eye_right_px, now_sec, head_pose=None):
+    def update(self, cursor_px, eye_left_px, eye_right_px, now_sec, head_pose=None,
+               face=None):
+        # ★상대 회전 매핑 (2026-08-31) — 켜져 있고 3차원 랜드마크가 실제로 올 때만
+        # 이 경로를 탄다. 안 오면 조용히 기존 방식으로 되돌아간다
+        if self._orientation_mapping and face is not None:
+            result = self._update_from_orientation(face, now_sec)
+            if result is not None:
+                return result
         # ★각도 기반 매핑 (HEAD_POSE_MAPPING) — 켜져 있고 자세 정보가 실제로
         # 올 때만 이 경로를 탄다. 자세가 안 오면(옵션 꺼짐·모델 미지원) 조용히
         # 기존 랜드마크 방식으로 되돌아간다 — 갑자기 커서가 멈추면 안 된다
@@ -514,6 +585,62 @@ class _CursorMapper:
             self.cursor_x_ratio += self._smoothing_alpha * (raw_x - self.cursor_x_ratio)
             self.cursor_y_ratio += self._smoothing_alpha * (raw_y - self.cursor_y_ratio)
         return self.cursor_x_ratio, self.cursor_y_ratio
+
+    def _update_from_orientation(self, face, now_sec):
+        """중립 대비 상대 회전으로 커서를 정한다 (orientation_mapping 전용).
+
+        이 경로가 다른 두 경로와 근본적으로 다른 점은 **잴 것이 없다**는 것이다.
+
+          · 카메라 배치 — 중립과 현재를 같은 카메라로 본 것끼리 비교하므로
+            상대 회전에서 소거된다 (head_orientation.py 참고)
+          · 부호 규약 — 방향을 중립 얼굴 자신의 축으로 읽으므로 정의상 정해진다
+          · 곡률 보정 — 투영을 안 거치니 휠 것이 없다. ARC_COMPENSATION이 없다
+          · 감도 — "몇 도 돌리면 화면 끝"이라는 사람 기준 값이라 카메라와 무관하다
+
+        돌려줄 값을 못 만들면 None을 돌려준다 — 호출자가 기존 경로로 되돌아간다.
+        """
+        if self._orientation_calibrating:
+            if self._orientation_started_sec is None:
+                self._orientation_started_sec = now_sec
+            self._orientation.add_calibration_sample(face)
+            if now_sec - self._orientation_started_sec < self._center_calibrator.window_sec:
+                return (None, None)      # 캘리브레이션 중 — 커서 미확정
+            if not self._orientation.finalize_neutral():
+                # 3차원 좌표가 안 들어온다 -> 이 경로를 포기하고 기존 방식으로
+                self._orientation_mapping = False
+                logger.info("3차원 랜드마크가 없어 상대 회전 매핑을 끕니다 - 기존 방식으로 진행합니다")
+                return None
+            self._orientation_calibrating = False
+            logger.info("커서 중심 캘리브레이션 완료 (중립 자세 대비 상대 회전 기준)")
+            self.cursor_x_ratio, self.cursor_y_ratio = 0.5, 0.5
+            self._one_euro_x.prime(0.5, now_sec)
+            self._one_euro_y.prime(0.5, now_sec)
+            return (self.cursor_x_ratio, self.cursor_y_ratio)
+
+        offset = self._orientation.pointing_offset(face)
+        if offset is None:
+            # 이 프레임만 실패(너무 많이 돌렸거나 검출 불량) — 마지막 값을 유지한다.
+            # 여기서 기존 경로로 넘기면 두 방식이 프레임마다 번갈아 나와 커서가 튄다
+            return (self.cursor_x_ratio, self.cursor_y_ratio)
+
+        # 반쪽 화면을 채우는 각도로 나눈다 -> 그 각도에서 정확히 화면 끝
+        offset_x = _clamp(offset[0] / self._orientation_tan_x * 0.5, self._max_offset_ratio)
+        offset_y = _clamp(offset[1] / self._orientation_tan_y * 0.5, self._max_offset_ratio)
+        raw_x, raw_y = 0.5 + offset_x, 0.5 + offset_y
+
+        if self.cursor_x_ratio is None:
+            self.cursor_x_ratio, self.cursor_y_ratio = raw_x, raw_y
+            self._one_euro_x.prime(raw_x, now_sec)
+            self._one_euro_y.prime(raw_y, now_sec)
+            return (self.cursor_x_ratio, self.cursor_y_ratio)
+
+        if self._one_euro_enabled:
+            self.cursor_x_ratio = self._one_euro_x(raw_x, now_sec)
+            self.cursor_y_ratio = self._one_euro_y(raw_y, now_sec)
+        else:
+            self.cursor_x_ratio += self._smoothing_alpha * (raw_x - self.cursor_x_ratio)
+            self.cursor_y_ratio += self._smoothing_alpha * (raw_y - self.cursor_y_ratio)
+        return (self.cursor_x_ratio, self.cursor_y_ratio)
 
     def _update_from_head_pose(self, head_pose, now_sec):
         """머리 회전각으로 커서를 정한다 (HEAD_POSE_MAPPING 전용).
@@ -710,6 +837,13 @@ class HeadTracker:
             # ★각도 기반 매핑 — HEAD_POSE_MAPPING 설명 참고. 기본 False라
             # 이 키가 없는 기존 설정은 동작이 그대로다
             head_pose_mapping=pointer.get("head_pose_mapping", False),
+            # ★상대 회전 매핑 (2026-08-31) — head_orientation.py 참고.
+            # 기본 False라 이 키가 없는 기존 설정은 동작이 그대로다.
+            # 켜면 감도(sensitivity_x/y)와 곡률 보정(arc_compensation)이 함께
+            # 무시된다 — 이 경로는 각도로 직접 매핑해서 둘 다 필요 없다
+            orientation_mapping=pointer.get("orientation_mapping", False),
+            orientation_half_span_x_deg=pointer.get("orientation_half_span_x_deg", 15.0),
+            orientation_half_span_y_deg=pointer.get("orientation_half_span_y_deg", 10.0),
         )
 
         mouth = ht["mouth_click"]
@@ -749,17 +883,42 @@ class HeadTracker:
 
         self._click_min_interval_sec = ht["click"]["min_interval_sec"]
         self._last_click_sec = None
+        # 얼굴이 언제부터 안 보이는지 (FACE_LOST_RESET_SEC 설명 참고).
+        # __init__은 reset()을 부르지 않으므로 여기서 직접 만들어 둔다 —
+        # 안 그러면 **첫 프레임에 얼굴이 없을 때** 속성이 없어 죽는다
+        # (2026-08-31: 실제로 그 경로를 밟아 AttributeError를 봤다)
+        self._face_lost_since_sec = None
         self.debug = {}   # 실기 튜닝 계기판 — 디버그 창에 노출 (판정에 미사용)
 
     def update(self, face):
         """얼굴 신호 1프레임 -> HeadTrackerResult (기획서 4.6 계약).
 
-        face가 None(미검출)이면 전체를 리셋한다 — 다시 나타나면 캘리브레이션부터.
+        face가 None(미검출)이면 **잠깐은 기다렸다가** 리셋한다 — 아래 설명 참고.
         """
         if face is None:
+            now_sec = self._clock()
+            if self._face_lost_since_sec is None:
+                self._face_lost_since_sec = now_sec
+            # ★2026-08-31 — 한 프레임 놓쳤다고 캘리브레이션을 버리지 않는다.
+            #
+            # 예전에는 face가 None인 프레임마다 곧바로 reset()을 불렀다. 얼굴이
+            # 잠깐씩 끊기는 조건(카메라를 기울여 단 배치, 역광, 사용자가 살짝
+            # 벗어남)에서는 이것이 **리셋 -> 재캘리브레이션 -> 또 리셋**의
+            # 되풀이가 되어, 캘리브레이션이 끝나질 않고 커서가 영영 안 나온다.
+            # 밖에서 보면 "커서가 아예 안 움직인다"로만 보인다 — 원인을 찾기
+            # 어려운 부류다(2026-08-31 실기 보고: "옆으로 살짝 기운 카메라는
+            # 커서가 아예 안 움직인다").
+            #
+            # 한 프레임 빠진 것은 **사람이 바뀐 것이 아니다.** 이만큼 이어서
+            # 없을 때만 새 사용자로 보고 처음부터 다시 잡는다. 그 사이에는
+            # 지금까지 잡아 둔 중립·기준선을 그대로 들고 기다린다.
+            if now_sec - self._face_lost_since_sec < FACE_LOST_RESET_SEC:
+                self._update_debug(None, None)
+                return HeadTrackerResult(is_tracking=False, events=[])
             self.reset()
             self._update_debug(None, None)
             return HeadTrackerResult(is_tracking=False, events=[])
+        self._face_lost_since_sec = None
 
         now_sec = self._clock()
         jaw_open_score = face.blendshape("jawOpen")
@@ -778,7 +937,7 @@ class HeadTracker:
         eye_right_px = face.landmark_px(LMK_RIGHT_EYE_OUTER)
         cursor_x, cursor_y = self._cursor_mapper.update(
             cursor_source_px, eye_left_px, eye_right_px, now_sec,
-            head_pose=getattr(face, "head_pose", None))
+            head_pose=getattr(face, "head_pose", None), face=face)
         # 코 캘리브레이션과 같은 구간에서 입/눈/오므림 평상시 기준선도 함께 잡는다
         jaw_baseline = self._jaw_baseline.update(jaw_open_score, now_sec)
         eye_baseline = self._eye_baseline.update(eye_close_score, now_sec)
@@ -855,15 +1014,23 @@ class HeadTracker:
         return GestureEvent(class_name=EVENT_SELECT, conf=conf, ts_sec=now_sec,
                             data={"trigger": trigger})
 
-    def set_pointer_tuning(self, sensitivity_x=None, sensitivity_y=None, arc_compensation=None):
+    def set_pointer_tuning(self, sensitivity_x=None, sensitivity_y=None, arc_compensation=None,
+                           half_span_x_deg=None, half_span_y_deg=None):
         """_CursorMapper.set_tuning() 그대로 전달 — 실시간 조절 UI가 이
         메서드 하나만 알면 되게 하려고 얇게 감쌌다(그 메서드 설명 참고)."""
         self._cursor_mapper.set_tuning(
             sensitivity_x=sensitivity_x, sensitivity_y=sensitivity_y,
-            arc_compensation=arc_compensation)
+            arc_compensation=arc_compensation,
+            half_span_x_deg=half_span_x_deg, half_span_y_deg=half_span_y_deg)
+
+    @property
+    def is_orientation_mapping(self):
+        """상대 회전 경로로 도는가 — 조절 UI가 손잡이를 고를 때 본다."""
+        return self._cursor_mapper.is_orientation_mapping
 
     def reset(self):
         """추적 끊김·모드 전환 — 커서 캘리브레이션·기준선·클릭 상태 전부 리셋."""
+        self._face_lost_since_sec = None
         self._cursor_mapper.reset()
         self._jaw_baseline.reset()
         self._eye_baseline.reset()
@@ -942,7 +1109,8 @@ class HeadTracker:
             return False
         return self._cursor_mapper.recenter_instant(
             self._cursor_point_fn(face),
-            face.landmark_px(LMK_LEFT_EYE_OUTER), face.landmark_px(LMK_RIGHT_EYE_OUTER))
+            face.landmark_px(LMK_LEFT_EYE_OUTER), face.landmark_px(LMK_RIGHT_EYE_OUTER),
+            face=face)
 
     def _update_debug(self, cursor_x, cursor_y, jaw_open_score=0.0, jaw_baseline=None,
                       eye_close_score=0.0, eye_baseline=None,

@@ -194,13 +194,35 @@ class CursorMappingTest(HeadTrackerTestBase):
         result = self.tracker.update(make_face(nose_px=(100.0, 100.0)))
         self.assertAlmostEqual(result.cursor_y_ratio, 0.5, delta=0.05)
 
-    def test_tracking_loss_resets_cursor_and_calibration(self):
+    def test_brief_face_loss_keeps_calibration(self):
+        """★한두 프레임 놓친 것으로는 캘리브레이션을 버리지 않는다 (2026-08-31).
+
+        예전에는 face가 None인 즉시 전부 리셋했다. 얼굴이 잠깐씩 끊기는
+        조건(기울여 단 카메라, 역광)에서는 그것이 리셋->재캘리브레이션의
+        되풀이가 되어 커서가 영영 안 나왔다 — 실기 보고 "옆으로 살짝 기운
+        카메라는 커서가 아예 안 움직인다".
+        """
         self._settle_calibration(nose_px=(100.0, 100.0))
         result = self.tracker.update(None)
         self.assertIsNone(result.cursor_x_ratio)
         self.assertFalse(result.is_tracking)
         self.assertEqual(result.events, [])
-        # 재검출 — 추적 손실을 거쳤으니 다시 캘리브레이션
+        # 곧바로 다시 잡히면 캘리브레이션을 다시 하지 않는다
+        result = self.tracker.update(make_face(nose_px=(100.0, 100.0)))
+        self.assertIsNotNone(result.cursor_x_ratio)
+        self.assertTrue(result.is_tracking)
+
+    def test_sustained_face_loss_resets_calibration(self):
+        """오래 안 보이면 새 사용자로 보고 처음부터 다시 잡는다."""
+        from src.postprocess.head_tracker import FACE_LOST_RESET_SEC
+
+        self._settle_calibration(nose_px=(100.0, 100.0))
+        # 첫 미검출 프레임에서 "언제부터 안 보였는지" 시계가 시작된다
+        self.tracker.update(None)
+        self.clock.tick(FACE_LOST_RESET_SEC + 0.1)
+        result = self.tracker.update(None)
+        self.assertFalse(result.is_tracking)
+        # 이번엔 리셋됐으므로 다시 캘리브레이션부터
         result = self.tracker.update(make_face(nose_px=(100.0, 100.0)))
         self.assertIsNone(result.cursor_x_ratio)
 

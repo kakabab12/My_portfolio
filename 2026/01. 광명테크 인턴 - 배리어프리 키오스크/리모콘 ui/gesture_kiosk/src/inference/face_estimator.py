@@ -147,6 +147,10 @@ class FaceLandmarks:
     conf: float
     landmarks_px: np.ndarray          # shape (478, 2) — (x_px, y_px)
     blendshapes: dict = field(default_factory=dict)   # category_name -> score(0~1)
+    # shape (478, 3) — (x_px, y_px, z_px). z는 폭 기준으로 환산해 세 축의 척도를
+    # 맞춰 둔다(infer 안 주석 참고). 상대 회전 추정(head_orientation.py)의 입력이며,
+    # 이 값을 안 채우고 만든 FaceLandmarks도 있으므로 쓰는 쪽은 None을 확인해야 한다
+    landmarks_3d: object = None
     # 3차원 머리 자세 — HeadPose 설명 참고. MediaPipe 옵션이 꺼져 있거나
     # 행렬이 안 오면 None이므로, 쓰는 쪽은 반드시 None을 확인해야 한다
     head_pose: object = None
@@ -289,12 +293,24 @@ class FaceEstimator:
             landmarks_px = np.array(
                 [(pt.x * w_px, pt.y * h_px) for pt in landmarks], dtype=np.float32
             )
+            # ★2026-08-31 신설 — 3차원 좌표 (head_orientation.py의 상대 회전 추정 입력).
+            #
+            # z에 **높이가 아니라 폭**을 곱한다. MediaPipe의 정규화 z는 "x와 대략
+            # 같은 척도"로 정의돼 있고, x는 폭으로 정규화된 값이기 때문이다.
+            # 높이를 곱하면 세로로만 늘어난 점구름이 되어(9:16 크롭에서는 폭과
+            # 높이가 1.8배 차이난다) 회전 추정이 그만큼 틀어진다 — 정합은 점구름의
+            # 모양을 비교하는 것이라 축마다 배율이 다르면 안 된다.
+            landmarks_3d = np.array(
+                [(pt.x * w_px, pt.y * h_px, pt.z * w_px) for pt in landmarks],
+                dtype=np.float32,
+            )
             blendshapes = {}
             if result.face_blendshapes:
                 blendshapes = {c.category_name: c.score for c in result.face_blendshapes[face_idx]}
             faces.append(FaceLandmarks(
                 bbox=_landmarks_to_bbox_px(landmarks_px, frame.shape), conf=1.0,
                 landmarks_px=landmarks_px, blendshapes=blendshapes,
+                landmarks_3d=landmarks_3d,
                 head_pose=_extract_head_pose(result, face_idx),
             ))
         return faces

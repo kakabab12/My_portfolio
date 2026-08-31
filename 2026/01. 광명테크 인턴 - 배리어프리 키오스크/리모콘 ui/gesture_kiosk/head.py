@@ -113,6 +113,10 @@ from src.inference.preprocessor import Preprocessor
 from src.postprocess.face_anchor import FaceAnchor
 from src.postprocess.head_tracker import EVENT_SELECT, HeadTracker
 from src.utils.config_loader import load_config
+from src.utils.cursor_render import (   # 커서 크기·그리기 공용 (2026-08-31)
+    CURSOR_MARKER_SIZE_PX, CURSOR_RADIUS_PX, CURSOR_THICKNESS_PX,
+    cursor_reach_px, draw_cursor as _draw_cursor_shared,
+)
 from src.utils import console, preflight, version
 from src.utils.logger import get_logger, init_logging
 # 카메라 미리보기 전용(2026-08-13 사용자 요청 — "cam on 하면 카메라 보이게") —
@@ -563,6 +567,31 @@ INFER_SCALE_RATIO_OVERRIDE = 1.0
 # 확실히 벗어나므로 이 방식이 잘 맞는다.
 FACE_LOCAL_MAPPING = True
 
+# ★상대 회전 매핑 (2026-08-31 신설) — src/postprocess/head_orientation.py 참고.
+#
+# 켜면 커서를 "중립 자세 대비 머리가 얼마나 돌아갔는가"로 정한다. 시작할 때
+# 얼굴 랜드마크를 한 벌 저장해 두고, 매 프레임 지금 랜드마크를 그 중립에
+# 겹치는 최적 회전을 SVD로 구한다 (Kabsch 1976 / Umeyama 1991).
+#
+# [무엇을 해결하나] 카메라를 옮길 때마다 다시 재던 일이 사라진다.
+#   카메라 위치·기울기는 중립에도 똑같이 들어 있어 상대 회전에서 소거된다.
+#   밑에서 올려보는 연구실 배치든 정면인 키오스크 배치든 그대로 동작한다.
+#   ARC_COMPENSATION도 이 경로에서는 무시된다 - 투영을 안 거치니 휠 것이 없다.
+#
+# [실측 2026-08-31] 같은 프레임에서 기존 2D 방식과 동시에 재 비교한 신호 대 잡음:
+#     가로 19.1 -> 24.2 (+27%)      세로 10.8 -> 14.9 (+38%)
+#   강체 랜드마크 22개를 한꺼번에 정합해 개별 점 떨림이 평균되기 때문이다.
+#   비용은 프레임당 0.7ms로 사실상 무시할 수 있다.
+#
+# [켜면 바뀌는 것] SENSITIVITY_X/Y_OVERRIDE와 ARC_COMPENSATION이 무시되고,
+#   아래 두 각도가 그 자리를 대신한다. 각도는 카메라와 무관한 사람 기준
+#   설계값이라 자리를 옮겨도 다시 맞출 필요가 없다.
+ORIENTATION_MAPPING = True
+# "고개를 몇 도 돌리면 커서가 화면 끝에 닿는가".
+# 작으면 조금만 돌려도 끝까지(민감), 크면 더 돌려야 한다(정밀).
+ORIENTATION_HALF_SPAN_X_DEG = 15.0
+ORIENTATION_HALF_SPAN_Y_DEG = 10.0
+
 # 위 방식의 속도 보정 배수 — ★커서가 흔들리면 여기부터 만진다.
 #
 # 새 매핑은 "코가 얼굴에서 튀어나온 길이"만큼의 작은 움직임으로 회전을 읽는다.
@@ -670,9 +699,6 @@ RECENTER_PROGRESS_COLOR = (0, 165, 255)   # visualize.RECENTER_PROGRESS_COLOR와
 # 1080~1440px대, 훨씬 큼) 캔버스 위에 그려서 상대적으로 훨씬 작아 보인다.
 # 공용 함수 크기를 화면 해상도에 맞게 고치면 main_dpad.py 쪽까지 함께
 # 바뀌어버려서, 이 파일 전용으로 더 큰 값을 따로 둔다
-CURSOR_RADIUS_PX = 28
-CURSOR_MARKER_SIZE_PX = 22
-CURSOR_THICKNESS_PX = 3
 
 # 추적 기준점 시각화(2026-08-13 — 처음엔 오버레이에 "인식됨" 문구로 시도했다가,
 # 사용자가 원한 건 그게 아니라 "cam on으로 카메라를 켰을 때 코가 실제로 어디를
@@ -819,21 +845,15 @@ def draw_cursor(frame, cursor_x_ratio, cursor_y_ratio, recenter_progress_ratio=0
     color/filled는 클릭·드래그 피드백용(CursorFeedback 참고). 드래그 중엔 속을
     채워서, 색 구분이 어려운 사람도 "지금 누르고 있다"를 형태로 알 수 있게 한다.
     """
-    if cursor_x_ratio is None:
-        return frame
-    color = color or CURSOR_COLOR
-    h_px, w_px = frame.shape[:2]
-    x_px, y_px = int(cursor_x_ratio * w_px), int(cursor_y_ratio * h_px)
-    if filled:
-        cv2.circle(frame, (x_px, y_px), CURSOR_RADIUS_PX - 6, color, -1)
-    cv2.circle(frame, (x_px, y_px), CURSOR_RADIUS_PX, color, CURSOR_THICKNESS_PX)
-    cv2.drawMarker(frame, (x_px, y_px), color, cv2.MARKER_CROSS,
-                   CURSOR_MARKER_SIZE_PX, CURSOR_THICKNESS_PX)
-    if recenter_progress_ratio > 0.0:
-        end_angle_deg = 360.0 * recenter_progress_ratio
-        cv2.ellipse(frame, (x_px, y_px), (CURSOR_RADIUS_PX + 8, CURSOR_RADIUS_PX + 8), -90, 0,
-                    end_angle_deg, RECENTER_PROGRESS_COLOR, CURSOR_THICKNESS_PX)
-    return frame
+    # ★2026-08-31 — 실제 그리기는 src/utils/cursor_render.py 로 옮겼다.
+    # 세 트래커에 같은 함수가 통째로 복사돼 있어(해시까지 동일) 커서를 고치려면
+    # 세 곳을 똑같이 고쳐야 했다. 한 곳으로 모으면서 안티에일리어싱·부분 픽셀
+    # 위치·대비 테두리·조준점을 함께 넣었다 (그 파일 독스트링 참고).
+    return _draw_cursor_shared(
+        frame, cursor_x_ratio, cursor_y_ratio,
+        recenter_progress_ratio=recenter_progress_ratio,
+        color=color or CURSOR_COLOR, filled=filled,
+        progress_color=RECENTER_PROGRESS_COLOR)
 
 
 # ★2026-08-20 신설 — 오버레이 지우기를 "화면 전체"에서 "커서 주변만"으로.
@@ -889,7 +909,9 @@ def _cursor_rect(cursor_x_ratio, cursor_y_ratio, w_px, h_px):
     if cursor_x_ratio is None:
         return None
     x_px, y_px = int(cursor_x_ratio * w_px), int(cursor_y_ratio * h_px)
-    reach = max(CURSOR_RADIUS_PX + 8, CURSOR_MARKER_SIZE_PX // 2) + CURSOR_THICKNESS_PX + 2
+    # 그리는 쪽(cursor_render)이 자기가 칠하는 최대 반경을 알려준다 — 여기서
+    # 따로 계산하면 커서 모양을 바꿀 때마다 어긋나 잔상이 남는다
+    reach = cursor_reach_px()
     return _clip_rect((x_px - reach, y_px - reach, x_px + reach, y_px + reach), w_px, h_px)
 
 
@@ -913,7 +935,9 @@ def _get_korean_font(size_px):
 
 
 def put_korean_text(canvas_bgr, text, org, font_size_px, color_bgr):
-    """★2026-08-14 최적화("최적화해줘"): 원래는 canvas 전체를 PIL로 왕복
+    """한글을 그리고 **실제로 칠한 범위**를 돌려준다 (x0, y0, x1, y1). 못 그리면 None.
+
+    ★2026-08-14 최적화("최적화해줘"): 원래는 canvas 전체를 PIL로 왕복
     변환했는데, 이 캔버스가 보통 화면 해상도(1920x1080 등) 풀사이즈라 글자
     한 줄 그리려고 매 렌더 틱마다 그 큰 배열 전체를 BGR<->RGB로 두 번씩(변환
     +되돌리기) 변환하고 있었다 — 특히 정지 유예 문구는 화면 주사율만큼(초당
@@ -931,13 +955,20 @@ def put_korean_text(canvas_bgr, text, org, font_size_px, color_bgr):
     x1 = min(canvas_w_px, x_px + text_w_px + pad_px)
     y1 = min(canvas_h_px, y_px + font_size_px + pad_px * 2)
     if x1 <= x0 or y1 <= y0:
-        return canvas_bgr   # 캔버스 밖 — 그릴 영역이 없다
+        return None   # 캔버스 밖 — 그릴 영역이 없다
     b, g, r = color_bgr
     roi_bgr = canvas_bgr[y0:y1, x0:x1]
     pil_image = Image.fromarray(cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2RGB))
     ImageDraw.Draw(pil_image).text((x_px - x0, y_px - y0), text, font=font, fill=(r, g, b))
     canvas_bgr[y0:y1, x0:x1] = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-    return canvas_bgr
+    # ★2026-08-31 — 실제로 칠한 범위를 돌려준다 (사용자 실기 보고:
+    # "처음에 커서 뜨면 한글이 안 지워진다").
+    #
+    # 예전에는 부르는 쪽이 글자 범위를 **따로 계산해서** 지울 목록에 넣었는데,
+    # 여기서 실제로 칠하는 범위(위 pad_px 계산)와 어긋나 있었다. 두 줄 문구
+    # 기준으로 아래쪽 36px, 좌우 11px씩이 지울 목록 밖이라 안 지워졌다.
+    # 두 곳에서 따로 계산하는 한 언젠가 또 어긋난다 — 칠한 쪽이 알려준다.
+    return (x0, y0, x1, y1)
 
 
 def _korean_text_width_px(text, font_size_px):
@@ -1351,6 +1382,9 @@ def main():
     config["head_tracker"]["mouth_click"]["open_margin"] = MOUTH_OPEN_MARGIN_OVERRIDE
     config["head_tracker"]["mouth_click"]["close_margin"] = MOUTH_CLOSE_MARGIN_OVERRIDE
     config["head_tracker"]["recenter_dwell"]["enabled"] = RECENTER_DWELL_ENABLED_OVERRIDE
+    config["head_tracker"]["pointer"]["orientation_mapping"] = ORIENTATION_MAPPING
+    config["head_tracker"]["pointer"]["orientation_half_span_x_deg"] = ORIENTATION_HALF_SPAN_X_DEG
+    config["head_tracker"]["pointer"]["orientation_half_span_y_deg"] = ORIENTATION_HALF_SPAN_Y_DEG
     config["head_tracker"]["pointer"]["face_local"] = FACE_LOCAL_MAPPING
     config["head_tracker"]["pointer"]["face_local_gain"] = FACE_LOCAL_GAIN
 
@@ -1399,6 +1433,21 @@ def main():
     # 코끝 좌표 안정화(_stable_nose_point 독스트링 참고) — "커서가 위아래로
     # 흔들리는" 문제 대응, 기본(코끝 그대로)을 이 안정화 버전으로 교체
     head_tracker = HeadTracker(config, cursor_point_fn=_stable_nose_point)
+    # 모델 로딩 완료를 연동 GUI(델파이)에 알린다 — 팀장님 요청(2026-08-31).
+    # 델파이는 엔진을 자식 프로세스로 띄우고 stdout을 익명 파이프로 줄 단위
+    # 수신하며 준비 완료를 기다린다 (docs/델파이7_연동가이드.md 참고).
+    #
+    # ★flush가 반드시 필요하다. 파이프로 나가는 stdout은 줄 단위가 아니라
+    # 블록 단위(약 8KB)로 버퍼링된다 — 그냥 print만 하면 이 한 줄이 버퍼에
+    # 갇혀 델파이가 못 받는다. 한참 뒤 좌표가 쌓여 버퍼가 찰 때 함께 밀려
+    # 나가는데, 그때는 "준비됐다"는 신호로서 이미 쓸모가 없다.
+    # (이 프로젝트는 -u 나 PYTHONUNBUFFERED 를 쓰지 않는다 — 확인함)
+    #
+    # 카메라를 열기 **전**에 찍는다. 요청은 "모델 로딩 완료"이고, 카메라
+    # 오픈은 정상 장치도 십수 초 걸리는 경우가 있어(2026-08-26 실측) 그것까지
+    # 기다리면 신호가 그만큼 늦어진다.
+    print("Models Loaded", flush=True)
+
     camera = CameraStream(config, config_path=args.config).start()
 
     state = {"is_control_active": True, "should_quit": False, "show_camera": False}
@@ -2048,19 +2097,18 @@ def main():
                             line1_y_px = (int(_cursor_y_to_screen(CENTER_Y_RATIO) * overlay_h_px)
                                          + CURSOR_RADIUS_PX + 20)
                             line2_y_px = line1_y_px + line1_font_px + 10
-                            put_korean_text(overlay_canvas, SETTLING_LABEL_LINE1,
-                                            (int(center_x_px - line1_w_px / 2), line1_y_px),
-                                            line1_font_px, CURSOR_COLOR)
-                            put_korean_text(overlay_canvas, SETTLING_LABEL_LINE2,
-                                            (int(center_x_px - line2_w_px / 2), line2_y_px),
-                                            line2_font_px, CURSOR_COLOR)
-                            # 두 줄 문구가 칠한 범위도 지울 목록에 넣는다 — 안 넣으면 유예가
-                            # 끝난 뒤에도 글자가 화면에 남는다
-                            text_w_px = max(line1_w_px, line2_w_px)
-                            drawn_rect = _union_rect(drawn_rect, _clip_rect((
-                                center_x_px - text_w_px // 2 - 4, line1_y_px - line1_font_px - 4,
-                                center_x_px + text_w_px // 2 + 4, line2_y_px + 8),
-                                overlay_w_px, overlay_h_px))
+                            # ★2026-08-31 — 글자가 실제로 칠한 범위를 그리는 쪽에서 받아 지울 목록에
+                            # 넣는다. 예전엔 여기서 따로 계산했는데 put_korean_text의 실제 범위와
+                            # 어긋나(아래 36px·좌우 11px) 문구가 안 지워졌다 — 사용자 실기 보고
+                            for _text_rect in (
+                                    put_korean_text(overlay_canvas, SETTLING_LABEL_LINE1,
+                                                    (int(center_x_px - line1_w_px / 2), line1_y_px),
+                                                    line1_font_px, CURSOR_COLOR),
+                                    put_korean_text(overlay_canvas, SETTLING_LABEL_LINE2,
+                                                    (int(center_x_px - line2_w_px / 2), line2_y_px),
+                                                    line2_font_px, CURSOR_COLOR)):
+                                drawn_rect = _union_rect(drawn_rect, _clip_rect(
+                                    _text_rect, overlay_w_px, overlay_h_px))
                     # ★고장 알림 (WATCHDOG_STALL_SEC 상수 설명 참고) — 추적
                     # 여부와 무관하게 그린다. 오히려 추적이 멈춘 상태가
                     # 바로 이걸 봐야 하는 상황이다. 화면 한가운데보다 조금
@@ -2070,13 +2118,11 @@ def main():
                         fault_w_px = _korean_text_width_px(watchdog_fault, fault_font_px)
                         fault_x_px = int(CENTER_X_RATIO * overlay_w_px - fault_w_px / 2)
                         fault_y_px = int(_cursor_y_to_screen(1.0) * overlay_h_px) - 40
-                        put_korean_text(overlay_canvas, watchdog_fault,
-                                        (fault_x_px, fault_y_px), fault_font_px,
-                                        WATCHDOG_LABEL_COLOR)
-                        drawn_rect = _union_rect(drawn_rect, _clip_rect((
-                            fault_x_px - 6, fault_y_px - fault_font_px - 6,
-                            fault_x_px + fault_w_px + 6, fault_y_px + 8),
-                            overlay_w_px, overlay_h_px))
+                        _fault_rect = put_korean_text(overlay_canvas, watchdog_fault,
+                                                     (fault_x_px, fault_y_px), fault_font_px,
+                                                     WATCHDOG_LABEL_COLOR)
+                        drawn_rect = _union_rect(drawn_rect, _clip_rect(
+                            _fault_rect, overlay_w_px, overlay_h_px))
                     cv2.imshow(WINDOW_NAME, overlay_canvas)
                     last_drawn_signature = draw_signature
                     last_drawn_rect = drawn_rect

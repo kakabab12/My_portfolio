@@ -34,10 +34,15 @@ class _FakeHeadTracker:
         self.calls = []
 
     def set_pointer_tuning(self, sensitivity_x=None, sensitivity_y=None,
-                           arc_compensation=None):
+                           arc_compensation=None,
+                           half_span_x_deg=None, half_span_y_deg=None):
+        # ★2026-08-31 — 상대 회전 매핑에서는 앞의 세 값이 안 쓰이고 아래 두
+        # 각도가 감도 손잡이다. 조절 UI가 실제로 먹는지 이 가짜가 지켜본다
         self.calls.append({"sensitivity_x": sensitivity_x,
                            "sensitivity_y": sensitivity_y,
-                           "arc_compensation": arc_compensation})
+                           "arc_compensation": arc_compensation,
+                           "half_span_x_deg": half_span_x_deg,
+                           "half_span_y_deg": half_span_y_deg})
 
 
 class LoadTuningOverridesTest(unittest.TestCase):

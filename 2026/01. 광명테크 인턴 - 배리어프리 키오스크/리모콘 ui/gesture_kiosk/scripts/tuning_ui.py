@@ -27,9 +27,18 @@ from tkinter import ttk
 
 # 트래커별 기본값 — 파일이 아직 없을 때(처음 켤 때) 슬라이더 초기 위치로
 # 쓴다. 각 트래커 .py의 실기로 확정된 값과 맞춰 둔다 — 다를 이유가 없다.
+#
+# ★2026-08-31 — 상대 회전 매핑(head_orientation.py)이 기본이 되면서 감도의
+# 성격이 바뀌었다. 예전 sensitivity_x/y·arc_compensation은 그 경로에서 쓰이지
+# 않는다. 대신 "고개를 몇 도 돌리면 화면 끝인가"가 감도 손잡이다.
+# 예전 값도 남겨 둔다 — ORIENTATION_MAPPING을 끄면 그대로 다시 쓰인다.
 _DEFAULTS = {
-    "eyebrow": {"sensitivity_x": 2.05, "sensitivity_y": 6.0, "arc_compensation": -0.75},
-    "forehead": {"sensitivity_x": 2.8, "sensitivity_y": 3.8, "arc_compensation": -0.8936},
+    "eyebrow": {"sensitivity_x": 2.05, "sensitivity_y": 6.0, "arc_compensation": -0.75,
+                "orientation_half_span_x_deg": 15.0, "orientation_half_span_y_deg": 10.0},
+    "forehead": {"sensitivity_x": 2.8, "sensitivity_y": 3.8, "arc_compensation": -0.8936,
+                 "orientation_half_span_x_deg": 15.0, "orientation_half_span_y_deg": 10.0},
+    "head": {"sensitivity_x": 1.12, "sensitivity_y": 1.46, "arc_compensation": 0.0,
+             "orientation_half_span_x_deg": 15.0, "orientation_half_span_y_deg": 10.0},
 }
 
 # 슬라이더 범위 — 두 트래커가 지금까지 실기로 써 온 값(0.9~6.0)을 넉넉히
@@ -37,6 +46,9 @@ _DEFAULTS = {
 # 크게 튀어 "볼륨 조절"의 느낌이 안 산다.
 SENSITIVITY_RANGE = (0.3, 10.0)
 ARC_COMPENSATION_RANGE = (-2.0, 2.0)
+# 각도 손잡이 범위 — 5도면 살짝만 돌려도 화면 끝(매우 민감), 40도면 크게
+# 돌려야 한다(정밀). head_orientation이 60도에서 잘라내므로 그 안에 둔다
+HALF_SPAN_RANGE = (5.0, 40.0)
 
 
 def load_tuning(path, tracker):
@@ -74,6 +86,11 @@ class TuningWindow:
         self._add_slider(root, "sensitivity_x", "가로 감도", *SENSITIVITY_RANGE, row=0)
         self._add_slider(root, "sensitivity_y", "세로 감도", *SENSITIVITY_RANGE, row=1)
         self._add_slider(root, "arc_compensation", "곡률 보정", *ARC_COMPENSATION_RANGE, row=2)
+        # 상대 회전 매핑용 손잡이 — 지금 기본 경로다(위 _DEFAULTS 설명 참고)
+        self._add_slider(root, "orientation_half_span_x_deg", "가로 각도",
+                         *HALF_SPAN_RANGE, row=3)
+        self._add_slider(root, "orientation_half_span_y_deg", "세로 각도",
+                         *HALF_SPAN_RANGE, row=4)
 
         note = tk.Label(
             root, fg="gray",
