@@ -529,3 +529,93 @@ def test_chordal_mean_neutral_matrix_resists_one_bad_frame():
     angle = math.degrees(math.acos(max(-1.0, min(1.0, (np.trace(mean) - 1.0) / 2.0))))
     assert angle < 4.0
     assert np.linalg.det(mean) == pytest.approx(1.0, abs=1e-9)
+
+
+# ------------------- 반사 켤레 + 부호 자가 학습 (실기 보고 "좌우가 반대" 재현)
+
+MIRROR = np.diag([-1.0, 1.0, 1.0])
+
+
+def _mirrored(rot):
+    """거울 반전된 프레임에서 MediaPipe 행렬이 오는 형태 — 반사 켤레 X·R·X."""
+    return MIRROR @ rot @ MIRROR
+
+
+def _lock_signs(ho, neutral_pts, axes, conjugate):
+    """좌우·상하로 왕복시켜 부호 투표를 잠근다."""
+    from src.postprocess.head_orientation import LOCK_VOTES
+
+    x_axis, y_axis, _ = axes
+    for i in range(LOCK_VOTES + 2):
+        for axis in (y_axis, x_axis):             # 좌우 왕복 + 끄덕임 왕복
+            for sign in (1.0, -1.0):
+                rot = _rot_about(axis, 9.0 * sign)
+                mat = _mirrored(rot) if conjugate else rot
+                ho.pointing_offset(_MatrixFace(_apply(rot, neutral_pts), mat))
+
+
+@pytest.mark.parametrize("conjugate", [False, True])
+def test_sign_learning_makes_matrix_match_landmark_truth(conjugate):
+    """★핵심 — 행렬이 반사 켤레(거울 프레임)로 와도, 부호를 배우고 나면
+    방향이 랜드마크 진실과 일치해야 한다. 켤레가 없어도 똑같이 성립한다.
+
+    2026-08-31 저녁 실기 보고("모두 좌우가 반대로 돌아간다")의 재현이자
+    수정 증명이다: 켤레 X·R·X 는 yaw만 뒤집으므로, 부호 학습이 없으면
+    conjugate=True 케이스에서 가로가 반대로 나온다.
+    """
+    neutral = _synthetic_head()
+    axes = _orthonormal_frame(neutral[list(RIGID_LANDMARKS)])
+
+    ho = HeadOrientation(rotation_source="auto")
+    assert ho.set_neutral(_MatrixFace(neutral, np.eye(3) if not conjugate else _mirrored(np.eye(3))))
+    _lock_signs(ho, neutral, axes, conjugate)
+    assert ho._sign_h is not None and ho._sign_v is not None
+
+    # 진실 기준 — 랜드마크만 쓰는 별도 인스턴스
+    truth = HeadOrientation(rotation_source="landmarks")
+    assert truth.set_neutral(_FakeFace(neutral))
+
+    for axis, deg in ((axes[1], 11.0), (axes[1], -11.0),
+                      (axes[0], 7.0), (axes[0], -7.0)):
+        rot = _rot_about(axis, deg)
+        turned = _apply(rot, neutral)
+        expected = truth.pointing_offset(_FakeFace(turned))
+        # ★랜드마크를 뭉개서 행렬 경로만 남긴다 — 진짜 행렬이 쓰였음을 보장
+        blank = neutral.copy()
+        blank[list(RIGID_LANDMARKS)] = 0.0
+        mat = _mirrored(rot) if conjugate else rot
+        got = ho.pointing_offset(_MatrixFace(blank, mat))
+        assert got is not None, (conjugate, deg)
+        assert got[0] == pytest.approx(expected[0], abs=1e-6), (conjugate, deg)
+        assert got[1] == pytest.approx(expected[1], abs=1e-6), (conjugate, deg)
+
+
+def test_before_signs_lock_direction_is_already_correct():
+    """부호가 잠기기 전에도 커서 방향은 옳아야 한다 — 랜드마크 값을 쓰므로.
+
+    켤레 행렬을 주고 첫 호출부터 코의 화면상 이동 방향과 비교한다.
+    """
+    neutral = _synthetic_head()
+    axes = _orthonormal_frame(neutral[list(RIGID_LANDMARKS)])
+    ho = HeadOrientation(rotation_source="auto")
+    assert ho.set_neutral(_MatrixFace(neutral, np.eye(3)))
+
+    rot = _rot_about(axes[1], 10.0)
+    turned = _apply(rot, neutral)
+    got = ho.pointing_offset(_MatrixFace(turned, _mirrored(rot)))   # 첫 프레임
+    assert got is not None
+    moved_right = _nose_screen_x(turned) > _nose_screen_x(neutral)
+    assert (got[0] > 0.0) == moved_right
+
+
+def test_signs_survive_reset():
+    """부호는 카메라 규약의 성질 — 사용자 교체(reset)에도 유지돼야 한다."""
+    neutral = _synthetic_head()
+    axes = _orthonormal_frame(neutral[list(RIGID_LANDMARKS)])
+    ho = HeadOrientation(rotation_source="auto")
+    assert ho.set_neutral(_MatrixFace(neutral, np.eye(3)))
+    _lock_signs(ho, neutral, axes, conjugate=True)
+    h, v = ho._sign_h, ho._sign_v
+    assert h is not None
+    ho.reset()
+    assert (ho._sign_h, ho._sign_v) == (h, v)

@@ -51,6 +51,23 @@
 행렬의 축 규약(어느 회전이 양수인가)을 알 필요가 없다. 카메라를 M만큼
 돌려 달면 중립도 현재도 M이 곱해져 R_now @ R_neutral^T 에서 소거된다.
 
+★반사 켤레와 부호 자가 학습 (2026-08-31 저녁 — 실기 보고 "좌우가 반대")
+------------------------------------------------------------------------
+위 소거 논리에는 빈틈이 하나 있었다. 프레임이 거울 반전(mirror)돼 있으면
+행렬은 반사 X = diag(-1,1,1)로 **켤레**가 되어 온다: R_관측 = X·R·X.
+상대 회전을 구해도 켤레는 안 사라진다 — X·R_rel·X 가 남고, 이것은
+**yaw만 뒤집고 pitch는 그대로 둔다** (X R_y(θ) X = R_y(-θ),
+X R_x(θ) X = R_x(θ)). 정확히 "좌우만 반대"라는 실기 보고 그대로다.
+랜드마크 정합은 반전된 좌표끼리 정합하므로 이 문제가 없다.
+
+처방은 여기서도 "재지 않는다"를 지킨다 — **부호를 실행 중에 스스로 배운다**.
+랜드마크 정합의 방향은 정의상 옳다(코가 화면에서 가는 쪽 — 단위 테스트로
+증명됨). 그래서 두 값이 동시에 나올 때 축마다 부호가 같은지 투표하고,
+충분히 쌓이면(LOCK_VOTES) 그 부호를 확정해 행렬 값에 적용한다. 확정
+전에는 방향이 보장된 랜드마크 값을 쓰므로 **커서는 첫 프레임부터 옳은
+방향**으로 움직인다. 거울 설정이 바뀌든 MediaPipe 규약이 바뀌든, 코드는
+고칠 것이 없다.
+
 여러 장으로 중립 행렬을 잡을 때는 성분 평균을 SVD로 다시 회전에 사영하는
 코달 평균을 쓴다 (Hartley, Trumpf, Dai, Li (2013). "Rotation Averaging."
 International Journal of Computer Vision 103, 267-305 — L2 chordal mean).
@@ -111,6 +128,14 @@ MIN_POINTS = 8
 # 중립 대비 회전이 이보다 크면 탄젠트가 발산한다. 키오스크에서 고개를
 # 이만큼 돌릴 일은 없고, 한 프레임이라도 튀면 커서가 화면 밖으로 날아간다
 MAX_ANGLE_DEG = 60.0
+
+# 부호 투표에 쓸 최소 오프셋(탄젠트 단위, 약 1.7도) — 이보다 작은 움직임은
+# 잡음이 부호를 지배해서 증거로 안 친다
+SIGN_EVIDENCE_MIN = 0.03
+
+# 이만큼 투표가 한쪽으로 쌓이면 그 축의 부호를 확정한다. 8이면 고개를
+# 그 축으로 한 번만 크게 왕복해도 잠긴다(30fps에서 1초 미만)
+LOCK_VOTES = 8
 
 # 얼굴이 이보다 작게 잡히면 z 좌표의 상대 오차가 커져 회전이 불안정하다.
 # head_tracker.MIN_INTEROCULAR_DIST_PX와 같은 취지
@@ -224,6 +249,14 @@ class HeadOrientation:
         실측으로 더 곧고, 안 오는 프레임에서도 커서가 죽지 않아야 한다.
         """
         self._rotation_source = rotation_source
+        # 행렬 부호 자가 학습 상태 (위 "반사 켤레" 설명 참고). None = 미확정.
+        # reset()에서도 지우지 않는다 — 부호는 카메라·거울 설정의 성질이라
+        # 사용자가 바뀌어도 그대로다 (다시 배우게 하면 그동안 랜드마크 경로로
+        # 돌 뿐 틀리지는 않지만, 유지하는 쪽이 그 시간을 아낀다)
+        self._sign_h = None
+        self._sign_v = None
+        self._vote_h = 0
+        self._vote_v = 0
         self._neutral_points = None
         self._neutral_rotation = None      # 중립의 변환행렬 회전 (3,3) — 코달 평균
         self._axes = None
@@ -309,25 +342,48 @@ class HeadOrientation:
         """
         if not self.is_ready:
             return None
-        rot = None
         # 1순위: 변환행렬 상대 회전 (독스트링 "회전의 재료 두 가지" 참고)
+        mat_rot = None
         if self._rotation_source in ("auto", "matrix") and self._neutral_rotation is not None:
             cur = getattr(face, "head_rotation", None)
             if cur is not None:
                 # R_rel = R_now @ R_neutral^T — 회전이라 전치 = 역행렬.
                 # 카메라를 M만큼 돌려 달면 양쪽에 M이 곱해져 여기서 소거된다
-                rot = np.asarray(cur, dtype=np.float64) @ self._neutral_rotation.T
-        if rot is None and self._rotation_source == "matrix":
+                mat_rot = np.asarray(cur, dtype=np.float64) @ self._neutral_rotation.T
+        if mat_rot is None and self._rotation_source == "matrix":
             return None      # 행렬 강제인데 이 프레임엔 행렬이 없다
-        # 2순위(폴백): 랜드마크 정합
-        if rot is None:
-            points = extract_rigid_points(face)
-            if points is None:
-                return None
-            rot = estimate_rotation(self._neutral_points, points)
-        if rot is None:
-            return None
 
+        # 랜드마크 정합 — 행렬이 없거나, 행렬의 부호가 아직 미확정일 때 필요
+        # (부호가 다 잠기면 이 계산은 건너뛰어 프레임 비용을 아낀다)
+        landmark = None
+        signs_locked = self._sign_h is not None and self._sign_v is not None
+        if mat_rot is None or not signs_locked:
+            points = extract_rigid_points(face)
+            if points is not None:
+                lrot = estimate_rotation(self._neutral_points, points)
+                if lrot is not None:
+                    landmark = self._project(lrot)
+
+        if mat_rot is None:
+            return landmark                       # 폴백 (기존 동작)
+        matrix = self._project(mat_rot)
+        if matrix is None:
+            return landmark                       # 행렬상 과회전 — 랜드마크로
+
+        # ★부호 자가 학습 (독스트링 "반사 켤레" 참고) — 두 값이 함께 있고
+        # 움직임이 충분할 때만 축마다 투표한다
+        if landmark is not None:
+            self._learn_signs(matrix, landmark)
+            signs_locked = self._sign_h is not None and self._sign_v is not None
+
+        if not signs_locked:
+            # 아직 미확정 — 방향이 정의상 옳은 랜드마크 값으로 움직인다.
+            # 커서가 첫 프레임부터 옳은 방향인 이유가 이 줄이다
+            return landmark
+        return (self._sign_h * matrix[0], self._sign_v * matrix[1])
+
+    def _project(self, rot):
+        """상대 회전 -> (가로, 세로) 탄젠트. 과회전이면 None."""
         x_axis, y_axis, z_axis = self._axes
         # 중립일 때 얼굴이 향하던 방향을, 지금 회전만큼 돌린 것
         facing = rot @ z_axis
@@ -338,8 +394,21 @@ class HeadOrientation:
         vertical = float(np.dot(facing, y_axis))
         # forward의 부호는 z축을 어느 쪽으로 잡았느냐에 따라 갈리는데, 나누는
         # 쪽과 곱해지는 쪽이 같은 축에서 나오므로 비율에서 상쇄된다.
-        # abs를 쓰면 뒤통수를 보이는 각도에서도 부호가 안 뒤집힌다
+        # abs를 쓰면 뒤통수를 보이는 각도에서도 부호가 안 뒤집히지 않는다
         return (horizontal / abs(forward), vertical / abs(forward))
+
+    def _learn_signs(self, matrix, landmark):
+        """축마다 행렬·랜드마크의 부호 일치를 투표 -> 쌓이면 확정."""
+        if self._sign_h is None and (abs(matrix[0]) >= SIGN_EVIDENCE_MIN
+                                     and abs(landmark[0]) >= SIGN_EVIDENCE_MIN):
+            self._vote_h += 1 if matrix[0] * landmark[0] > 0 else -1
+            if abs(self._vote_h) >= LOCK_VOTES:
+                self._sign_h = 1.0 if self._vote_h > 0 else -1.0
+        if self._sign_v is None and (abs(matrix[1]) >= SIGN_EVIDENCE_MIN
+                                     and abs(landmark[1]) >= SIGN_EVIDENCE_MIN):
+            self._vote_v += 1 if matrix[1] * landmark[1] > 0 else -1
+            if abs(self._vote_v) >= LOCK_VOTES:
+                self._sign_v = 1.0 if self._vote_v > 0 else -1.0
 
 
 def _chordal_mean(rotations):

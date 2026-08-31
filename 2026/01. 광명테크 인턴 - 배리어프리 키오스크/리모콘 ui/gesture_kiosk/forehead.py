@@ -1448,14 +1448,15 @@ def main():
     def _release_mouth_hold_if_stuck():
         """추적을 잃으면 입 제스처 상태를 되돌린다 — head.py와 동일 이유(그
         파일 동명 함수 독스트링 참고)."""
-        if mouth_gesture_state["is_holding"]:
-            try:
-                # ★제어 토글(p) 상태와 무관하게 뗀다 — 누른 건 우리이므로
-                # 떼는 것도 우리 책임이다(release_if_pressed 독스트링 참고)
-                mouse.release_if_pressed()
-                logger.info("추적 끊김 - 꾹 누르기 강제 해제 (drag release)")
-            except Exception:   # noqa: 방어적
-                logger.exception("꾹 누르기 강제 해제 실패")
+        # ★벌리는 순간 누르는 방식(2026-08-31)이라, holding 전이라도 눌려
+        # 있을 수 있다 — 상태와 무관하게 뗀다. 누른 건 우리이므로 떼는 것도
+        # 우리 책임이다(release_if_pressed 독스트링 참고)
+        try:
+            mouse.release_if_pressed()
+            if mouth_gesture_state["is_holding"] or mouth_gesture_state["is_open"]:
+                logger.info("추적 끊김 - 입 제스처 강제 해제 (release)")
+        except Exception:   # noqa: 방어적
+            logger.exception("입 제스처 강제 해제 실패")
         mouth_gesture_state["is_open"] = False
         mouth_gesture_state["open_since_sec"] = None
         mouth_gesture_state["is_holding"] = False
@@ -1476,6 +1477,19 @@ def main():
                 mouth_gesture_state["is_open"] = True
                 mouth_gesture_state["open_since_sec"] = now_sec
                 mouth_gesture_state["close_since_sec"] = None
+                # ★2026-08-31 저녁 — 벌리는 **순간** 누른다 (실기 보고 "클릭
+                # 반응성이 느려"). 예전에는 다물 때 mouse.click()을 한 번에
+                # 보냈는데, 그러면 벌리고-다무는 시간(보통 0.5초 안팎)이
+                # 통째로 지연으로 느껴졌다. 마우스 본래 의미대로 press를
+                # 여기서, release를 다물 때 보내면 ①버튼이 즉시 눌려 보이고
+                # ②짧은 벌림 = 클릭, 긴 벌림 = 드래그가 자연스럽게 갈리며
+                # ③드래그도 0.7초 대기 없이 곧바로 시작된다. hold_start/
+                # hold_end/select 콘솔 규약은 그대로다(델파이 호환).
+                if state["is_control_active"]:
+                    try:
+                        mouse.press()
+                    except Exception:   # noqa: 방어적
+                        logger.exception("누르기 시도 실패")
         else:
             held_sec = now_sec - mouth_gesture_state["open_since_sec"]
             # 드래그 중이면 더 깊이·더 오래 닫아야 놓아준다 — head.py와 동일
@@ -1493,17 +1507,18 @@ def main():
                 elif now_sec - mouth_gesture_state["close_since_sec"] >= close_confirm:
                     mouth_gesture_state["is_open"] = False
                     mouth_gesture_state["close_since_sec"] = None
+                    # 벌릴 때 눌러 두었으므로 어느 경로든 여기서 뗀다.
+                    # 제어를 끈 상태여도 반드시 — 안 그러면 버튼이 눌린 채
+                    # 남는다(release_if_pressed 독스트링 참고)
+                    mouse.release_if_pressed()
                     if mouth_gesture_state["is_holding"]:
                         mouth_gesture_state["is_holding"] = False
                         feedback.set_holding(False)
-                        # 제어를 끈 상태여도 반드시 뗀다 — 안 그러면 버튼이
-                        # 눌린 채 남는다(release_if_pressed 독스트링 참고)
-                        mouse.release_if_pressed()
                         console.emit("hold_end")
                         logger.info("꾹 누르기 종료 (trigger=mouth, drag release)")
                     else:
-                        if state["is_control_active"]:
-                            mouse.click()
+                        # press(벌림)+release(다묾)가 이미 클릭을 이룬다 —
+                        # 여기서 mouse.click()을 또 보내면 이중 클릭이 된다
                         feedback.flash(now_sec)
                         console.emit("select")
                         logger.info("클릭 (trigger=mouth)")
@@ -1513,8 +1528,8 @@ def main():
                 if not mouth_gesture_state["is_holding"] and held_sec >= MOUTH_HOLD_SEC:
                     mouth_gesture_state["is_holding"] = True
                     feedback.set_holding(True)
-                    if state["is_control_active"]:
-                        mouse.press()
+                    # press는 벌리는 순간 이미 보냈다(위 참고) — 여기서는
+                    # 드래그 표시와 콘솔 규약만 처리한다
                     console.emit("hold_start")
                     logger.info("꾹 누르기 시작 (trigger=mouth, drag press)")
                     _reset_recenter_timer()
