@@ -1118,6 +1118,33 @@ class _Win32Mouse:
         self._user32.mouse_event(self.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
         self.is_pressed = False
 
+
+    def release_click(self):
+        """벌리는 순간 press()로 시작한 클릭을 여기서 완성한다 (2026-08-31 저녁).
+
+        press(벌림) + 이 release(다묾) 가 한 번의 클릭이다. click()에 있던
+        더블클릭 합성(2026-08-26, 실측 근거는 click 독스트링 참고)을 그대로
+        이어받는다 — press/release 방식으로 바꾸면서 click()을 우회하게 되어
+        합성이 빠졌고, 실기 보고 "더블클릭이 안 되네"로 드러났다(2026-08-31).
+
+        두 번째 클릭이면 다운-업 한 쌍을 바로 붙여 보낸다 — 이 쌍의 다운과
+        직전 업의 간격이 사실상 0이라 윈도우가 무조건 더블클릭으로 처리한다.
+        드래그 끝(hold_end)은 release_if_pressed()로 떼므로 이 창에 끼어들지
+        않는다 — 드래그 직후의 클릭이 엉뚱하게 더블클릭으로 묶이면 안 된다.
+        """
+        if not self.is_pressed:
+            return          # 제어를 끈 채 벌렸던 경우 — 애초에 누르지 않았다
+        now_sec = time.monotonic()
+        is_second = (now_sec - self._last_click_sec) <= DOUBLE_CLICK_WINDOW_SEC
+        self._user32.mouse_event(self.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        self.is_pressed = False
+        if is_second:
+            self._user32.mouse_event(self.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+            self._user32.mouse_event(self.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+            self._last_click_sec = 0.0   # 세 번째가 또 묶이지 않게 창을 닫는다
+        else:
+            self._last_click_sec = now_sec
+
     def release_if_pressed(self):
         """★눌러둔 게 있으면 무조건 뗀다 (2026-08-25 신설).
 
@@ -1599,18 +1626,18 @@ def main():
                 elif now_sec - mouth_gesture_state["close_since_sec"] >= close_confirm:
                     mouth_gesture_state["is_open"] = False
                     mouth_gesture_state["close_since_sec"] = None
-                    # 벌릴 때 눌러 두었으므로 어느 경로든 여기서 뗀다.
-                    # 제어를 끈 상태여도 반드시 — 안 그러면 버튼이 눌린 채
-                    # 남는다(release_if_pressed 독스트링 참고)
-                    mouse.release_if_pressed()
                     if mouth_gesture_state["is_holding"]:
+                        # 드래그 끝 — 더블클릭 합성 없이 떼기만 한다.
+                        # 제어를 끈 상태여도 반드시(release_if_pressed 독스트링)
+                        mouse.release_if_pressed()
                         mouth_gesture_state["is_holding"] = False
                         feedback.set_holding(False)      # 드래그 색 해제
                         console.emit("hold_end")
                         logger.info("꾹 누르기 종료 (trigger=mouth, drag release)")
                     else:
-                        # press(벌림)+release(다묾)가 이미 클릭을 이룬다 —
-                        # 여기서 mouse.click()을 또 보내면 이중 클릭이 된다
+                        # press(벌림)+release(다묾)가 한 번의 클릭 —
+                        # release_click이 더블클릭 합성까지 처리한다
+                        mouse.release_click()
                         feedback.flash(now_sec)          # 클릭 1회 = 한 번 깜빡
                         console.emit("select")
                         logger.info("클릭 (trigger=mouth)")

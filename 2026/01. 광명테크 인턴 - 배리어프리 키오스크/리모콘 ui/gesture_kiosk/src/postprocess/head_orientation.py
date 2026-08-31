@@ -394,7 +394,7 @@ class HeadOrientation:
         vertical = float(np.dot(facing, y_axis))
         # forward의 부호는 z축을 어느 쪽으로 잡았느냐에 따라 갈리는데, 나누는
         # 쪽과 곱해지는 쪽이 같은 축에서 나오므로 비율에서 상쇄된다.
-        # abs를 쓰면 뒤통수를 보이는 각도에서도 부호가 안 뒤집히지 않는다
+        # abs를 쓰면 뒤통수를 보이는 각도에서도 부호가 안 뒤집힌다
         return (horizontal / abs(forward), vertical / abs(forward))
 
     def _learn_signs(self, matrix, landmark):
