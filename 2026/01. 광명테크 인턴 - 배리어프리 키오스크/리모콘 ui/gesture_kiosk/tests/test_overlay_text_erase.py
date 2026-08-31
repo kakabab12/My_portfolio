@@ -88,3 +88,48 @@ def test_rect_is_clipped_to_the_canvas(module_name):
         x0, y0, x1, y1 = rect
         assert 0 <= x0 < x1 <= 300
         assert 0 <= y0 < y1 <= 300
+
+
+# ----------------- 패널 배경 — 실기 보고 "글씨 주변에 핑크색 테두리" (2026-08-31 밤)
+
+def _pinkish(canvas):
+    """투명색과 섞인 분홍 픽셀 — 오버레이에서 글자 테두리로 보이는 것들."""
+    b = canvas[:, :, 0].astype(int)
+    g = canvas[:, :, 1].astype(int)
+    r = canvas[:, :, 2].astype(int)
+    exact_key = (b == 255) & (g == 0) & (r == 255)
+    return int((((b > 100) & (r > 100) & (b - g > 60) & (r - g > 60)) & ~exact_key).sum())
+
+
+@pytest.mark.parametrize("module_name", TRACKERS)
+def test_panel_prevents_pink_fringe(module_name):
+    """★패널을 깔면 투명색과 섞인 분홍 가장자리가 생기지 않아야 한다.
+
+    글자의 안티에일리어싱이 마젠타 대신 패널색과 섞이게 하는 것이 수정의
+    핵심이다. 패널 없이 그리면 분홍이 실제로 생기는 것도 함께 확인해
+    이 테스트가 헛돌지 않음을 보장한다.
+    """
+    module = importlib.import_module(module_name)
+    canvas = _canvas()
+    module.put_korean_text(canvas, "자리 잡는 중입니다", (200, 120), 30, TEXT_COLOR)
+    assert _pinkish(canvas) > 0, "패널 없이는 분홍이 생겨야 검증이 의미 있다"
+
+    canvas2 = _canvas()
+    module.put_korean_text(canvas2, "자리 잡는 중입니다", (200, 120), 30, TEXT_COLOR,
+                           panel_color=(28, 28, 28))
+    assert _pinkish(canvas2) == 0
+
+
+@pytest.mark.parametrize("module_name", TRACKERS)
+def test_panel_text_still_erases_completely(module_name):
+    """패널을 깔아도 돌려준 범위만 지우면 남김없이 지워져야 한다 —
+    패널이 반환 범위(ROI)를 정확히 채우므로 성립한다."""
+    module = importlib.import_module(module_name)
+    canvas = _canvas()
+    rect = module.put_korean_text(canvas, "고개를 움직이면 다시 시작합니다",
+                                  (150, 200), 22, TEXT_COLOR, panel_color=(28, 28, 28))
+    assert rect is not None
+    x0, y0, x1, y1 = rect
+    canvas[y0:y1, x0:x1] = BACKGROUND
+    leftover = np.any(canvas != np.array(BACKGROUND, dtype=np.uint8), axis=2)
+    assert leftover.sum() == 0

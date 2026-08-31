@@ -112,37 +112,55 @@ def draw_cursor(frame, cursor_x_ratio, cursor_y_ratio, recenter_progress_ratio=0
     y_px = cursor_y_ratio * h_px
     center = _pt(x_px, y_px)
 
-    # 1) 바깥 대비 테두리 — 본체보다 먼저 그려 본체가 위에 얹히게 한다
+    # ── 디자인 v2 (2026-08-31 밤, 사용자 요청 "커서 디자인 새롭게") ──
+    # 십자 대신 도넛(굵은 링) + 정밀 조준점. 규칙은 v1에서 확립된 그대로:
+    #   · 투명색(마젠타)과 닿는 가장자리는 전부 LINE_8 — 분홍 테두리 방지
+    #   · 색이 있는 요소는 반드시 검은 밑판 위에 AA로 얹는다
+    #   · 칠하는 범위는 cursor_reach_px() 안 — 더티 사각형 계약
+
+    # 1) 링 밑판 — 검은 굵은 링. 양쪽 테두리(rim) 역할까지 겸한다
     cv2.circle(frame, center, _len(CURSOR_RADIUS_PX),
                CURSOR_HALO_COLOR, CURSOR_THICKNESS_PX + CURSOR_HALO_THICKNESS_PX * 2,
-               cv2.LINE_8, _SUBPIXEL_SHIFT)      # 투명색과 닿는 가장자리 - 위 설명 참고
+               cv2.LINE_8, _SUBPIXEL_SHIFT)      # 바깥·안쪽 모두 투명색과 닿는다
 
-    # 2) 드래그 중이면 속을 채운다 (형태로도 상태를 알린다)
+    # 2) 드래그 중이면 도넛 속을 채운다 (형태로도 상태를 알린다)
     if filled:
-        cv2.circle(frame, center, _len(CURSOR_RADIUS_PX - 6), color, -1,
-                   cv2.LINE_8, _SUBPIXEL_SHIFT)   # 원 안쪽은 아직 투명색이다
+        cv2.circle(frame, center, _len(CURSOR_RADIUS_PX - 5), color, -1,
+                   cv2.LINE_8, _SUBPIXEL_SHIFT)   # 채움 가장자리도 투명색과 닿는다
 
-    # 3) 본체 원
+    # 3) 본체 색 링 — 검은 밑판 위라 AA 안전
     cv2.circle(frame, center, _len(CURSOR_RADIUS_PX), color, CURSOR_THICKNESS_PX,
                cv2.LINE_AA, _SUBPIXEL_SHIFT)
 
-    # 4) 십자 — drawMarker는 부분 픽셀을 못 받으므로 선 두 개로 직접 그린다.
-    #    테두리를 먼저 굵게 깔고 본체를 얹어 배경과 관계없이 보이게 한다
-    half = CURSOR_MARKER_SIZE_PX / 2.0
-    arms = (((x_px - half, y_px), (x_px + half, y_px)),
-            ((x_px, y_px - half), (x_px, y_px + half)))
-    for (ax, ay), (bx, by) in arms:
-        cv2.line(frame, _pt(ax, ay), _pt(bx, by), CURSOR_HALO_COLOR,
-                 CURSOR_THICKNESS_PX + CURSOR_HALO_THICKNESS_PX * 2,
-                 cv2.LINE_8, _SUBPIXEL_SHIFT)     # 투명색과 닿는 가장자리
-    for (ax, ay), (bx, by) in arms:
-        cv2.line(frame, _pt(ax, ay), _pt(bx, by), color, CURSOR_THICKNESS_PX,
-                 cv2.LINE_AA, _SUBPIXEL_SHIFT)
+    # 4) 안쪽 흰 하이라이트 링 — 어두운 화면에서 링의 안쪽 윤곽을 세워 주고
+    #    v1과 한눈에 구분되는 "새 디자인"의 포인트다. 색 링 위라 AA 안전
+    cv2.circle(frame, center, _len(CURSOR_RADIUS_PX - CURSOR_THICKNESS_PX),
+               (245, 245, 245), 1, cv2.LINE_AA, _SUBPIXEL_SHIFT)
 
-    # 5) 조준점 — 정확히 어디를 가리키는지
-    if not filled:
-        cv2.circle(frame, center, _len(CURSOR_DOT_RADIUS_PX), color, -1,
-                   cv2.LINE_AA, _SUBPIXEL_SHIFT)
+    # 5) 조준 눈금 4개 — 링 안쪽에서 중심을 가리키는 짧은 금.
+    #    십자보다 시야를 덜 가리면서 "정확히 어디"를 잡아 준다.
+    #    투명 영역 위라 검은 밑판 -> 색 순서, 둘 다 LINE_8
+    tick_far = CURSOR_RADIUS_PX - CURSOR_THICKNESS_PX - 1.5
+    tick_near = tick_far - 9.0                       # 길이 9 x 폭 4 — 가늘고 또렷하게
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        a = (x_px + dx * tick_near, y_px + dy * tick_near)
+        b = (x_px + dx * tick_far, y_px + dy * tick_far)
+        cv2.line(frame, _pt(*a), _pt(*b), CURSOR_HALO_COLOR, 4,
+                 cv2.LINE_8, _SUBPIXEL_SHIFT)
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        a = (x_px + dx * tick_near, y_px + dy * tick_near)
+        b = (x_px + dx * tick_far, y_px + dy * tick_far)
+        cv2.line(frame, _pt(*a), _pt(*b), color, 2,
+                 cv2.LINE_8, _SUBPIXEL_SHIFT)
+
+    # 6) 정밀 조준점 — 검은 밑판 원(LINE_8, 투명색과 닿음) 위에
+    #    색 원(AA), 그 위에 흰 점(AA). 드래그로 채워져 있어도 그대로 얹는다
+    cv2.circle(frame, center, _len(CURSOR_DOT_RADIUS_PX + 2), CURSOR_HALO_COLOR, -1,
+               cv2.LINE_8, _SUBPIXEL_SHIFT)
+    cv2.circle(frame, center, _len(CURSOR_DOT_RADIUS_PX), color, -1,
+               cv2.LINE_AA, _SUBPIXEL_SHIFT)
+    cv2.circle(frame, center, _len(1.4), (245, 245, 245), -1,
+               cv2.LINE_AA, _SUBPIXEL_SHIFT)
 
     # 6) 재정렬 진행 링
     if recenter_progress_ratio > 0.0:

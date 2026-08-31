@@ -830,11 +830,20 @@ def _get_korean_font(size_px):
     return font
 
 
-def put_korean_text(canvas_bgr, text, org, font_size_px, color_bgr):
+def put_korean_text(canvas_bgr, text, org, font_size_px, color_bgr, panel_color=None):
     """한글을 그리고 **실제로 칠한 범위**를 돌려준다 (x0, y0, x1, y1). 못 그리면 None.
 
     ROI만 PIL 왕복 변환하는 최적화 — head.py와 동일 이유(그 파일 독스트링 참고).
-    돌려주는 범위는 더티 사각형(지울 목록)에 그대로 넣으면 된다 — 아래 설명 참고."""
+    돌려주는 범위는 더티 사각형(지울 목록)에 그대로 넣으면 된다 — 아래 설명 참고.
+    ★panel_color (2026-08-31 밤, 실기 보고 "글씨 주변에 핑크색 테두리"):
+    투명색(마젠타) 캔버스에 글자를 그리면 PIL의 안티에일리어싱이 글자색과
+    마젠타를 섞은 가장자리 픽셀을 만들고, 그 픽셀은 색이 정확히 일치하지
+    않아 투명 처리를 못 받아 분홍 테두리로 보인다 — 커서에서 겪은 것과
+    같은 원인이다(cursor_render.py 참고). panel_color를 주면 글자 영역을
+    그 색으로 먼저 채워, 안티에일리어싱이 마젠타가 아니라 패널색과 섞이게
+    한다. 분홍이 사라지고 어두운 칩 위 글자라 가독성도 좋아진다.
+    카메라 미리보기처럼 실사 배경 위에 그릴 때는 안 주면 된다(기존 동작).
+    """
     x_px, y_px = int(org[0]), int(org[1])
     canvas_h_px, canvas_w_px = canvas_bgr.shape[:2]
     font = _get_korean_font(font_size_px)
@@ -845,6 +854,8 @@ def put_korean_text(canvas_bgr, text, org, font_size_px, color_bgr):
     y1 = min(canvas_h_px, y_px + font_size_px + pad_px * 2)
     if x1 <= x0 or y1 <= y0:
         return None
+    if panel_color is not None:
+        canvas_bgr[y0:y1, x0:x1] = panel_color   # 패널부터 — 위 panel_color 설명
     b, g, r = color_bgr
     roi_bgr = canvas_bgr[y0:y1, x0:x1]
     pil_image = Image.fromarray(cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2RGB))
@@ -1947,10 +1958,10 @@ def main():
                             for _text_rect in (
                                     put_korean_text(overlay_canvas, SETTLING_LABEL_LINE1,
                                                     (int(center_x_px - line1_w_px / 2), line1_y_px),
-                                                    line1_font_px, CURSOR_COLOR),
+                                                    line1_font_px, CURSOR_COLOR, panel_color=(28, 28, 28)),
                                     put_korean_text(overlay_canvas, SETTLING_LABEL_LINE2,
                                                     (int(center_x_px - line2_w_px / 2), line2_y_px),
-                                                    line2_font_px, CURSOR_COLOR)):
+                                                    line2_font_px, CURSOR_COLOR, panel_color=(28, 28, 28))):
                                 drawn_rect = _union_rect(drawn_rect, _clip_rect(
                                     _text_rect, overlay_w_px, overlay_h_px))
                     # ★고장 알림 (WATCHDOG_STALL_SEC 상수 설명 참고) — 추적
@@ -1964,7 +1975,7 @@ def main():
                         fault_y_px = int(_cursor_y_to_screen(1.0) * overlay_h_px) - 40
                         _fault_rect = put_korean_text(overlay_canvas, watchdog_fault,
                                                      (fault_x_px, fault_y_px), fault_font_px,
-                                                     WATCHDOG_LABEL_COLOR)
+                                                     WATCHDOG_LABEL_COLOR, panel_color=(28, 28, 28))
                         drawn_rect = _union_rect(drawn_rect, _clip_rect(
                             _fault_rect, overlay_w_px, overlay_h_px))
                     cv2.imshow(WINDOW_NAME, overlay_canvas)
