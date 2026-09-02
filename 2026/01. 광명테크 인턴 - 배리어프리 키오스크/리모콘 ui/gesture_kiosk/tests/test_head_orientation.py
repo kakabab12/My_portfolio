@@ -541,13 +541,28 @@ def _mirrored(rot):
     return MIRROR @ rot @ MIRROR
 
 
-def _lock_signs(ho, neutral_pts, axes, conjugate):
-    """좌우·상하로 왕복시켜 부호 투표를 잠근다."""
-    from src.postprocess.head_orientation import LOCK_VOTES
+def _mirror_points(points):
+    """거울 반전된 프레임의 랜드마크 — 화면 x가 뒤집힌다.
 
+    ★실제 장치에서는 랜드마크와 행렬이 **함께** 거울을 탄다. 행렬만
+    켤레로 만들고 랜드마크를 그대로 두면 둘의 거울 상태가 어긋나 시험이
+    실제와 다른 상황을 보게 된다(2026-09-02에 그렇게 만들었다가 잡았다).
+    """
+    out = points.copy()
+    out[:, 0] = -out[:, 0]
+    return out
+
+
+def _lock_signs(ho, neutral_pts, axes, conjugate):
+    """부호는 중립을 잡는 순간 대수로 확정된다 — 예전엔 왕복이 필요했다.
+
+    ★2026-09-02: 부호를 관측 투표로 배우던 때의 흔적. 지금은 이 함수가
+    할 일이 없지만, 시험이 "왕복해도 결과가 안 바뀐다"를 함께 확인하도록
+    몇 번 돌려 준다.
+    """
     x_axis, y_axis, _ = axes
-    for i in range(LOCK_VOTES + 2):
-        for axis in (y_axis, x_axis):             # 좌우 왕복 + 끄덕임 왕복
+    for i in range(4):
+        for axis in (y_axis, x_axis):
             for sign in (1.0, -1.0):
                 rot = _rot_about(axis, 9.0 * sign)
                 mat = _mirrored(rot) if conjugate else rot
@@ -555,67 +570,77 @@ def _lock_signs(ho, neutral_pts, axes, conjugate):
 
 
 @pytest.mark.parametrize("conjugate", [False, True])
-def test_sign_learning_makes_matrix_match_landmark_truth(conjugate):
-    """★핵심 — 행렬이 반사 켤레(거울 프레임)로 와도, 부호를 배우고 나면
-    방향이 랜드마크 진실과 일치해야 한다. 켤레가 없어도 똑같이 성립한다.
+def test_matrix_and_landmark_paths_agree(conjugate):
+    """★행렬이 반사 켤레로 와도 두 경로가 같은 커서를 내야 한다.
 
-    2026-08-31 저녁 실기 보고("모두 좌우가 반대로 돌아간다")의 재현이자
-    수정 증명이다: 켤레 X·R·X 는 yaw만 뒤집으므로, 부호 학습이 없으면
-    conjugate=True 케이스에서 가로가 반대로 나온다.
+    2026-08-31 실기 보고("모두 좌우가 반대로 돌아간다")의 재현이자 수정
+    증명이다. 거울 프레임에서 MediaPipe 행렬은 X·R·X 로 오는데, 그 켤레는
+    yaw만 뒤집는다. 부호 보정이 없으면 conjugate=True 에서 두 경로가
+    갈라진다.
+
+    ★2026-09-02 기준 변경: 예전에는 랜드마크 경로를 "정답"으로 놓고 비교
+    했는데, 랜드마크 축도 거울에서 뒤집히므로 그것은 절대 기준이 될 수
+    없었다. 지금은 두 경로가 **서로 일치**하는지만 본다 — 절대 방향은
+    가상 카메라 시험(test_virtual_camera_matrix.py)이 실제 회전 기준으로
+    확인한다.
     """
-    neutral = _synthetic_head()
-    axes = _orthonormal_frame(neutral[list(RIGID_LANDMARKS)])
+    base = _synthetic_head()
+    axes = _orthonormal_frame(base[list(RIGID_LANDMARKS)])
+    turn = _rot_about(axes[1], 12.0)              # 머리 세로축 좌우 회전
+    turned_base = _apply(turn, base)
 
-    ho = HeadOrientation(rotation_source="auto")
-    assert ho.set_neutral(_MatrixFace(neutral, np.eye(3) if not conjugate else _mirrored(np.eye(3))))
-    _lock_signs(ho, neutral, axes, conjugate)
-    assert ho._sign_h is not None and ho._sign_v is not None
+    # 실제 장치처럼 랜드마크와 행렬이 함께 거울을 탄다
+    neutral = _mirror_points(base) if conjugate else base
+    turned = _mirror_points(turned_base) if conjugate else turned_base
+    r_neutral = _mirrored(np.eye(3)) if conjugate else np.eye(3)
+    r_current = _mirrored(turn) if conjugate else turn
 
-    # 진실 기준 — 랜드마크만 쓰는 별도 인스턴스
-    truth = HeadOrientation(rotation_source="landmarks")
-    assert truth.set_neutral(_FakeFace(neutral))
+    by_matrix = HeadOrientation(rotation_source="matrix")
+    assert by_matrix.set_neutral(_MatrixFace(neutral, r_neutral))
+    blank = neutral.copy()
+    blank[list(RIGID_LANDMARKS)] = 0.0            # 랜드마크를 지워 행렬만 남긴다
+    got = by_matrix.pointing_offset(_MatrixFace(blank, r_current))
 
-    for axis, deg in ((axes[1], 11.0), (axes[1], -11.0),
-                      (axes[0], 7.0), (axes[0], -7.0)):
-        rot = _rot_about(axis, deg)
-        turned = _apply(rot, neutral)
-        expected = truth.pointing_offset(_FakeFace(turned))
-        # ★랜드마크를 뭉개서 행렬 경로만 남긴다 — 진짜 행렬이 쓰였음을 보장
-        blank = neutral.copy()
-        blank[list(RIGID_LANDMARKS)] = 0.0
-        mat = _mirrored(rot) if conjugate else rot
-        got = ho.pointing_offset(_MatrixFace(blank, mat))
-        assert got is not None, (conjugate, deg)
-        assert got[0] == pytest.approx(expected[0], abs=1e-6), (conjugate, deg)
-        assert got[1] == pytest.approx(expected[1], abs=1e-6), (conjugate, deg)
+    by_landmark = HeadOrientation(rotation_source="landmarks")
+    assert by_landmark.set_neutral(_FakeFace(neutral))
+    want = by_landmark.pointing_offset(_FakeFace(turned))
+
+    assert got is not None and want is not None
+    assert got[0] == pytest.approx(want[0], abs=1e-6), conjugate
+    assert got[1] == pytest.approx(want[1], abs=1e-6), conjugate
 
 
-def test_before_signs_lock_direction_is_already_correct():
-    """부호가 잠기기 전에도 커서 방향은 옳아야 한다 — 랜드마크 값을 쓰므로.
+def test_direction_is_correct_on_the_very_first_frame():
+    """★중립만 잡으면 첫 프레임부터 방향이 옳아야 한다.
 
-    켤레 행렬을 주고 첫 호출부터 코의 화면상 이동 방향과 비교한다.
+    부호를 관측 투표로 배우던 때에는 잠길 때까지 기다려야 했지만, 지금은
+    중립을 잡는 순간 대수로 확정된다(2026-09-02).
     """
-    neutral = _synthetic_head()
-    axes = _orthonormal_frame(neutral[list(RIGID_LANDMARKS)])
-    ho = HeadOrientation(rotation_source="auto")
-    assert ho.set_neutral(_MatrixFace(neutral, np.eye(3)))
-
+    base = _synthetic_head()
+    axes = _orthonormal_frame(base[list(RIGID_LANDMARKS)])
     rot = _rot_about(axes[1], 10.0)
-    turned = _apply(rot, neutral)
-    got = ho.pointing_offset(_MatrixFace(turned, _mirrored(rot)))   # 첫 프레임
-    assert got is not None
-    moved_right = _nose_screen_x(turned) > _nose_screen_x(neutral)
-    assert (got[0] > 0.0) == moved_right
+    # 거울 프레임 — 랜드마크와 행렬이 함께 뒤집힌다(실제 장치와 동일)
+    neutral = _mirror_points(base)
+    turned = _mirror_points(_apply(rot, base))
+
+    # 켤레 행렬을 주고 **첫 호출**에서 바로 랜드마크 경로와 일치해야 한다
+    ho = HeadOrientation(rotation_source="auto")
+    assert ho.set_neutral(_MatrixFace(neutral, _mirrored(np.eye(3))))
+    got = ho.pointing_offset(_MatrixFace(turned, _mirrored(rot)))
+
+    ref = HeadOrientation(rotation_source="landmarks")
+    assert ref.set_neutral(_FakeFace(neutral))
+    want = ref.pointing_offset(_FakeFace(turned))
+    assert got is not None and want is not None
+    assert got[0] == pytest.approx(want[0], abs=1e-6)
 
 
-def test_signs_survive_reset():
-    """부호는 카메라 규약의 성질 — 사용자 교체(reset)에도 유지돼야 한다."""
+def test_signs_are_stable_across_movement():
+    """부호는 중립에서 정해지고 이후 움직임에 흔들리지 않아야 한다."""
     neutral = _synthetic_head()
     axes = _orthonormal_frame(neutral[list(RIGID_LANDMARKS)])
     ho = HeadOrientation(rotation_source="auto")
     assert ho.set_neutral(_MatrixFace(neutral, np.eye(3)))
+    before = (ho._sign_h, ho._sign_v)
     _lock_signs(ho, neutral, axes, conjugate=True)
-    h, v = ho._sign_h, ho._sign_v
-    assert h is not None
-    ho.reset()
-    assert (ho._sign_h, ho._sign_v) == (h, v)
+    assert (ho._sign_h, ho._sign_v) == before

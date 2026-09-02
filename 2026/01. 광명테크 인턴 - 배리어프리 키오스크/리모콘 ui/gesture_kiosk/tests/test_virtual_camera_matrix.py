@@ -9,18 +9,24 @@
 가상 카메라(tests/virtual_camera.py)는 핀홀 모형으로 관측을 합성하므로
 **정답을 알고 있다**. 그래서 "커서가 어디에 있어야 하는가"와 비교할 수 있다.
 
-무엇이 정답인가 — 커서는 화면 이동을 따른다
--------------------------------------------
-검증 기준을 처음에 "머리를 오른쪽으로 돌리면 커서도 오른쪽"으로 잡았다가
-거울을 끈 조건에서 오차 44%가 나왔다. 그런데 그것은 코드가 아니라 **기준이
-틀린 것**이었다 — 거울을 끄면 화면 좌표 자체가 뒤집히므로, 커서도 화면
-기준으로 반대쪽에 가는 것이 옳다.
+무엇이 정답인가 — 가상 카메라는 실제 회전을 알고 있다
+-----------------------------------------------------
+정답 기준을 두 번 갈아엎었다. 그 과정 자체가 기록할 값어치가 있다.
 
-그래서 정답은 하나로 정리된다:
+  1차: "머리를 오른쪽으로 돌리면 커서도 오른쪽" -> 거울을 끄면 화면 좌표가
+       뒤집히므로 틀렸다.
+  2차: "커서 부호 == 기준점이 화면에서 움직인 방향" -> 카메라를 50도 이상
+       기울이면 그 화면 이동이 단조성을 잃어 채점이 무의미해졌다. 코드가
+       멀쩡한데 점수가 떨어져 한동안 코드를 의심했다.
+  3차(지금): **가상 카메라가 만들어 낸 실제 머리 회전**을 기준으로 삼는다.
+       합성이므로 정답을 알고 있다 — 관측을 거치지 않으니 카메라 각도에
+       흔들리지 않는다.
 
-    커서 오프셋의 부호 == 기준점이 화면에서 움직인 방향의 부호
+물리 정의는 이렇다:
 
-이 기준은 거울 설정·카메라 배치·MediaPipe 축 규약과 무관하게 성립한다.
+    가로 — R_y(+θ)는 코를 사용자 기준 왼쪽으로 보낸다. 거울을 켜면 화면
+           오른쪽으로 보이므로 커서는 +, 거울을 끄면 -.
+    세로 — R_x(+θ)는 코를 아래로 보낸다. 거울은 세로에 영향이 없으므로 +.
 """
 import math
 import os
@@ -58,11 +64,12 @@ def _prepared(camera, source="auto"):
     return ho
 
 
-def _screen_move(camera, head_rotation):
-    """기준점이 중립 대비 화면에서 얼마나 움직였나 -> (dx, dy)."""
-    base = camera.observe().landmarks_3d[SIGN_REFERENCE_LANDMARK]
-    now = camera.observe(head_rotation).landmarks_3d[SIGN_REFERENCE_LANDMARK]
-    return float(now[0] - base[0]), float(now[1] - base[1])
+def _expected_sign(axis_index, degrees, mirror):
+    """이 회전에서 커서 오프셋이 가져야 할 부호 (모듈 독스트링의 물리 정의)."""
+    turn = 1.0 if degrees > 0 else -1.0
+    if axis_index == 0:                       # 가로 — 거울이 화면 좌우를 뒤집는다
+        return turn * (1.0 if mirror else -1.0)
+    return turn                               # 세로 — 거울과 무관
 
 
 # ------------------------------------------------- 방향 (전 배치 × 거울 ON/OFF)
@@ -79,12 +86,11 @@ def test_cursor_follows_screen_motion_everywhere(mount_name, mirror):
     ho = _prepared(camera)
 
     for axis, index in (((0.0, 1.0, 0.0), 0), ((1.0, 0.0, 0.0), 1)):
-        for degrees in (-14.0, -9.0, -5.0, 5.0, 9.0, 14.0):
-            rot = rotation(axis, degrees)
-            offset = ho.pointing_offset(camera.observe(rot))
+        for degrees in (-14.0, -9.0, -5.0, -3.0, 3.0, 5.0, 9.0, 14.0):
+            offset = ho.pointing_offset(camera.observe(rotation(axis, degrees)))
             assert offset is not None, (mount_name, mirror, degrees)
-            move = _screen_move(camera, rot)[index]
-            assert offset[index] * move > 0, (mount_name, mirror, axis, degrees)
+            want = _expected_sign(index, degrees, mirror)
+            assert offset[index] * want > 0, (mount_name, mirror, axis, degrees)
 
 
 @pytest.mark.parametrize("mirror", [True, False])
@@ -93,10 +99,9 @@ def test_landmark_path_also_follows_screen_motion(mirror):
     camera = VirtualCamera(mirror=mirror, seed=2)
     ho = _prepared(camera, source="landmarks")
     for degrees in (-12.0, -6.0, 6.0, 12.0):
-        rot = rotation((0.0, 1.0, 0.0), degrees)
-        offset = ho.pointing_offset(camera.observe(rot))
+        offset = ho.pointing_offset(camera.observe(rotation((0.0, 1.0, 0.0), degrees)))
         assert offset is not None
-        assert offset[0] * _screen_move(camera, rot)[0] > 0, degrees
+        assert offset[0] * _expected_sign(0, degrees, mirror) > 0, degrees
 
 
 def test_mirror_flips_the_learned_sign():
@@ -211,7 +216,47 @@ def test_survives_landmark_noise(noise_px):
     camera = VirtualCamera(noise_px=noise_px, seed=9)
     ho = _prepared(camera)
     for degrees in (-12.0, 12.0):
-        rot = rotation((0.0, 1.0, 0.0), degrees)
-        offset = ho.pointing_offset(camera.observe(rot))
+        offset = ho.pointing_offset(camera.observe(rotation((0.0, 1.0, 0.0), degrees)))
         assert offset is not None
-        assert offset[0] * _screen_move(camera, rot)[0] > 0, (noise_px, degrees)
+        assert offset[0] * _expected_sign(0, degrees, True) > 0, (noise_px, degrees)
+
+
+# ------------------------------- 연구실 배치 (밑에서 올려봄) 집중 + 워밍업 0
+
+@pytest.mark.parametrize("degrees_up", [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0])
+@pytest.mark.parametrize("mirror", [True, False])
+def test_bottom_mounted_camera_any_angle(degrees_up, mirror):
+    """★연구실처럼 카메라를 밑에 달아도 모든 각도에서 방향이 옳아야 한다.
+
+    부호를 대수로 정하게 바꾼 뒤로는 80도까지 성립한다. 관측으로 배우던
+    때에는 50도부터 증거가 사라져 세로가 흔들렸다(2026-09-02).
+    """
+    camera = VirtualCamera(mount=rotation((1.0, 0.0, 0.0), degrees_up),
+                           mirror=mirror, seed=11)
+    ho = _prepared(camera)
+    for axis, index in (((0.0, 1.0, 0.0), 0), ((1.0, 0.0, 0.0), 1)):
+        for degrees in (-14.0, -6.0, 6.0, 14.0):
+            offset = ho.pointing_offset(camera.observe(rotation(axis, degrees)))
+            assert offset is not None, (degrees_up, mirror, degrees)
+            want = _expected_sign(index, degrees, mirror)
+            assert offset[index] * want > 0, (degrees_up, mirror, axis, degrees)
+
+
+@pytest.mark.parametrize("mount_name", list(MOUNTS))
+def test_correct_direction_without_any_warmup(mount_name):
+    """★중립만 잡으면 **첫 프레임부터** 방향이 옳아야 한다.
+
+    부호를 관측으로 배우던 때에는 투표가 쌓일 때까지 기다려야 했다.
+    대수로 정하면서 그 대기가 사라졌다 — 이 시험이 그것을 지킨다.
+    """
+    camera = VirtualCamera(mount=MOUNTS[mount_name], seed=12)
+    ho = HeadOrientation(rotation_source="auto")
+    for _ in range(20):
+        ho.add_calibration_sample(camera.observe())
+    assert ho.finalize_neutral()          # 워밍업 없음
+
+    for axis, index in (((0.0, 1.0, 0.0), 0), ((1.0, 0.0, 0.0), 1)):
+        for degrees in (-12.0, 12.0):
+            offset = ho.pointing_offset(camera.observe(rotation(axis, degrees)))
+            assert offset is not None, mount_name
+            assert offset[index] * _expected_sign(index, degrees, True) > 0, mount_name

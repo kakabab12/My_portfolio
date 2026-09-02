@@ -69,15 +69,45 @@ X R_x(θ) X = R_x(θ)). 정확히 "좌우만 반대"라는 실기 보고 그대�
 치솟았다(2026-08-31, tests/virtual_camera.py). 배포 설정은 거울 켬 고정이라
 실기에서는 안 드러났지만, 설정 한 줄로 깨지는 구조였다.
 
-진짜 기준은 **기준점이 화면에서 어느 쪽으로 갔는가**다. 화면 좌표는 거울을
-걸든 말든 "오른쪽이 +x, 아래가 +y"로 정의되어 있고, 커서도 그 좌표를
-따라가야 한다. 그래서 중립 대비 기준점(코 부근)의 화면 이동과 매핑
-오프셋의 부호가 맞는지 축마다 투표한다.
+진짜 기준은 **중립 얼굴의 축이 화면에서 어느 쪽을 향하는가**다.
 
-증거가 나오는 첫 프레임부터 **잠정 부호**를 적용하므로 커서는 처음부터
-옳은 방향으로 가고, 투표가 쌓이면(LOCK_VOTES) 확정해 흔들리지 않게 한다.
-행렬이든 랜드마크든 **두 경로 모두** 이 부호를 거친다 — 거울 설정도,
-MediaPipe 축 규약도 알 필요가 없다.
+처음에는 "기준점(코)이 화면에서 어느 쪽으로 갔는가"를 관측해 투표했는데,
+그것도 부족했다. 카메라를 밑에서 50도로 올려보는 배치에서 세로 부호가
+확정되지 않았다(2026-09-02, 가상 카메라). 그 각도에서는 고개를 위로 들든
+아래로 숙이든 코의 화면 세로 이동이 -1.35 ~ -0.17px로 **전부 같은 방향**이라
+증거가 되지 못한다 — 카메라 기울기가 세로 성분을 압축해 버리기 때문이다.
+
+관측으로 부호를 배우는 방법(코의 화면 이동, 눈 중점 대비 코의 위치)도
+차례로 시도했지만 둘 다 **카메라를 50도 이상 기울이면 증거가 사라졌다.**
+가상 카메라로 잰 "고개 pitch 대 코의 세로 상대이동"이 그것을 보여 준다:
+
+    카메라  0도   -0.099  -0.044  +0.058  +0.088   (단조 — 증거 뚜렷)
+    카메라 30도   -0.056  -0.022  +0.033  +0.037   (단조)
+    카메라 50도   -0.018  -0.003  +0.014  -0.002   (부호가 섞임)
+    카메라 60도   +0.001  +0.007  +0.004  -0.021   (무의미)
+
+관측에 기대는 한 이 구간을 넘을 수 없다. 그래서 **관측을 버리고 대수로
+푼다.**
+
+거울 반전은 화면 x좌표만 뒤집는다. 그러면 중립 프레임에서
+  · x축(왼눈->오른눈)의 화면 x성분이 뒤집히고,
+  · z축 = cross(y축, x축) 도 함께 뒤집힌다.
+투영은 horizontal = dot(R·z, x), vertical = dot(R·z, y) 이므로
+
+    가로 — z와 x가 **둘 다** 뒤집혀 서로 상쇄된다  -> 부호 불변
+    세로 — z만 뒤집힌다                          -> 부호 반전
+
+즉 **가로 부호는 항상 +1이고, 세로 부호는 거울 여부 하나로 정해진다.**
+거울 여부는 x축의 화면 x성분 부호가 그대로 알려준다 — 눈은 좌우로 놓이므로
+카메라를 아무리 기울여도 이 부호는 흔들리지 않는다(60도에서도 ±1.000).
+
+    가로 부호 = +1
+    세로 부호 = sign(x축의 화면 x성분)
+
+가상 카메라로 배치 9종 × 거울 2종에서 이 규칙이 관측 투표와 일치하는 것을
+확인했고, 어긋난 두 건은 모두 증거가 무의미해진 60도 구간이었다(관측 쪽이
+틀린 것). 투표를 기다릴 필요가 없어 **중립을 잡는 순간 확정**되므로 커서는
+첫 프레임부터 옳은 방향이고, 카메라 각도의 제약도 사라졌다.
 
 여러 장으로 중립 행렬을 잡을 때는 성분 평균을 SVD로 다시 회전에 사영하는
 코달 평균을 쓴다 (Hartley, Trumpf, Dai, Li (2013). "Rotation Averaging."
@@ -140,21 +170,9 @@ MIN_POINTS = 8
 # 이만큼 돌릴 일은 없고, 한 프레임이라도 튀면 커서가 화면 밖으로 날아간다
 MAX_ANGLE_DEG = 60.0
 
-# 부호 투표에 쓸 최소 오프셋(탄젠트 단위, 약 1.7도) — 이보다 작은 움직임은
-# 잡음이 부호를 지배해서 증거로 안 친다
-SIGN_EVIDENCE_MIN = 0.03
-
-# 화면 이동이 이만큼(안구간거리 대비 비율)은 돼야 방향 증거로 친다.
-# 잡음(점 하나당 0.35px 수준)이 부호를 뒤집지 못하는 크기
-SIGN_SCREEN_MIN_RATIO = 0.02
-
-# 부호 기준점 — 코 부근. 얼굴에서 튀어나와 있어 회전에 가장 크게 반응하므로
-# 방향 증거로 가장 또렷하다(눈·이마는 회전해도 화면에서 잘 안 움직인다)
+# 부호 기준점 — 진단·시험에서 "코가 어디로 갔나"를 볼 때 쓴다.
+# 부호 결정 자체는 대수로 하므로 여기에 의존하지 않는다(독스트링 참고)
 SIGN_REFERENCE_LANDMARK = 4
-
-# 이만큼 투표가 한쪽으로 쌓이면 그 축의 부호를 확정한다. 8이면 고개를
-# 그 축으로 한 번만 크게 왕복해도 잠긴다(30fps에서 1초 미만)
-LOCK_VOTES = 8
 
 # 얼굴이 이보다 작게 잡히면 z 좌표의 상대 오차가 커져 회전이 불안정하다.
 # head_tracker.MIN_INTEROCULAR_DIST_PX와 같은 취지
@@ -272,13 +290,9 @@ class HeadOrientation:
         # reset()에서도 지우지 않는다 — 부호는 카메라·거울 설정의 성질이라
         # 사용자가 바뀌어도 그대로다 (다시 배우게 하면 그동안 랜드마크 경로로
         # 돌 뿐 틀리지는 않지만, 유지하는 쪽이 그 시간을 아낀다)
-        self._sign_h = None
-        self._sign_v = None
-        self._vote_h = 0
-        self._vote_v = 0
-        # 부호 판정의 진실 기준 — 중립일 때 기준점의 화면 좌표와 얼굴 크기
-        self._sign_ref_px = None
-        self._sign_ref_scale = None
+        # 중립을 잡는 순간 대수로 확정된다 (위 "반사 켤레" 설명 참고)
+        self._sign_h = 1.0
+        self._sign_v = 1.0
         self._neutral_points = None
         self._neutral_rotation = None      # 중립의 변환행렬 회전 (3,3) — 코달 평균
         self._axes = None
@@ -320,7 +334,7 @@ class HeadOrientation:
             return False
         self._neutral_points = median
         self._axes = axes
-        self._remember_sign_reference(median)
+        self._decide_signs(axes)
         # 중립 회전 행렬 — 표본 절반 이상에서 행렬이 왔을 때만 확정한다.
         # 평균은 코달 평균(성분 평균 -> SVD로 회전에 사영, 위 독스트링의
         # Hartley et al. 2013): 회전들의 "중간"으로 수렴하고 반사가 안 생긴다
@@ -350,7 +364,7 @@ class HeadOrientation:
             return False
         self._neutral_points = points
         self._axes = axes
-        self._remember_sign_reference(points)
+        self._decide_signs(axes)
         rot = getattr(face, "head_rotation", None)
         self._neutral_rotation = (np.asarray(rot, dtype=np.float64)
                                   if rot is not None else None)
@@ -387,60 +401,20 @@ class HeadOrientation:
         if raw is None:
             return None
 
-        # ★부호 — 두 경로 공통. 진실 기준은 "기준점이 화면에서 어느 쪽으로
-        # 갔는가"다 (독스트링 "반사 켤레와 부호 자가 학습" 참고).
-        # 거울 설정도 MediaPipe 축 규약도 몰라도 된다
-        return self._apply_signs(raw, points)
+        # ★부호 — 두 경로 공통. 중립을 잡을 때 대수로 확정해 둔 값이다
+        # (독스트링 "반사 켤레와 부호 자가 학습" 참고)
+        return (self._sign_h * raw[0], self._sign_v * raw[1])
 
-    def _remember_sign_reference(self, neutral_points):
-        """중립일 때 기준점의 화면 좌표와 얼굴 크기를 기억한다."""
-        idx = {v: i for i, v in enumerate(RIGID_LANDMARKS)}
-        ref = neutral_points[idx[SIGN_REFERENCE_LANDMARK]]
-        scale = float(np.linalg.norm(neutral_points[idx[263]] - neutral_points[idx[33]]))
-        if scale < MIN_SCALE:
-            self._sign_ref_px = None
-            self._sign_ref_scale = None
-            return
-        self._sign_ref_px = (float(ref[0]), float(ref[1]))
-        self._sign_ref_scale = scale
+    def _decide_signs(self, axes):
+        """중립 축에서 부호를 대수로 확정한다 (독스트링 "반사 켤레" 참고).
 
-    def _apply_signs(self, raw, points):
-        """화면 이동을 진실로 삼아 부호를 배우고 적용한다 -> (가로, 세로)."""
-        locked = self._sign_h is not None and self._sign_v is not None
-        if not locked and points is not None and self._sign_ref_px is not None:
-            idx = {v: i for i, v in enumerate(RIGID_LANDMARKS)}
-            ref = points[idx[SIGN_REFERENCE_LANDMARK]]
-            # 화면 이동을 얼굴 크기로 나눠 거리와 무관한 비율로 본다
-            move = ((float(ref[0]) - self._sign_ref_px[0]) / self._sign_ref_scale,
-                    (float(ref[1]) - self._sign_ref_px[1]) / self._sign_ref_scale)
-            self._learn_signs(raw, move)
-
-        # 확정 전에도 지금 프레임의 증거로 잠정 부호를 쓴다 — 그래야 커서가
-        # 첫 프레임부터 옳은 쪽으로 간다. 증거가 없으면 +1로 둔다(중앙 근처라
-        # 어느 쪽이든 오프셋 자체가 0에 가깝다)
-        sign_h = self._sign_h if self._sign_h is not None else self._provisional(0)
-        sign_v = self._sign_v if self._sign_v is not None else self._provisional(1)
-        return (sign_h * raw[0], sign_v * raw[1])
-
-    def _provisional(self, axis):
-        """아직 확정 전 — 지금까지의 투표 방향을 잠정으로 쓴다."""
-        vote = self._vote_h if axis == 0 else self._vote_v
-        return -1.0 if vote < 0 else 1.0
-
-    def _learn_signs(self, raw, move):
-        """축마다 (매핑 오프셋)과 (화면 이동)의 부호 일치를 투표한다."""
-        for axis, (vote_attr, sign_attr) in enumerate(
-                (("_vote_h", "_sign_h"), ("_vote_v", "_sign_v"))):
-            if getattr(self, sign_attr) is not None:
-                continue
-            if abs(raw[axis]) < SIGN_EVIDENCE_MIN:
-                continue
-            if abs(move[axis]) < SIGN_SCREEN_MIN_RATIO:
-                continue
-            vote = getattr(self, vote_attr) + (1 if raw[axis] * move[axis] > 0 else -1)
-            setattr(self, vote_attr, vote)
-            if abs(vote) >= LOCK_VOTES:
-                setattr(self, sign_attr, 1.0 if vote > 0 else -1.0)
+        가로는 항상 +1 — 거울이 x축과 z축을 함께 뒤집어 투영에서 상쇄된다.
+        세로는 z축만 뒤집히므로 거울 여부만큼 반전되고, 거울 여부는 x축의
+        화면 x성분 부호가 알려준다.
+        """
+        x_axis = axes[0]
+        self._sign_h = 1.0
+        self._sign_v = 1.0 if x_axis[0] >= 0.0 else -1.0
 
     def _project(self, rot):
         """상대 회전 -> (가로, 세로) 탄젠트. 과회전이면 None."""
