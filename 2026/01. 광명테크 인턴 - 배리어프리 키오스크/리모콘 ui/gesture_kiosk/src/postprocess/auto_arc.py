@@ -40,6 +40,12 @@
   ⑤ 적합도가 낮으면(R² < MIN_R2) 그 창은 버린다 — 애초에 포물선이 아닌
      데이터로 계수를 만들지 않는다. 8/28에 낮은 R²를 무시하고 진행했다가
      데인 것과 반대 방향의 같은 교훈이다.
+  ⑥ **화면 안 표본만 쓴다** (2026-08-31 실측으로 추가). 들어오는 x는
+     클램프 전 값이라, 고개를 크게 돌리면 화면 폭의 몇 배까지 커진다 —
+     실측에서 span이 1.50(화면 절반 tan 0.268의 5.6배)까지 나왔다. 그
+     구간은 커서가 어차피 가장자리에 붙어 있어 사용자가 보는 휘어짐과
+     무관한데, 2차 적합에서는 x²이 커서 계수를 지배해 버린다. 화면 안
+     (|x| <= FIT_X_LIMIT)만 남겨 실제로 보이는 구간을 보정한다.
 """
 import math
 
@@ -68,6 +74,11 @@ COEF_ALPHA = 0.3
 # 계수 상한 — |c|·(x최대)² 이 화면 세로의 절반을 넘지 못하게.
 # x최대(클램프 후)가 대략 0.27이므로 2.0이면 보정 최대 0.146 (화면의 15%)
 MAX_COEF = 2.0
+
+# 적합에 쓸 x 범위 (탄젠트 단위). 화면 절반이 tan(half_span)이고 기본
+# half_span이 15도라 0.268이다. 조금 여유를 둬 0.30 — 이보다 바깥은 커서가
+# 이미 화면 끝에 클램프되는 구간이라 보정해도 보이지 않는다(안전장치 ⑥)
+FIT_X_LIMIT = 0.30
 
 # 링 버퍼 길이 — 오래된 표본은 밀려난다. 사용자가 자세를 바꾸면
 # 옛 곡률 표본이 이만큼 지나 자연히 사라진다 (30fps 기준 약 16초)
@@ -118,7 +129,12 @@ class OnlineArcCompensator:
         return corrected
 
     def _maybe_refit(self):
-        xs, ys = self._xs, self._ys
+        # 안전장치 ⑥ — 화면 안 표본만 (위 FIT_X_LIMIT 설명 참고)
+        pairs = [(x, y) for x, y in zip(self._xs, self._ys) if abs(x) <= FIT_X_LIMIT]
+        if len(pairs) < MIN_SAMPLES // 2:
+            return
+        xs = [p[0] for p in pairs]
+        ys = [p[1] for p in pairs]
         if (max(xs) - min(xs)) < MIN_X_SPAN:
             return                       # 안전장치 ② — 가로로 충분히 안 움직였다
         fit = _fit_quadratic(xs, ys)

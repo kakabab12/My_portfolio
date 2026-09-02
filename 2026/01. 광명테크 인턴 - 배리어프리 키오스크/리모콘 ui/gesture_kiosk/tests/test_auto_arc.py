@@ -136,3 +136,44 @@ def test_mixed_intent_plus_systematic_learns_only_systematic():
         intent = 0.4 * x + 0.1 * math.sin(step * 0.031)   # 대각선 + 느린 세로
         comp.update(x, intent + true_c * x * x)
     assert comp.coef == pytest.approx(true_c, rel=0.3)
+
+
+# ------------------- 화면 밖 표본 배제 (실측으로 발견, 2026-08-31) — 안전장치 ⑥
+
+def test_offscreen_samples_do_not_pollute_the_coefficient():
+    """★화면 밖 큰 각도 구간이 계수를 지배하면 안 된다.
+
+    들어오는 x는 클램프 전 값이라 고개를 크게 돌리면 화면 폭의 몇 배까지
+    커진다(실측 span 1.50 = 화면 절반의 5.6배). 2차 적합에서 x²은 그 구간에서
+    수십 배가 되므로, 그대로 두면 **화면에 보이지도 않는 구간이 계수를
+    정해 버린다.**
+
+    화면 안(±0.27)에는 곡률 0.5, 그 바깥에는 정반대(-3.0)인 데이터를 준다.
+    화면 안 표본만 쓴다면 계수가 +0.5 근처여야 한다.
+    """
+    from src.postprocess.auto_arc import FIT_X_LIMIT
+
+    comp = OnlineArcCompensator()
+    for step in range(MIN_SAMPLES * 8):
+        # 화면 안팎을 번갈아 훑는다
+        if step % 2:
+            x = 0.22 * math.sin(step * 0.13)              # 화면 안
+            y = 0.5 * x * x
+        else:
+            x = 0.9 * math.sin(step * 0.11)               # 화면 밖까지
+            if abs(x) <= FIT_X_LIMIT:
+                y = 0.5 * x * x
+            else:
+                y = -3.0 * x * x                          # 정반대 곡률
+        comp.update(x, y)
+    assert comp.coef > 0.0, "화면 밖 곡률에 끌려갔습니다"
+    assert comp.coef == pytest.approx(0.5, abs=0.25)
+
+
+def test_all_samples_offscreen_means_no_update():
+    """화면 밖만 있으면 갱신하지 않는다 — 보이지 않는 구간으로 배우지 않는다."""
+    comp = OnlineArcCompensator()
+    for step in range(MIN_SAMPLES * 6):
+        x = 0.8 + 0.1 * math.sin(step * 0.13)             # 전부 화면 밖
+        comp.update(x, 1.5 * x * x)
+    assert comp.coef == 0.0
