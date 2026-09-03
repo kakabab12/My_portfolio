@@ -46,9 +46,9 @@ def _stream(camera, seconds=60.0, fps=30.0, walk_mm=200.0, seed=5):
         yield camera.observe(head, offset_mm=offset)
 
 
-def _run(camera, **kwargs):
+def _run(camera, distortion=False, **kwargs):
     """보정이 끝날 때까지(또는 흐름이 끝날 때까지) 돌린 보정기."""
-    cal = LensSelfCalibrator(FRAME_W_PX, FRAME_H_PX)
+    cal = LensSelfCalibrator(FRAME_W_PX, FRAME_H_PX, distortion=distortion)
     for face in _stream(camera, **kwargs):
         cal.add(face.landmarks_3d)
         if cal.finished:
@@ -63,21 +63,45 @@ def _run(camera, **kwargs):
 # ------------------------------------------------------------------- 되찾기
 
 @pytest.mark.parametrize("lens", list(LENS_PROFILES))
-def test_recovers_the_lens_from_the_users_face(lens):
-    """★얼굴만 보고 초점거리와 왜곡을 알아낸다 — 현장 측정 없이."""
-    k1_true, _k2, focal_true = LENS_PROFILES[lens]
+def test_recovers_the_focal_length_from_the_users_face(lens):
+    """★얼굴만 보고 초점거리를 알아낸다 — 현장 측정 없이.
+
+    초점거리는 **기본으로 채택하는** 값이다. 원근 되돌리기에 쓰이고,
+    40% 틀려도 안 고친 것보다 나을 만큼 둔감하다.
+    """
+    _k1_true, _k2, focal_true = LENS_PROFILES[lens]
     cal = _run(VirtualCamera(lens=lens, seed=3))
     model = cal.model
     assert model is not None, cal.reject_reason
-    # 초점거리는 20% 안으로 (원근 되돌리기는 40% 틀려도 듣는다 — 넉넉하다)
     assert abs(model.focal_px - focal_true) / focal_true < 0.20, model
-    # 왜곡 계수는 부호가 맞고 크기가 절반 이상 잡혀야 한다
-    assert abs(model.k1 - k1_true) < 0.08, (model, k1_true)
+
+
+def test_distortion_is_not_used_unless_asked():
+    """★왜곡 되돌리기는 기본으로 쓰지 않는다.
+
+    정규 얼굴이면 세로 휨을 절반으로 줄여 주지만, 얼굴이 다르면 다섯 배로
+    악화시킨다(15.10% -> 83.89%). 그 둘을 가려낼 잡음-독립적 지표를 찾지
+    못했으므로, 가려낼 수 없으면 안 쓴다.
+    """
+    cal = _run(VirtualCamera(lens="초광각 120도", seed=3))
+    assert cal.model is not None, cal.reject_reason
+    assert cal.model.k1 == 0.0
+    assert cal.k1_adopted is False
+
+
+@pytest.mark.parametrize("lens", ["광각 90도", "초광각 120도"])
+def test_recovers_distortion_when_explicitly_enabled(lens):
+    """켜 달라고 하면 왜곡 계수도 제대로 찾아낸다 (카메라를 아는 배포처용)."""
+    k1_true, _k2, _f = LENS_PROFILES[lens]
+    cal = _run(VirtualCamera(lens=lens, seed=3), distortion=True)
+    assert cal.model is not None, cal.reject_reason
+    assert cal.k1_adopted is True
+    assert abs(cal.model.k1 - k1_true) < 0.08, (cal.model, k1_true)
 
 
 def test_undistorted_camera_is_reported_as_undistorted():
     """왜곡 없는 렌즈에 없는 왜곡을 지어내면 안 된다."""
-    cal = _run(VirtualCamera(lens="왜곡없음", seed=3))
+    cal = _run(VirtualCamera(lens="왜곡없음", seed=3), distortion=True)
     assert cal.model is not None, cal.reject_reason
     assert abs(cal.model.k1) < 0.05, cal.model
 
@@ -140,7 +164,8 @@ def test_detects_mirroring_from_the_landmarks_alone(mirror):
     cal = _run(VirtualCamera(lens="광각 90도", mirror=mirror, seed=3))
     assert cal.model is not None, cal.reject_reason
     assert cal.mirrored is mirror
-    assert abs(cal.model.k1 - LENS_PROFILES["광각 90도"][0]) < 0.08
+    focal_true = LENS_PROFILES["광각 90도"][2]
+    assert abs(cal.model.focal_px - focal_true) / focal_true < 0.20, cal.model
 
 
 # ------------------------------------------------------------------- 쓰임새

@@ -19,6 +19,7 @@
   · **렌즈 왜곡** — 광각 렌즈의 배럴 왜곡(2026-09-03 추가)
   · 랜드마크 잡음 — 실측 기반(안구간거리 60px에서 커서 3.0px, 8/26 측정)
   · 거울 반전 — 프레임 좌우 반전 여부
+  · **사람마다 다른 얼굴** — 안구간거리·얼굴 폭·코 높이 (2026-09-03 추가)
 
 무엇을 재현하지 못하나 (정직하게)
 ---------------------------------
@@ -98,6 +99,50 @@ FACE_MODEL = {
 }
 LANDMARK_COUNT = 478
 
+
+def varied_face(interocular=1.0, width=1.0, height=1.0, nose=1.0, scale=1.0):
+    """사람마다 다른 얼굴을 만든다 -> FACE_MODEL과 같은 모양의 딕셔너리.
+
+    왜 필요한가 (2026-09-03)
+    ------------------------
+    렌즈 자가 보정은 **정규 얼굴 모형을 보정판으로 삼는다.** 그런데 실제
+    사람 얼굴은 제각각이라, 보정판의 치수가 틀린 셈이 된다. 그것이 얼마나
+    해로운지 재려면 정규 모형과 **다른** 얼굴을 만들 수 있어야 한다.
+
+    지금까지는 가상 카메라와 렌즈 보정이 같은 FACE_MODEL을 써서, 내가 만든
+    얼굴을 내가 맞히는 순환 시험이었다.
+
+    인체 계측 범위 (성인 기준의 어림):
+      안구간거리  55~70mm  (평균 63) -> 0.87 ~ 1.11
+      얼굴 폭     +-10%
+      코 높이     15~30mm  -> 0.6 ~ 1.2
+      전체 크기   어린이~큰 어른  0.85 ~ 1.15
+    """
+    out = {}
+    for idx, (x, y, z) in FACE_MODEL.items():
+        # 눈 관련 점만 안구간거리로 따로 늘린다 (다른 폭과 독립적으로 변한다)
+        gain_x = interocular if idx in (33, 263, 133, 362) else width
+        # 코는 앞으로 튀어나온 양(-z 방향)이 사람마다 특히 다르다
+        gain_z = nose if idx in (4, 5, 195, 197, 6, 168) else 1.0
+        out[idx] = (x * gain_x * scale, y * height * scale, z * gain_z * scale)
+    return out
+
+
+# 현장에서 만날 법한 얼굴들 — 정규 모형과 얼마나 다른지가 요점이다
+FACE_VARIANTS = {
+    "정규 모형": FACE_MODEL,
+    "눈 좁은 얼굴": varied_face(interocular=0.87),
+    "눈 넓은 얼굴": varied_face(interocular=1.11),
+    "코 낮은 얼굴": varied_face(nose=0.60),
+    "코 높은 얼굴": varied_face(nose=1.20),
+    "갸름한 얼굴": varied_face(width=0.90, height=1.08),
+    "넓은 얼굴": varied_face(width=1.10, height=0.94),
+    "작은 얼굴(어린이)": varied_face(scale=0.85),
+    "큰 얼굴": varied_face(scale=1.15),
+    "겹친 최악": varied_face(interocular=0.87, width=1.10, height=0.94,
+                             nose=0.60, scale=1.15),
+}
+
 # 화각대별 대표 렌즈 (k1, k2, focal_px). 위 독스트링의 주의 참고 —
 # 실측값이 아니라 "그 화각대에서 나올 법한" 값이다
 LENS_PROFILES = {
@@ -145,13 +190,14 @@ class VirtualCamera:
     focal_px     초점거리. 크면 망원(평행투영에 가깝다), 작으면 광각
     k1, k2       Brown-Conrady 방사왜곡 계수 (음수면 배럴 — 광각 렌즈)
     lens         LENS_PROFILES의 이름. 주면 k1·k2·focal_px를 덮어쓴다
+    face         얼굴 모형. FACE_VARIANTS의 이름이나 딕셔너리. 기본은 정규 모형
     mirror       프레임을 좌우 반전하는가 (실제 파이프라인 기본값 True)
     noise_px     랜드마크 잡음 표준편차
     """
 
     def __init__(self, mount=None, distance_mm=600.0, focal_px=700.0,
                  mirror=True, noise_px=LANDMARK_NOISE_PX, seed=0,
-                 k1=0.0, k2=0.0, lens=None):
+                 k1=0.0, k2=0.0, lens=None, face=None):
         self.mount = np.eye(3) if mount is None else np.asarray(mount, dtype=np.float64)
         self.distance_mm = distance_mm
         self.focal_px = focal_px
@@ -160,6 +206,12 @@ class VirtualCamera:
             k1, k2, self.focal_px = LENS_PROFILES[lens]
         self.k1 = k1
         self.k2 = k2
+        if face is None:
+            self.face = FACE_MODEL
+        elif isinstance(face, str):
+            self.face = FACE_VARIANTS[face]
+        else:
+            self.face = face
         self.mirror = mirror
         self.noise_px = noise_px
         self._rng = np.random.default_rng(seed)
@@ -173,7 +225,7 @@ class VirtualCamera:
         head_rotation = np.eye(3) if head_rotation is None else np.asarray(head_rotation)
         pts = np.zeros((LANDMARK_COUNT, 3), dtype=np.float64)
 
-        for idx, model_xyz in FACE_MODEL.items():
+        for idx, model_xyz in self.face.items():
             world = head_rotation @ np.asarray(model_xyz, dtype=np.float64)
             world = world + np.asarray(offset_mm, dtype=np.float64)
             # 카메라 좌표로: 카메라 배치를 걸고 거리만큼 앞에 둔다
@@ -199,7 +251,7 @@ class VirtualCamera:
             pts[idx] = (x_px, y_px, z_px)
 
         if self.noise_px > 0.0:
-            idx = list(FACE_MODEL)
+            idx = list(self.face)
             pts[idx] += self._rng.normal(0.0, self.noise_px, (len(idx), 3))
 
         # MediaPipe의 변환행렬에 해당하는 값 — 카메라가 보는 머리의 자세.

@@ -288,7 +288,8 @@ class _CursorMapper:
                  orientation_mapping=False,
                  orientation_half_span_x_deg=15.0, orientation_half_span_y_deg=10.0,
                  orientation_rotation_source="auto", orientation_auto_arc=True,
-                 orientation_lens_calibration=True):
+                 orientation_lens_calibration=True,
+                 orientation_lens_distortion=False):
         """one_euro_enabled(2026-08-27 forehead.py 대응 신설, OneEuroFilter 독스트링
         참고) — 기본 False라 head.py·eyebrow.py는 예전과 완전히 동일한 단순 EMA
         평활을 그대로 쓴다(동작 변화 없음). True면 EMA 대신 1€ 필터로 최종 커서
@@ -362,6 +363,9 @@ class _CursorMapper:
         # 아무것도 재지 않는다. 첫 얼굴을 볼 때 화면 크기를 알고 만든다
         self._lens_calibration_enabled = bool(
             orientation_mapping and orientation_lens_calibration)
+        # 왜곡 되돌리기는 기본 끔 (lens_calibration.py 독스트링 참고) —
+        # 얼굴이 정규 모형과 다르면 해로운데 가려낼 방법을 못 찾았다
+        self._lens_distortion_enabled = bool(orientation_lens_distortion)
         self._lens_calibrator = None
         self._lens_applied = False
         # tan으로 미리 바꿔 둔다 — 매 프레임 삼각함수를 다시 부르지 않게
@@ -688,7 +692,8 @@ class _CursorMapper:
             size = getattr(face, "frame_size", None)
             if not size or len(size) != 2 or not all(size):
                 return                      # 화면 크기를 모르면 중심도 모른다
-            self._lens_calibrator = LensSelfCalibrator(size[0], size[1])
+            self._lens_calibrator = LensSelfCalibrator(
+                size[0], size[1], distortion=self._lens_distortion_enabled)
         self._lens_calibrator.add(landmarks)
         model = self._lens_calibrator.model
         if model is not None and self._orientation is not None:
@@ -909,6 +914,9 @@ class HeadTracker:
             # 못 믿을 상황에서는 스스로 아무것도 하지 않는다
             orientation_lens_calibration=pointer.get(
                 "orientation_lens_calibration", True),
+            # 왜곡 되돌리기는 기본 끔 — 카메라를 아는 배포처에서만 켠다
+            orientation_lens_distortion=pointer.get(
+                "orientation_lens_distortion", False),
         )
 
         mouth = ht["mouth_click"]

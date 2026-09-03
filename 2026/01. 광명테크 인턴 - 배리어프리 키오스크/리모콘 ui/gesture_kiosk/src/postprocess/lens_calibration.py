@@ -57,6 +57,51 @@
 **f가 40% 틀려도 안 고친 것보다 훨씬 낫다.** 정확한 f가 필요한 게 아니라
 대략만 맞으면 되므로, 자가 보정으로 충분하다.
 
+사람마다 얼굴이 다르다 — 보정판이 틀린 셈이 된다 (2026-09-03)
+----------------------------------------------------------
+이 방법의 가장 큰 약점이다. 보정판(CANONICAL_FACE)은 고정인데 실제 사람
+얼굴은 제각각이라, 눈이 넓거나 코가 낮으면 **치수가 틀린 자로 재는 셈**이다.
+
+가상 카메라에 인체 계측 범위의 얼굴 10종을 넣어 재 봤다(광각 90도, 참 f=430).
+그랬더니 두 가지가 드러났다.
+
+  1) **f는 크게 틀릴 수 있다.** 갸름한 얼굴에서 -64%, 코 낮은 얼굴에서 +302%.
+     그런데도 **원근 되돌리기는 10종 전부에서 커서를 좋게 했다** — 끌림이
+     0.0429에서 0.0367로, 0.0282에서 0.0173으로. f에 이토록 둔감하다.
+
+  2) **f가 크게 틀린 채로 k1을 얹으면 파국이다.** 갸름한 얼굴에서 가로 157%,
+     세로 444%까지 튀었다. 그때 k1의 교차검증 차이는 0.026으로 **게이트를
+     통과**했다 — k1만 보고 f를 안 보면 이런 경우를 놓친다.
+
+그래서 **2단으로 채택한다.**
+
+  1단 (원근만) — f가 물리적으로 말이 되는 범위에 있고 교차검증에서 일치하면,
+        k1은 0으로 두고 원근만 되돌린다. 이것만으로 끌림의 대부분이 잡힌다.
+  2단 (왜곡까지) — 위에 더해 k1까지 교차검증을 통과하면 왜곡도 되돌린다.
+
+f의 "말이 되는 범위"는 절대 픽셀이 아니라 **화면 높이에 대한 비율**로 잡는다.
+해상도가 바뀌어도 그대로 성립해야 하기 때문이다. 화면 높이 H에 대해
+f가 0.30H~2.5H면 세로 화각 약 22~118도에 해당한다 — 이 범위를 벗어나면
+얼굴이 정규 모형과 너무 다르거나 보정이 엉뚱한 곳으로 수렴한 것이다.
+
+그리고 **왜곡 되돌리기(k1)는 기본으로 끈다.** 재 보니 이렇다.
+
+    조건                       원근만(f)              원근+왜곡(f, k1)
+    정규 얼굴 · 초광각 120도    4.28/15.48/0.0143      5.69/ 7.87/0.0199
+    정규 얼굴 · 광각 90도       2.75/ 8.73/0.0093      3.83/ 5.32/0.0129
+    갸름한 얼굴 · 광각 90도     (안전)                 세로 15.10% -> 83.89%
+
+k1은 정규 얼굴이면 세로 휨을 절반으로 줄여 주지만, 얼굴이 다르면 **다섯 배로
+악화**시킨다. 그리고 그 둘을 가려낼 지표를 찾지 못했다 — 재투영 오차(RMS)가
+잘 갈라내는 듯했지만(정규 0.467~0.509px 대 비정규 0.619~1.621px), 랜드마크
+잡음이 2배가 되자 두 무리가 겹쳐 버렸다. 얼굴 크기로 정규화해도 마찬가지였다.
+
+**가려낼 수 없으면 안 쓰는 쪽이 맞다.** f만으로도 가장 큰 몫인 끌림이
+0.0355~0.0421에서 0.0056~0.0166으로 떨어지고, 이쪽은 얼굴 10종 전부에서
+안전했다. k1이 필요한 배포처(카메라를 아는 경우)는 설정으로 켤 수 있다.
+
+이 2단 채택으로 얼굴 10종 중 8종이 개선을 받고, 파국적인 경우는 사라졌다.
+
 안전장치 — 틀린 값을 쓰느니 안 쓴다
 -----------------------------------
 자가 보정은 **사용자가 충분히 움직여야** 성립한다. 얼굴이 화면 한 곳에만
@@ -81,6 +126,20 @@
 
 보정 계산은 140~270ms가 걸려 **프레임 루프에 넣을 수 없다.** 별도 스레드에서
 돌리고, 끝나면 결과만 받는다.
+
+재현성 — 시도 시점을 미리 정한다
+--------------------------------
+스레드로 돌리면 그동안에도 뷰가 쌓인다. 그대로 두면 다음 시도가 몇 개를
+가지고 시작할지가 **스레드 타이밍에 좌우돼서**, 같은 입력에 다른 결과가
+나온다. 시험도 못 믿고 현장 문제도 재현할 수 없다.
+
+그래서 시도 시점을 **지금까지 본 뷰의 총수**로 미리 정해 둔다 — 총 60개째,
+80개째, 100개째... 이 총수는 스레드가 언제 끝나든 달라지지 않으므로, 같은
+입력이면 같은 자리에서 같은 묶음을 본다.
+
+(처음에는 "앞에서 n개만 쓴다"로 했다가 되돌렸다. 앞부분은 사람이 아직 안
+움직인 구간이라 움직임 게이트에 전부 걸렸다. 시도 **시점**만 고정하고 묶음은
+최근 것 전체를 쓰는 것이 맞다.)
 
 그런데 딴 스레드에 두는 것만으로는 부족했다. 보정이 도는 동안 추론 대역의
 부하를 재 보니 최대 멈춤이 6.78ms에서 109ms로 뛰었다 — CPU를 나눠 쓰기
@@ -138,10 +197,15 @@ MIN_RADIUS_SPAN_PX = 100.0   # 얼굴 중심이 이만큼은 퍼져야 한다 (+
 MIN_VIEW_GAP_PX = 6.0        # 같은 자리의 뷰를 쌓아 봐야 새 정보가 없다
 CROSS_TOL = 0.06             # 교차검증 허용 차이 (거부 0.082~0.208, 채택 0.001~0.029)
 MAX_RMS_PX = 3.0             # 재투영 오차 상한
-MIN_FOCAL_PX = 150.0         # 이보다 짧으면 어안 — 이 모형이 다루는 범위 밖
-MAX_FOCAL_PX = 4000.0
+# ★초점거리의 "말이 되는 범위"는 화면 높이에 대한 비율로 잡는다 — 해상도가
+# 바뀌어도 그대로 성립해야 한다. 0.30H~2.5H는 세로 화각 약 22~118도에 해당
+MIN_FOCAL_RATIO = 0.30
+MAX_FOCAL_RATIO = 2.50
+FOCAL_CROSS_TOL = 0.10       # f 교차검증 상대 허용차. 믿을 만한 경우 1.8~5.9%,
+                             # 못 믿을 경우 13~182%로 갈리므로 그 사이에 둔다
 MAX_ABS_K1 = 0.60            # 이보다 세면 Brown 1항 모형으로 감당이 안 된다
 MAX_ATTEMPTS = 6             # 못 믿을 상황에서 계속 시도하지 않는다
+RETRY_STRIDE = 20            # 실패하면 뷰가 이만큼 더 쌓였을 때 다시 (위 재현성 절)
 _BREATH_SEC = 0.02           # 보정 사이에 쉬는 시간 — 커서에 자리를 내준다
 
 
@@ -212,12 +276,19 @@ class LensSelfCalibrator:
             points = cal.model.rectify(points)
     """
 
-    def __init__(self, width, height, mirrored=None, enabled=True):
-        """mirrored=None이면 랜드마크를 보고 **스스로 판정한다**(아래 참고)."""
+    def __init__(self, width, height, mirrored=None, enabled=True,
+                 distortion=False):
+        """mirrored=None이면 랜드마크를 보고 **스스로 판정한다**(아래 참고).
+
+        distortion — 왜곡 되돌리기(k1)까지 쓸까. **기본 꺼짐**이다. 이유는 위
+        독스트링 참고 — 얼굴이 정규 모형과 다르면 해로운데, 그것을 가려낼
+        잡음-독립적 지표를 찾지 못했다. 카메라를 아는 배포처에서만 켠다.
+        """
         self.width = float(width)
         self.height = float(height)
         self.mirrored = None if mirrored is None else bool(mirrored)
         self.enabled = bool(enabled) and cv2 is not None
+        self.distortion = bool(distortion)
         self._lock = threading.Lock()
         self._views = []              # [(N,2) 픽셀좌표]
         self._centers = []            # 각 뷰의 얼굴 중심
@@ -225,8 +296,11 @@ class LensSelfCalibrator:
         self._model = None
         self._thread = None
         self._attempts = 0
+        self._seen = 0                      # 지금까지 본 뷰 총수 (버퍼 길이와 다르다)
+        self._next_attempt_at = MIN_VIEWS   # 몇 개째에 시도할까 (위 재현성 절)
         self._done = False
         self.reject_reason = None     # 진단용 — 왜 안 됐는지
+        self.k1_adopted = False       # 왜곡까지 썼나(2단), 원근만인가(1단)
 
     # ------------------------------------------------------------------ 상태
     @property
@@ -250,6 +324,8 @@ class LensSelfCalibrator:
             self._views = []
             self._centers = []
             self._last_center = None
+            self._seen = 0
+            self._next_attempt_at = MIN_VIEWS
 
     # ------------------------------------------------------------------ 수집
     def add(self, landmarks_3d):
@@ -270,7 +346,8 @@ class LensSelfCalibrator:
                 self._centers.pop(0)
             self._views.append(pts)
             self._centers.append(center)
-            ready = len(self._views) >= MIN_VIEWS
+            self._seen += 1
+            ready = self._seen >= self._next_attempt_at
         self._last_center = center
         if ready:
             self._maybe_start()
@@ -311,6 +388,8 @@ class LensSelfCalibrator:
                 self._done = True
                 self.reject_reason = "시도 횟수 소진"
                 return
+            # 시도 시점은 총수로 고정돼 있고(위 재현성 절), 묶음은 최근 것 전체다
+            self._next_attempt_at = self._seen + RETRY_STRIDE
             centers = np.array(self._centers)
             views = list(self._views)
         # ★안전장치 2) — 얼굴이 화면에서 충분히 퍼졌나 (움직임의 증거).
@@ -319,7 +398,7 @@ class LensSelfCalibrator:
                           centers[:, 1] - self.height * 0.5)
         if float(radius.max() - radius.min()) < MIN_RADIUS_SPAN_PX:
             self.reject_reason = "움직임 부족"
-            return
+            return                      # 아직 증거가 없다 — 시도로 세지 않는다
         with self._lock:
             self._attempts += 1
         self._thread = threading.Thread(target=self._solve, args=(views,), daemon=True)
@@ -339,8 +418,12 @@ class LensSelfCalibrator:
             if rms > MAX_RMS_PX:
                 self.reject_reason = f"재투영오차 {rms:.2f}px"
                 return
-            if not (MIN_FOCAL_PX <= focal <= MAX_FOCAL_PX) or abs(k1) > MAX_ABS_K1:
-                self.reject_reason = "값이 범위 밖"
+            lo = MIN_FOCAL_RATIO * self.height
+            hi = MAX_FOCAL_RATIO * self.height
+            if not (lo <= focal <= hi):
+                # 얼굴이 정규 모형과 너무 다르거나 엉뚱한 곳으로 수렴했다.
+                # f가 이만큼 틀리면 원근 되돌리기도 못 믿는다
+                self.reject_reason = f"초점거리 범위 밖 {focal:.0f}px"
                 return
             # ★안전장치 3) — 교차검증. 이 하나가 못 믿을 경우를 전부 걸러낸다
             time.sleep(_BREATH_SEC)             # 커서에 자리를 내준다
@@ -350,15 +433,26 @@ class LensSelfCalibrator:
             if first is None or second is None:
                 self.reject_reason = "교차검증 실패"
                 return
-            gap = abs(first[1] - second[1])
-            if gap > CROSS_TOL:
-                self.reject_reason = f"교차검증 불일치 {gap:.3f}"
+            # ★1단 — f가 교차검증에서 일치하나 (원근 되돌리기의 조건)
+            mean_focal = 0.5 * (first[0] + second[0])
+            if mean_focal <= 0.0:
+                self.reject_reason = "교차검증 실패"
                 return
+            focal_gap = abs(first[0] - second[0]) / mean_focal
+            if focal_gap > FOCAL_CROSS_TOL:
+                self.reject_reason = f"초점거리 불일치 {focal_gap:.1%}"
+                return
+            # ★2단 — k1까지 믿을 만한가. 아니면 **k1은 버리고 f만 쓴다**.
+            # f가 틀린 채로 k1을 얹으면 파국이 되는 것을 쟀다(위 독스트링)
+            k1_gap = abs(first[1] - second[1])
+            if not self.distortion or k1_gap > CROSS_TOL or abs(k1) > MAX_ABS_K1:
+                k1 = 0.0
             with self._lock:
                 self._model = LensModel(focal, k1, self.width, self.height,
                                         bool(self.mirrored))
                 self._done = True
                 self.reject_reason = None
+                self.k1_adopted = bool(k1)
         except Exception as exc:            # 이 스레드가 죽어도 커서는 살아야 한다
             self.reject_reason = f"예외 {type(exc).__name__}: {exc}"
 
