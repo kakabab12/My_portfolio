@@ -37,11 +37,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.postprocess.head_orientation import (   # noqa: E402
-    SIGN_REFERENCE_LANDMARK, HeadOrientation,
-)
+from src.postprocess.head_orientation import HeadOrientation   # noqa: E402
 from tests.virtual_camera import (               # noqa: E402
-    MOUNTS, VirtualCamera, rotation,
+    LENS_PROFILES, MOUNTS, VirtualCamera, rotation,
 )
 
 HALF_X_DEG = 15.0
@@ -260,3 +258,78 @@ def test_correct_direction_without_any_warmup(mount_name):
             offset = ho.pointing_offset(camera.observe(rotation(axis, degrees)))
             assert offset is not None, mount_name
             assert offset[index] * _expected_sign(index, degrees, True) > 0, mount_name
+
+
+# --------------------------------------------------- 렌즈 왜곡 (2026-09-03)
+#
+# 그동안 "광각에서도 되나"를 초점거리만 줄여서 시험했는데 그것은 틀린
+# 시험이었다 — 상대 회전 매핑은 배율에 원리적으로 면역이라 무엇을 넣어도
+# 통과한다. 광각의 진짜 문제는 **배럴 왜곡**이고, 아래가 그것을 건다.
+
+
+@pytest.mark.parametrize("lens", list(LENS_PROFILES))
+@pytest.mark.parametrize("mirror", [True, False])
+def test_cursor_direction_survives_lens_distortion(lens, mirror):
+    """★배럴 왜곡이 걸려도 커서 방향은 옳아야 한다.
+
+    방향이 틀리면 정확도 이전의 문제다 — 커서가 반대로 간다.
+    """
+    camera = VirtualCamera(lens=lens, mirror=mirror, seed=11)
+    ho = _prepared(camera)
+    for axis, index in (((0.0, 1.0, 0.0), 0), ((1.0, 0.0, 0.0), 1)):
+        for degrees in (-14.0, -9.0, -5.0, 5.0, 9.0, 14.0):
+            offset = ho.pointing_offset(camera.observe(rotation(axis, degrees)))
+            assert offset is not None, (lens, mirror, degrees)
+            want = _expected_sign(index, degrees, mirror)
+            assert offset[index] * want > 0, (lens, mirror, axis, degrees)
+
+
+@pytest.mark.parametrize("lens", list(LENS_PROFILES))
+@pytest.mark.parametrize("mount_name", list(MOUNTS))
+def test_direction_survives_distortion_on_every_mount(lens, mount_name):
+    """★배치와 왜곡이 겹쳐도 방향은 옳아야 한다 (현장은 둘이 함께 온다)."""
+    camera = VirtualCamera(mount=MOUNTS[mount_name], lens=lens, seed=12)
+    ho = _prepared(camera)
+    for axis, index in (((0.0, 1.0, 0.0), 0), ((1.0, 0.0, 0.0), 1)):
+        for degrees in (-12.0, -6.0, 6.0, 12.0):
+            offset = ho.pointing_offset(camera.observe(rotation(axis, degrees)))
+            assert offset is not None, (lens, mount_name, degrees)
+            want = _expected_sign(index, degrees, True)
+            assert offset[index] * want > 0, (lens, mount_name, axis, degrees)
+
+
+def test_distortion_actually_changes_the_observation():
+    """왜곡을 넣었는데 관측이 그대로면, 위 시험들은 아무것도 안 건 것이다.
+
+    시험이 스스로를 검사한다 — 있으나 마나 한 시험을 만들지 않기 위해.
+    """
+    clean = VirtualCamera(lens="왜곡없음", seed=13).observe()
+    wide = VirtualCamera(lens="초광각 120도", seed=13).observe()
+    moved = np.abs(clean.landmarks_px - wide.landmarks_px).max()
+    assert moved > 2.0, moved
+
+
+# --------------------------------------- 회전벡터 분해 (그노몬 투영 대체)
+
+
+@pytest.mark.parametrize("mount_name", list(MOUNTS))
+def test_pure_horizontal_turn_does_not_move_the_cursor_vertically(mount_name):
+    """★가로로만 돌리면 세로는 (거의) 가만히 있어야 한다.
+
+    2026-09-03 이전에는 얼굴이 향하는 벡터를 화면에 사영했는데(그노몬 투영),
+    얼굴 좌표축이 코가 튀어나온 만큼 19.5도 기울어 있어 좌우로 돌릴 때
+    세로가 활처럼 휘었다. 회전벡터로 분해하면 축이 기울었든 축 둘레의
+    회전량이 그대로 나오므로 이 휨이 원리적으로 사라진다.
+    """
+    camera = VirtualCamera(mount=MOUNTS[mount_name], noise_px=0.0, seed=14)
+    ho = _prepared(camera)
+    verticals = []
+    for degrees in np.arange(-14.0, 14.1, 2.0):
+        offset = ho.pointing_offset(
+            camera.observe(rotation((0.0, 1.0, 0.0), float(degrees))))
+        assert offset is not None
+        verticals.append(offset[1])
+    verticals = np.array(verticals)
+    tan_half_y = math.tan(math.radians(10.0))
+    bow = float(np.abs(verticals - verticals.mean()).max()) / tan_half_y
+    assert bow < 0.05, (mount_name, bow)      # 세로 반폭의 5% 미만

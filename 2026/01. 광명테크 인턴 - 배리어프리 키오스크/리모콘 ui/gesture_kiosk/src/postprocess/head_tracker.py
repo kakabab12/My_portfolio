@@ -43,6 +43,7 @@ from src.inference.face_estimator import (
 from src.postprocess.gesture_filter import GestureEvent
 from src.postprocess.auto_arc import OnlineArcCompensator
 from src.postprocess.head_orientation import HeadOrientation
+from src.postprocess.lens_calibration import LensSelfCalibrator
 from src.utils.logger import get_logger
 
 logger = get_logger("postprocess")
@@ -286,7 +287,8 @@ class _CursorMapper:
                  arc_compensation=0.0, head_pose_mapping=False,
                  orientation_mapping=False,
                  orientation_half_span_x_deg=15.0, orientation_half_span_y_deg=10.0,
-                 orientation_rotation_source="auto", orientation_auto_arc=True):
+                 orientation_rotation_source="auto", orientation_auto_arc=True,
+                 orientation_lens_calibration=True):
         """one_euro_enabled(2026-08-27 forehead.py 대응 신설, OneEuroFilter 독스트링
         참고) — 기본 False라 head.py·eyebrow.py는 예전과 완전히 동일한 단순 EMA
         평활을 그대로 쓴다(동작 변화 없음). True면 EMA 대신 1€ 필터로 최종 커서
@@ -355,6 +357,13 @@ class _CursorMapper:
         # 사람이 재서 넣던 ARC_COMPENSATION의 자동판이다
         self._auto_arc = (OnlineArcCompensator()
                           if (orientation_mapping and orientation_auto_arc) else None)
+        # ★렌즈 자가 보정 (lens_calibration.py) — 광각 렌즈의 배럴 왜곡과
+        # 원근 단축을 되돌린다. 사용자의 얼굴이 곧 보정판이라 현장에서
+        # 아무것도 재지 않는다. 첫 얼굴을 볼 때 화면 크기를 알고 만든다
+        self._lens_calibration_enabled = bool(
+            orientation_mapping and orientation_lens_calibration)
+        self._lens_calibrator = None
+        self._lens_applied = False
         # tan으로 미리 바꿔 둔다 — 매 프레임 삼각함수를 다시 부르지 않게
         self._orientation_tan_x = math.tan(math.radians(
             max(1.0, min(60.0, orientation_half_span_x_deg))))
@@ -392,6 +401,9 @@ class _CursorMapper:
             self._orientation.reset()
         if self._auto_arc is not None:
             self._auto_arc.reset()      # 사람이 바뀌면 곡률도 그 사람 것이 아니다
+        if self._lens_calibrator is not None:
+            # 렌즈는 사람이 바뀌어도 그대로다 — 모아 둔 뷰만 비운다
+            self._lens_calibrator.reset()
         self._orientation_calibrating = True
         self._orientation_started_sec = None
         self._smoothed_dist_px = None
@@ -628,6 +640,7 @@ class _CursorMapper:
             self._one_euro_y.prime(0.5, now_sec)
             return (self.cursor_x_ratio, self.cursor_y_ratio)
 
+        self._update_lens(face)
         offset = self._orientation.pointing_offset(face)
         if offset is None:
             # 이 프레임만 실패(너무 많이 돌렸거나 검출 불량) — 마지막 값을 유지한다.
@@ -659,6 +672,33 @@ class _CursorMapper:
             self.cursor_x_ratio += self._smoothing_alpha * (raw_x - self.cursor_x_ratio)
             self.cursor_y_ratio += self._smoothing_alpha * (raw_y - self.cursor_y_ratio)
         return (self.cursor_x_ratio, self.cursor_y_ratio)
+
+    def _update_lens(self, face):
+        """렌즈 자가 보정을 한 프레임 진행한다 (lens_calibration.py 참고).
+
+        보정 계산 자체는 그 모듈이 딴 스레드로 돌린다 — 여기서는 랜드마크를
+        넘기고, 결과가 나왔으면 한 번만 받아 적용한다.
+        """
+        if not self._lens_calibration_enabled or self._lens_applied:
+            return
+        landmarks = getattr(face, "landmarks_3d", None)
+        if landmarks is None:
+            return
+        if self._lens_calibrator is None:
+            size = getattr(face, "frame_size", None)
+            if not size or len(size) != 2 or not all(size):
+                return                      # 화면 크기를 모르면 중심도 모른다
+            self._lens_calibrator = LensSelfCalibrator(size[0], size[1])
+        self._lens_calibrator.add(landmarks)
+        model = self._lens_calibrator.model
+        if model is not None and self._orientation is not None:
+            if self._orientation.set_lens(model):
+                self._lens_applied = True
+                logger.info("렌즈 자가 보정 완료 — %s", model)
+            else:
+                # 중립을 다시 못 만들었다 — 렌즈를 물리고 예전 경로로 남는다
+                self._orientation.set_lens(None)
+                self._lens_applied = True
 
     def _update_from_head_pose(self, head_pose, now_sec):
         """머리 회전각으로 커서를 정한다 (HEAD_POSE_MAPPING 전용).
@@ -864,6 +904,11 @@ class HeadTracker:
             orientation_half_span_y_deg=pointer.get("orientation_half_span_y_deg", 10.0),
             orientation_rotation_source=pointer.get("orientation_rotation_source", "auto"),
             orientation_auto_arc=pointer.get("orientation_auto_arc", True),
+            # 렌즈 자가 보정 (lens_calibration.py) — 광각 렌즈의 배럴 왜곡과
+            # 원근 단축을 사용자의 얼굴만으로 되돌린다. 기본 켬이고,
+            # 못 믿을 상황에서는 스스로 아무것도 하지 않는다
+            orientation_lens_calibration=pointer.get(
+                "orientation_lens_calibration", True),
         )
 
         mouth = ht["mouth_click"]

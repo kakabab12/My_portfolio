@@ -179,6 +179,25 @@ SIGN_REFERENCE_LANDMARK = 4
 MIN_SCALE = 1e-6
 
 
+def _rotation_vector(rot):
+    """회전행렬 -> 회전벡터 (로드리게스 역변환). 각이 0에 가까워도 안정적.
+
+    반환값의 크기가 회전각(라디안), 방향이 회전축이다.
+    """
+    trace = float(np.trace(rot))
+    cos_t = max(-1.0, min(1.0, (trace - 1.0) * 0.5))
+    theta = math.acos(cos_t)
+    if theta < 1e-9:
+        return np.zeros(3)                      # 회전이 없다
+    sin_t = math.sin(theta)
+    if abs(sin_t) < 1e-9:
+        return np.zeros(3)                      # 180도 — 키오스크에선 올 일이 없다
+    skew = np.array([rot[2, 1] - rot[1, 2],
+                     rot[0, 2] - rot[2, 0],
+                     rot[1, 0] - rot[0, 1]])
+    return skew * (theta / (2.0 * sin_t))
+
+
 def _orthonormal_frame(points):
     """중립 랜드마크에서 얼굴 자신의 좌표축을 만든다 -> (x축, y축, z축).
 
@@ -279,11 +298,44 @@ class HeadOrientation:
     들어 있으므로 상대 회전에서 사라진다.
     """
 
-    def __init__(self, rotation_source="auto"):
-        """rotation_source — "auto"(행렬 우선, 없으면 랜드마크) | "matrix" | "landmarks".
+    def __init__(self, rotation_source="auto", lens=None):
+        """rotation_source — "auto"(랜드마크 우선) | "matrix" | "landmarks".
 
-        기본이 auto인 이유는 위 독스트링 "회전의 재료 두 가지" 참고 — 행렬이
-        실측으로 더 곧고, 안 오는 프레임에서도 커서가 죽지 않아야 한다.
+        ★2026-09-03: auto의 뜻을 **뒤집었다.** 예전에는 변환행렬을 먼저 썼는데,
+        가상 카메라에 렌즈 왜곡을 넣어 보니 그 경로가 훨씬 약했다.
+
+        이유는 구조적이다. 변환행렬은 **정규 얼굴 모형을 관측에 맞춘 절대
+        자세**라, 렌즈가 상을 휘게 하면 그 편향이 고스란히 들어온다. 랜드마크
+        정합은 **같은 사람의 중립 배치와 지금 배치를 맞대는 상대 정합**이라,
+        얼굴 근처의 공통된 휨이 양쪽에 똑같이 들어 있어 상쇄된다.
+
+        가상 카메라 측정 (2026-09-03, 얼굴이 화면 옆+위, 가로/세로 오차%):
+
+            렌즈           행렬 경로        랜드마크 경로
+            왜곡없음      10.40/12.21%      3.85/ 5.41%
+            일반 65도     10.74/ 9.78%      3.83/ 4.80%
+            광각 90도     12.44/16.80%      4.95/ 9.28%
+            초광각 120도  14.79/33.73%      7.64/15.53%
+
+        배치 9종으로도 재 봤는데 **전 배치에서 랜드마크가 이겼다** (최악은
+        "위에서 25도 + 광각"으로 행렬 72.55% 대 랜드마크 23.85%).
+
+        정직한 단서: 이 비교의 행렬은 가상 카메라가 **흉내 낸** 것이다(정규
+        모형을 관측에 Kabsch 정합). 실제 MediaPipe는 더 정교할 수 있다.
+        다만 "절대 자세는 왜곡을 그대로 받고 상대 정합은 상쇄한다"는 구조는
+        흉내와 무관하게 성립한다.
+
+        ★그래서 순서를 **증거에 따라** 정한다. 랜드마크 경로에는 약점이 하나
+        있는데, 화면 좌표를 그대로 3차원 점으로 보고 정합하는 탓에 사람이 옆으로
+        걸어가면 원근 단축을 회전으로 오해한다(몸 평행이동 끌림 0.023~0.045,
+        한도 0.020). 이 약점은 **초점거리 f를 알면 사라진다** — 원근을 되돌리면
+        0.004~0.008로 떨어진다 (lens_calibration.py 참고).
+
+        따라서 lens(초점거리와 왜곡을 알아낸 결과)가 있을 때만 랜드마크를
+        1순위로 올린다. 없으면 지금까지 검증된 행렬 우선 그대로다 — **아는 것이
+        늘기 전에는 바꾸지 않는다.**
+
+        lens — LensModel 또는 None. 나중에 set_lens()로 줘도 된다
         """
         self._rotation_source = rotation_source
         # 행렬 부호 자가 학습 상태 (위 "반사 켤레" 설명 참고). None = 미확정.
@@ -293,7 +345,10 @@ class HeadOrientation:
         # 중립을 잡는 순간 대수로 확정된다 (위 "반사 켤레" 설명 참고)
         self._sign_h = 1.0
         self._sign_v = 1.0
+        self._lens = lens
         self._neutral_points = None
+        self._neutral_raw = None           # 렌즈 보정 **전**의 중립 — 렌즈를 나중에
+                                           # 알게 되면 여기서 다시 만든다
         self._neutral_rotation = None      # 중립의 변환행렬 회전 (3,3) — 코달 평균
         self._axes = None
         self._samples = []
@@ -301,10 +356,57 @@ class HeadOrientation:
 
     def reset(self):
         self._neutral_points = None
+        self._neutral_raw = None
         self._neutral_rotation = None
         self._axes = None
         self._samples = []
         self._rotation_samples = []
+
+    # ------------------------------------------------------------------ 렌즈
+    @property
+    def lens(self):
+        return self._lens
+
+    def set_lens(self, lens):
+        """렌즈를 알게 됐다 -> 지금부터 적용하고 **중립도 다시 만든다**.
+
+        중립은 보정 전 좌표로 잡혀 있으므로, 그대로 두면 중립과 현재 프레임이
+        서로 다른 좌표계가 되어 커서가 통째로 치우친다. 원본을 들고 있다가
+        여기서 다시 만드는 이유다. 성공하면 True.
+        """
+        self._lens = lens
+        if self._neutral_raw is None:
+            return True                    # 아직 중립을 안 잡았다 — 잡을 때 반영된다
+        points = self._rectify(self._neutral_raw)
+        axes = _orthonormal_frame(points)
+        if axes is None:
+            return False
+        self._neutral_points = points
+        self._axes = axes
+        self._decide_signs(axes)
+        return True
+
+    def _rectify(self, points):
+        """렌즈를 알면 왜곡과 원근을 되돌린다. 모르면 그대로."""
+        if self._lens is None or points is None:
+            return points
+        try:
+            fixed = self._lens.rectify(points)
+        except Exception:
+            return points                  # 보정이 삐끗해도 커서는 살아야 한다
+        if fixed is None or np.shape(fixed) != np.shape(points):
+            return points
+        if not np.all(np.isfinite(fixed)):
+            return points
+        return fixed
+
+    def _prefers_landmarks(self):
+        """랜드마크를 1순위로 둘 것인가 (위 생성자 독스트링의 근거 참고)."""
+        if self._rotation_source == "matrix":
+            return False
+        if self._rotation_source in ("landmark", "landmarks"):
+            return True
+        return self._lens is not None      # auto — 렌즈를 알 때만 올린다
 
     def add_calibration_sample(self, face):
         """중립을 잡기 위해 표본을 모은다 (시작 캘리브레이션 구간에서 매 프레임).
@@ -329,10 +431,12 @@ class HeadOrientation:
         if len(self._samples) < 1:
             return False
         median = np.median(np.stack(self._samples, axis=0), axis=0)
-        axes = _orthonormal_frame(median)
+        rectified = self._rectify(median)
+        axes = _orthonormal_frame(rectified)
         if axes is None:
             return False
-        self._neutral_points = median
+        self._neutral_raw = median         # 렌즈를 나중에 알면 여기서 다시 만든다
+        self._neutral_points = rectified
         self._axes = axes
         self._decide_signs(axes)
         # 중립 회전 행렬 — 표본 절반 이상에서 행렬이 왔을 때만 확정한다.
@@ -359,10 +463,12 @@ class HeadOrientation:
         points = extract_rigid_points(face)
         if points is None:
             return False
-        axes = _orthonormal_frame(points)
+        rectified = self._rectify(points)
+        axes = _orthonormal_frame(rectified)
         if axes is None:
             return False
-        self._neutral_points = points
+        self._neutral_raw = points
+        self._neutral_points = rectified
         self._axes = axes
         self._decide_signs(axes)
         rot = getattr(face, "head_rotation", None)
@@ -380,21 +486,28 @@ class HeadOrientation:
         """
         if not self.is_ready:
             return None
-        points = extract_rigid_points(face)
+        points = self._rectify(extract_rigid_points(face))
+        prefer_landmarks = self._prefers_landmarks()
 
-        # 1순위: 변환행렬 상대 회전 (독스트링 "회전의 재료 두 가지" 참고)
+        # ★1순위 — 렌즈를 알면 랜드마크, 모르면 행렬 (생성자 독스트링의 근거 참고)
         raw = None
-        if self._rotation_source in ("auto", "matrix") and self._neutral_rotation is not None:
+        if prefer_landmarks and points is not None:
+            lrot = estimate_rotation(self._neutral_points, points)
+            if lrot is not None:
+                raw = self._project(lrot)
+        # 2순위: 변환행렬 상대 회전. 랜드마크가 안 나온 프레임에서
+        # 커서가 죽지 않게 한다
+        if (raw is None and self._neutral_rotation is not None
+                and self._rotation_source in ("auto", "matrix")):
             cur = getattr(face, "head_rotation", None)
             if cur is not None:
                 # R_rel = R_now @ R_neutral^T — 회전이라 전치 = 역행렬.
                 # 카메라를 M만큼 돌려 달면 양쪽에 M이 곱해져 여기서 소거된다
                 raw = self._project(np.asarray(cur, dtype=np.float64)
                                     @ self._neutral_rotation.T)
-        if raw is None and self._rotation_source == "matrix":
-            return None      # 행렬 강제인데 이 프레임엔 행렬이 없다
-        # 2순위(폴백): 랜드마크 정합
-        if raw is None and points is not None:
+        # 3순위(안전망): 행렬을 먼저 쓰는 설정인데 행렬이 안 온 프레임
+        if (raw is None and not prefer_landmarks and points is not None
+                and self._rotation_source != "matrix"):
             lrot = estimate_rotation(self._neutral_points, points)
             if lrot is not None:
                 raw = self._project(lrot)
@@ -417,19 +530,46 @@ class HeadOrientation:
         self._sign_v = 1.0 if x_axis[0] >= 0.0 else -1.0
 
     def _project(self, rot):
-        """상대 회전 -> (가로, 세로) 탄젠트. 과회전이면 None."""
-        x_axis, y_axis, z_axis = self._axes
-        # 중립일 때 얼굴이 향하던 방향을, 지금 회전만큼 돌린 것
-        facing = rot @ z_axis
-        forward = float(np.dot(facing, z_axis))
-        if abs(forward) < math.cos(math.radians(MAX_ANGLE_DEG)):
-            return None      # 너무 많이 돌아 탄젠트가 발산하는 영역 — 이 프레임은 버린다
-        horizontal = float(np.dot(facing, x_axis))
-        vertical = float(np.dot(facing, y_axis))
-        # forward의 부호는 z축을 어느 쪽으로 잡았느냐에 따라 갈리는데, 나누는
-        # 쪽과 곱해지는 쪽이 같은 축에서 나오므로 비율에서 상쇄된다.
-        # abs를 쓰면 뒤통수를 보이는 각도에서도 부호가 안 뒤집힌다
-        return (horizontal / abs(forward), vertical / abs(forward))
+        """상대 회전 -> (가로, 세로) 탄젠트. 과회전이면 None.
+
+        ★2026-09-03: 얼굴이 향하는 벡터를 화면에 사영하던 것(그노몬 투영)을
+        **회전벡터 분해**로 바꿨다. 세로가 활처럼 휘던 원인이 여기 있었다.
+
+        왜 휘었나 — 얼굴 좌표축은 코가 튀어나온 만큼 기울어져 있다. 이 파일의
+        축 정의에서 "아래쪽"은 이마(10)에서 코끝(4)으로 잡는데, 코가 25mm쯤
+        앞으로 나와 있어 그 벡터가 얼굴 평면에서 **19.5도 앞으로 기운다.**
+        기울어진 축에 대고 향하는 벡터를 사영하면, 고개를 좌우로 돌릴 때
+        그 궤적이 원뿔을 그리고 화면에서는 원뿔곡선 — 즉 활 모양이 된다.
+
+        회전벡터로 풀면 이 문제가 원리적으로 사라진다. 상대 회전을 회전벡터
+        w로 바꾸면(로드리게스 역변환), 1차 근사에서
+
+            dot(향하는벡터, x축) ~ -dot(w, y축)      (가로 = 세로축 둘레 회전)
+            dot(향하는벡터, y축) ~ +dot(w, x축)      (세로 = 가로축 둘레 회전)
+
+        이고, **축이 얼마나 기울었든 축 둘레의 회전량은 그대로 나온다.**
+        세로축 둘레로만 돌린 회전은 x축 성분이 정확히 0이므로 세로가 0이다.
+
+        가상 카메라 측정 (2026-09-03, 세로 휨 = 세로 반폭 대비 %):
+
+            렌즈           그노몬 투영    회전벡터
+            왜곡없음         3.90%    ->   1.58%
+            일반 65도        4.27%    ->   0.92%
+            광각 90도        8.20%    ->   4.45%
+            초광각 120도    13.80%    ->   9.47%
+
+        부호 규약은 바뀌지 않는다. 거울 반전은 w -> (w_x, -w_y, -w_z)로,
+        축은 x축 -> (-x, y, z)로 바뀌는데, 두 경로 모두 가로·세로가 함께
+        뒤집혀 그노몬 때와 같은 부호 규칙이 그대로 성립한다(위 "반사 켤레").
+        """
+        x_axis, y_axis, _z_axis = self._axes
+        w = _rotation_vector(np.asarray(rot, dtype=np.float64))
+        horizontal = -float(np.dot(w, y_axis))       # 세로축 둘레 회전 = 좌우
+        vertical = float(np.dot(w, x_axis))          # 가로축 둘레 회전 = 상하
+        limit = math.radians(MAX_ANGLE_DEG)
+        if abs(horizontal) > limit or abs(vertical) > limit:
+            return None      # 너무 많이 돌았다 — 이 프레임은 버린다
+        return (math.tan(horizontal), math.tan(vertical))
 
 
 

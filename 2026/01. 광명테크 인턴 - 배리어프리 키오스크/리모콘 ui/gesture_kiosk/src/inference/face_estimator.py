@@ -151,6 +151,9 @@ class FaceLandmarks:
     # 맞춰 둔다(infer 안 주석 참고). 상대 회전 추정(head_orientation.py)의 입력이며,
     # 이 값을 안 채우고 만든 FaceLandmarks도 있으므로 쓰는 쪽은 None을 확인해야 한다
     landmarks_3d: object = None
+    # 랜드마크가 어느 크기의 화면에서 나왔나 (w_px, h_px).
+    # 렌즈 자가 보정이 화면 중심을 알아야 해서 함께 싣는다
+    frame_size: object = None
     # 3차원 머리 자세 — HeadPose 설명 참고. MediaPipe 옵션이 꺼져 있거나
     # 행렬이 안 오면 None이므로, 쓰는 쪽은 반드시 None을 확인해야 한다
     head_pose: object = None
@@ -346,6 +349,7 @@ class FaceEstimator:
                 bbox=_landmarks_to_bbox_px(landmarks_px, frame.shape), conf=1.0,
                 landmarks_px=landmarks_px, blendshapes=blendshapes,
                 landmarks_3d=landmarks_3d,
+                frame_size=(w_px, h_px),
                 head_pose=_extract_head_pose(result, face_idx),
                 head_rotation=_extract_head_rotation(result, face_idx),
             ))

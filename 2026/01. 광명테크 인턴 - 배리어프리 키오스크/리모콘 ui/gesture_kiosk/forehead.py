@@ -113,7 +113,7 @@ from src.postprocess.face_anchor import FaceAnchor
 from src.postprocess.head_tracker import EVENT_SELECT, HeadTracker
 from src.utils.config_loader import load_config
 from src.utils.cursor_render import (   # 커서 크기·그리기 공용 (2026-08-31)
-    CURSOR_MARKER_SIZE_PX, CURSOR_RADIUS_PX, CURSOR_THICKNESS_PX,
+    CURSOR_RADIUS_PX,
     cursor_reach_px, draw_cursor as _draw_cursor_shared,
 )
 from src.utils import console, preflight, version

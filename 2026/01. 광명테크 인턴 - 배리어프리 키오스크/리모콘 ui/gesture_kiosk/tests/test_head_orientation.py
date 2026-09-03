@@ -138,7 +138,6 @@ def test_noise_is_averaged_down_by_using_many_points():
     """
     neutral = _synthetic_head()
     rot_true = _rot_about((0.0, 1.0, 0.0), 15.0)
-    rng = np.random.default_rng(11)
     idx_all = list(RIGID_LANDMARKS)
     idx_few = idx_all[:MIN_POINTS]
 
