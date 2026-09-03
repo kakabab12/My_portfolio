@@ -46,17 +46,28 @@ def _stream(camera, seconds=60.0, fps=30.0, walk_mm=200.0, seed=5):
         yield camera.observe(head, offset_mm=offset)
 
 
+def _settle(cal, timeout_sec=20.0):
+    """보정 스레드가 돌고 있으면 끝날 때까지 기다린다 (시험 재현성 전용)."""
+    deadline = time.time() + timeout_sec
+    while (cal._thread is not None and cal._thread.is_alive()
+           and time.time() < deadline):
+        time.sleep(0.005)
+
+
 def _run(camera, distortion=False, **kwargs):
     """보정이 끝날 때까지(또는 흐름이 끝날 때까지) 돌린 보정기."""
     cal = LensSelfCalibrator(FRAME_W_PX, FRAME_H_PX, distortion=distortion)
     for face in _stream(camera, **kwargs):
         cal.add(face.landmarks_3d)
+        # ★시도가 시작되면 **끝날 때까지 기다린다.** 안 기다리면 그동안에도
+        # 뷰가 쌓여서, 다음 시도가 무엇을 보는지가 기계 부하에 좌우된다 —
+        # 같은 코드가 실행마다 다른 판정을 받는다(2026-09-03에 겪었다:
+        # 초점거리가 418~424로 흔들려 한도 근처의 배치가 4회 중 1회 실패).
+        # 실사용에서는 기다리지 않는다 — 여기서만 재현성을 위해 기다린다.
+        _settle(cal)
         if cal.finished:
             break
-    deadline = time.time() + 20.0
-    while (cal._thread is not None and cal._thread.is_alive()
-           and time.time() < deadline):
-        time.sleep(0.02)
+    _settle(cal)
     return cal
 
 
@@ -172,6 +183,7 @@ def test_detects_mirroring_from_the_landmarks_alone(mirror):
 
 def _accuracy(camera, lens_model, offset=(220.0, -140.0, 0.0)):
     """가로 선형성 이탈 / 세로 휨 / 몸 평행이동 끌림."""
+    camera.reset_noise()
     ho = HeadOrientation(lens=lens_model)
     for _ in range(20):
         ho.add_calibration_sample(camera.observe(offset_mm=offset))
@@ -190,6 +202,8 @@ def _accuracy(camera, lens_model, offset=(220.0, -140.0, 0.0)):
     linearity = 100.0 * np.abs(xs - (slope * truth + intercept)).max() / TAN_HALF_X
     bow = 100.0 * np.abs(ys - ys.mean()).max() / TAN_HALF_Y
 
+    # 앞의 측정으로 난수가 진행돼 있다 — 되감아야 실행마다 같은 값이 나온다
+    camera.reset_noise()
     still_ho = HeadOrientation(lens=lens_model)
     for _ in range(20):
         still_ho.add_calibration_sample(camera.observe())

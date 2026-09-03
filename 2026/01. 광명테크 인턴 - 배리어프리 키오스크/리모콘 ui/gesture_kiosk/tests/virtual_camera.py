@@ -214,7 +214,20 @@ class VirtualCamera:
             self.face = face
         self.mirror = mirror
         self.noise_px = noise_px
+        self._seed = seed
         self._rng = np.random.default_rng(seed)
+
+    def reset_noise(self):
+        """랜드마크 잡음의 난수를 처음으로 되감는다.
+
+        한 카메라로 여러 항목을 이어서 재면 난수가 진행돼, 나중에 재는 항목이
+        앞선 항목의 호출 횟수에 좌우된다. 값이 한도 근처면 그 흔들림이 경계를
+        넘나들어 **같은 코드가 실행마다 다른 판정**을 받는다(2026-09-03에 실제로
+        겪었다 — 끌림 0.0184가 한도 0.020을 5회 중 3회 넘겼다).
+
+        항목마다 이것을 부르면 언제 재든 같은 잡음을 본다.
+        """
+        self._rng = np.random.default_rng(self._seed)
 
     def observe(self, head_rotation=None, offset_mm=(0.0, 0.0, 0.0)):
         """머리를 그만큼 돌린 상태를 이 카메라로 본다 -> VirtualFace.
