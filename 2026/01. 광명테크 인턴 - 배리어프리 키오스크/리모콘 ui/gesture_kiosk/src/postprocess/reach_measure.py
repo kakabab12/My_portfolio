@@ -1,4 +1,4 @@
-"""그 사람이 실제로 고개를 얼마나 돌리는지 잰다 (2026-09-05 신설).
+"""그 사람이 실제로 고개를 얼마나 돌리는지 측정한다 (2026-09-05 신설).
 
 무엇이 문제인가
 ---------------
@@ -29,9 +29,9 @@
 멀쩡한 사람의 감도를 올리면 아무 이득 없이 떨림만 배율만큼 커진다(커서
 위치가 회전탄젠트/tan(반폭)이라 배율이 잡음에 그대로 곱해진다).
 
-그래서 **자동 판정은 넣지 않는다.** 대신 이 파일은 재기만 하고, 값은 사람이
+그래서 **자동 판정은 넣지 않는다.** 대신 이 파일은 측정만 하고, 값은 사람이
 보고 정한다(scripts/measure_reach.py). 이 프로젝트가 계속 지켜 온 방식이다 —
-못 가리는 것을 가리는 척하지 않고, 재는 도구를 준다.
+못 가리는 것을 가리는 척하지 않고, 측정 도구를 준다.
 
   · **Rousseeuw, P. J. (1984).** "Least Median of Squares Regression."
     *JASA* 79(388), 871-880 — 최대치를 평균이나 최댓값으로 보면 한 번의 큰
@@ -40,7 +40,7 @@
 떨림 예산 — 권장값의 상한
 -------------------------
 도달 배율을 g로 올리면 정지 시 커서 떨림도 정확히 g배가 된다. 그래서 지금
-이 사람의 떨림을 함께 재서, 올린 뒤의 떨림이 예산을 넘지 않는 선까지만
+이 사람의 떨림을 함께 측정해서, 올린 뒤의 떨림이 예산을 넘지 않는 선까지만
 권한다. 어두운 방이나 먼 거리라 이미 떨림이 큰 사람에게는 덜 권하게 된다 —
 닿는 범위를 얻자고 커서를 못 쓸 만큼 떨게 만들지 않는다.
 """
@@ -115,7 +115,7 @@ class _Axis:
             self._peak = mag
 
     def _feed_still(self, value):
-        """가만히 있는 구간에서만 떨림을 잰다 — 움직임을 떨림으로 세지 않게."""
+        """가만히 있는 구간에서만 떨림을 측정한다 — 움직임을 떨림으로 세지 않게."""
         self._recent.append(value)
         if len(self._recent) > STILL_WINDOW:
             del self._recent[0]
@@ -141,14 +141,14 @@ class _Axis:
         return math.degrees(math.atan(self.tan_span))
 
     def reach_ratio(self):
-        """화면 폭(또는 높이)의 몇 %까지 닿는가. 못 재면 None."""
+        """화면 폭(또는 높이)의 몇 %까지 닿는가. 측정 못 하면 None."""
         deg = self.reach_deg()
         if deg is None:
             return None
         return min(1.0, math.tan(math.radians(deg)) / self.tan_span)
 
     def jitter_ratio(self):
-        """지금 정지 시 커서 떨림 (화면 비율, 1 sigma). 못 재면 None."""
+        """지금 정지 시 커서 떨림 (화면 비율, 1 sigma). 측정 못 하면 None."""
         if len(self.still_devs) < MIN_STILL_SAMPLES:
             return None
         dev = _quantile(sorted(self.still_devs), 0.5)     # 중앙값 (Rousseeuw)
@@ -182,7 +182,7 @@ class _Axis:
         want = 1.0 / ratio
         jitter = self.jitter_ratio()
         if jitter is None:
-            return None, "떨림을 못 쟀다 — 가만히 있는 구간이 더 필요하다"
+            return None, "떨림을 못 측정했다 — 가만히 있는 구간이 더 필요하다"
         if jitter <= 0.0:
             budget = MAX_GAIN
         else:

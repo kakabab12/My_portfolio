@@ -294,6 +294,7 @@ class _CursorMapper:
                  orientation_lens_distortion=False,
                  orientation_distance_scaling=True,
                  orientation_reach_gain=1.0,
+                 orientation_invert_x=False,
                  screen_width_mm=None, screen_height_mm=None,
                  reference_distance_mm=None):
         """one_euro_enabled(2026-08-27 forehead.py 대응 신설, OneEuroFilter 독스트링
@@ -446,6 +447,21 @@ class _CursorMapper:
         # 그래서 **재서 정한다.** scripts/measure_reach.py가 그 사람의 실제
         # 가동범위를 재고 권장값을 알려 준다. 기본 1.0은 손대지 않음이다.
         self._reach_gain = max(0.5, min(3.0, float(orientation_reach_gain or 1.0)))
+        # ★머리 커서 가로 뒤집기 (2026-09-05 신설, 실기 보고 "모든 헤드트래커
+        # 커서가 좌우 반대로 돌아간다. 손으로 dpad 하는 건 정상").
+        #
+        # 손 쓸기가 정상이라는 것이 중요하다 — 그러면 영상은 config대로 제대로
+        # 거울이고, camera.mirror는 맞다. 그걸 건드리면 손이 깨진다. 어긋난
+        # 곳은 **머리 커서의 가로 부호 하나**다.
+        #
+        # 가상 카메라로는 이 경우가 "맞음"으로 나온다. 즉 시뮬레이션의 거울
+        # 모델이 실기와 어긋나 있고, 그것을 기준 삼은 시험들이 반대쪽을
+        # 통과시켜 왔다. 어느 쪽이 어긋났는지는 실기에서 재야 한다 —
+        # scripts/check_direction.py 가 그 측정 도구다.
+        #
+        # 이 값은 그때까지의 **임시 조치**다. 기본은 False라 거동이 안 바뀐다.
+        # 측정으로 원인이 확정되면 부호를 제대로 고치고 이 스위치는 없앤다.
+        self._invert_x = bool(orientation_invert_x)
         self._orientation_calibrating = True
         self._orientation_started_sec = None
         self._one_euro_base_cutoff = one_euro_min_cutoff
@@ -750,7 +766,8 @@ class _CursorMapper:
 
         # 반쪽 화면을 채우는 각도로 나눈다 -> 그 각도에서 정확히 화면 끝
         scale = span_scale * self._reach_gain
-        offset_x = _clamp(raw_tan_x * scale / self._orientation_tan_x * 0.5,
+        scale_x = -scale if self._invert_x else scale
+        offset_x = _clamp(raw_tan_x * scale_x / self._orientation_tan_x * 0.5,
                           self._max_offset_ratio)
         offset_y = _clamp(raw_tan_y * scale / self._orientation_tan_y * 0.5,
                           self._max_offset_ratio)
@@ -1009,6 +1026,7 @@ class HeadTracker:
             orientation_mapping=pointer.get("orientation_mapping", False),
             orientation_distance_scaling=pointer.get("orientation_distance_scaling", True),
             orientation_reach_gain=pointer.get("orientation_reach_gain", 1.0),
+            orientation_invert_x=pointer.get("orientation_invert_x", False),
             # 설치 치수 — 있으면 반폭을 기하학으로 계산한다 (위 설명 참고).
             # 화면 크기를 안 적어 놨으면 운영체제에서 알아본다 —
             # 이게 있어야 데스크탑과 키오스크가 같은 빌드로 돈다

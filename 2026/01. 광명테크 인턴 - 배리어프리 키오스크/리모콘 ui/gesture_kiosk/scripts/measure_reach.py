@@ -1,4 +1,4 @@
-"""이 사람이 화면 어디까지 닿는지 재고, 도달 배율을 알려준다 (2026-09-05 신설).
+"""이 사람이 화면 어디까지 닿는지 측정하고, 도달 배율을 알려준다 (2026-09-05 신설).
 
 왜 필요한가
 -----------
@@ -19,7 +19,7 @@
 사람마다 다르고, 추측해서 넣으면 목이 멀쩡한 사람은 커서가 예민해지고
 떨림이 그 배율만큼 그대로 커진다.
 
-그래서 **잰다.** 이 도구가 그 사람의 실제 가동범위와 떨림을 재서 권장값을
+그래서 **측정한다.** 이 도구가 그 사람의 실제 가동범위와 떨림을 측정해서 권장값을
 알려 준다. (자동으로 안 정하는 이유는 src/postprocess/reach_measure.py의
 독스트링 참고 — 관측만으로는 "못 돌리는 사람"과 "안 돌린 사람"이 안 갈린다.)
 
@@ -32,7 +32,7 @@
 
 측정 중에는 **평소처럼 화면 네 귀퉁이를 차례로 보려고 한다.** 억지로 더
 돌리지 말 것 — 평소에 낼 수 있는 만큼만 내야 그 사람에게 맞는 값이 나온다.
-중간중간 정면을 보고 잠깐 가만히 있는 구간이 있어야 떨림도 함께 잰다.
+중간중간 정면을 보고 잠깐 가만히 있는 구간이 있어야 떨림도 함께 측정한다.
 """
 import argparse
 import os
@@ -55,12 +55,12 @@ FIRST_FRAME_TIMEOUT_SEC = 10.0
 
 
 def _fmt(value, unit="", digits=1):
-    return "못 잼" if value is None else f"{value:.{digits}f}{unit}"
+    return "측정 못 함" if value is None else f"{value:.{digits}f}{unit}"
 
 
 def main():
     enable_utf8_output()
-    parser = argparse.ArgumentParser(description="가동범위를 재서 도달 배율을 권한다")
+    parser = argparse.ArgumentParser(description="가동범위를 측정해서 도달 배율을 권한다")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--seconds", type=float, default=45.0)
     parser.add_argument("--tracker", choices=("eyebrow", "forehead", "head"),
@@ -74,7 +74,7 @@ def main():
     pointer["orientation_mapping"] = module.ORIENTATION_MAPPING
     pointer["orientation_half_span_x_deg"] = module.ORIENTATION_HALF_SPAN_X_DEG
     pointer["orientation_half_span_y_deg"] = module.ORIENTATION_HALF_SPAN_Y_DEG
-    # 배율은 1.0으로 두고 잰다 — 이미 걸린 배율 위에서 재면 값이 곱해져 버린다
+    # 배율은 1.0으로 두고 측정한다 — 이미 걸린 배율 위에서 재면 값이 곱해져 버린다
     pointer["orientation_reach_gain"] = 1.0
 
     preprocessor = Preprocessor(config)
@@ -103,7 +103,7 @@ def main():
     print()
     print(" %.0f초 동안 **평소처럼** 화면 네 귀퉁이를 차례로 보려고 해 주세요." % args.seconds)
     print(" 억지로 더 돌리지 마세요 — 평소에 낼 수 있는 만큼만 내야 맞는 값이 나옵니다.")
-    print(" 중간중간 정면을 보고 잠깐 가만히 계시면 떨림도 함께 잽니다.")
+    print(" 중간중간 정면을 보고 잠깐 가만히 계시면 떨림도 함께 측정합니다.")
     print()
 
     measure = None
@@ -131,7 +131,7 @@ def main():
             offset = orientation.pointing_offset(face)
             if offset is None:
                 continue
-            # 거리 보정을 먹인 뒤의 값으로 잰다 — 앞뒤로 움직인 것이
+            # 거리 보정을 먹인 뒤의 값으로 측정한다 — 앞뒤로 움직인 것이
             # "가동범위가 바뀌었다"로 새지 않게 (head_tracker와 같은 순서)
             scale = getattr(orientation, "distance_ratio", 1.0) or 1.0
             measure.add(offset[0] * scale, offset[1] * scale)
@@ -148,7 +148,7 @@ def main():
     print("\r" + " " * 30)
     if measure is None or n_sample < 30:
         print(" 표본이 모자랍니다 (얼굴 %d프레임 / 전체 %d프레임)." % (n_sample, n_frame))
-        print(" 카메라에 얼굴이 잘 잡히는지 확인하고 다시 재 주세요.")
+        print(" 카메라에 얼굴이 잘 잡히는지 확인하고 다시 측정해 주세요.")
         return 1
 
     report = measure.report()
@@ -163,10 +163,10 @@ def main():
               f"   (왕복 {r['peaks']}번)")
         reach = r["reach_ratio"]
         print("     닿는 범위               "
-              + ("못 잼" if reach is None else f"화면의 {reach * 100:.0f}%"))
+              + ("측정 못 함" if reach is None else f"화면의 {reach * 100:.0f}%"))
         jitter = r["jitter_ratio"]
         print("     정지 시 커서 떨림       "
-              + ("못 잼" if jitter is None else f"화면의 {jitter * 100:.2f}%"))
+              + ("측정 못 함" if jitter is None else f"화면의 {jitter * 100:.2f}%"))
         print()
 
     print("=" * 68)
@@ -179,7 +179,7 @@ def main():
         print("   아직 못 정합니다:")
         print("     좌우 — " + report["x"]["reason"])
         print("     상하 — " + report["y"]["reason"])
-        print("   더 길게(--seconds 90) 다시 재 주세요.")
+        print("   더 길게(--seconds 90) 다시 측정해 주세요.")
         return 1
     # 한 값으로 두 축을 함께 쓰므로 더 막힌 쪽에 맞춘다 — 덜 막힌 축이
     # 조금 예민해지는 것보다 못 닿는 축이 남는 쪽이 나쁘다

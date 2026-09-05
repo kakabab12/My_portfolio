@@ -313,3 +313,48 @@ def test_configured_size_wins_over_detection(monkeypatch):
             GEOMETRIC_SPAN_X_DEG, abs=1e-6)
     finally:
         DS.detect_screen_size_mm.cache_clear()
+
+
+
+# ── 4. 좌우 뒤집기 스위치 (2026-09-05 테스트 보고 대응) ─────────────────────
+#
+# "모든 헤드트래커 커서가 좌우 반대로 돌아간다. 손으로 dpad 하는 건 정상."
+#
+# 손 쓸기가 정상이라는 것이 이 스위치를 넣은 근거다 — 영상은 설정대로 제대로
+# 거울이므로 camera.mirror를 건드리면 손이 깨진다. 머리 커서의 가로만 뒤집는다.
+
+def test_invert_x_flips_only_horizontal():
+    """스위치를 켜면 가로만 뒤집힌다 — 세로는 그대로여야 한다."""
+    def offsets(invert):
+        clock = _Clock()
+        config = copy.deepcopy(load_config(CONFIG_PATH))
+        pointer = config["head_tracker"]["pointer"]
+        pointer["orientation_mapping"] = True
+        pointer["one_euro_enabled"] = False
+        pointer["smoothing_alpha"] = 1.0
+        pointer["orientation_lens_calibration"] = False
+        pointer["screen_width_mm"] = pointer["screen_height_mm"] = None
+        pointer["reference_distance_mm"] = None
+        pointer["orientation_invert_x"] = invert
+        tracker = HeadTracker(config, clock=clock)
+        neutral = _synthetic_head()
+        _calibrate(tracker, clock, _Face(neutral))
+        clock.now += 0.1
+        turned = tracker.update(_Face(_turn(neutral, 9.0)))
+        clock.now += 0.1
+        from tests.test_head_orientation import _rot_about
+        x_axis = _orthonormal_frame(neutral[list(RIGID_LANDMARKS)])[0]
+        nodded = tracker.update(_Face(_apply(_rot_about(x_axis, 7.0), neutral)))
+        return (turned.cursor_x_ratio - 0.5, nodded.cursor_y_ratio - 0.5)
+
+    plain_x, plain_y = offsets(False)
+    flipped_x, flipped_y = offsets(True)
+    assert abs(plain_x) > 0.01, "가로가 안 움직였다 — 시험이 아무것도 안 건다"
+    assert flipped_x == pytest.approx(-plain_x, rel=1e-6), "가로가 안 뒤집혔다"
+    assert flipped_y == pytest.approx(plain_y, rel=1e-6), "세로까지 뒤집혔다"
+
+
+def test_invert_x_is_off_by_default():
+    """기본은 꺼짐 — 이 스위치가 생겼다고 기존 설치가 바뀌면 안 된다."""
+    config = load_config(CONFIG_PATH)
+    assert config["head_tracker"]["pointer"]["orientation_invert_x"] is False
