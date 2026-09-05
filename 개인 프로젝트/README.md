@@ -27,11 +27,11 @@
 > [![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)](../기술_용어집.md#python)
 > [![PyInstaller](https://img.shields.io/badge/PyInstaller-306998?style=flat-square)](../기술_용어집.md#pyinstaller)
 
-시스템 관리 기능을 한 화면에 모은 개인 유틸리티입니다. 내가 쓰려고 만들었습니다.
+시스템 관리 기능을 한 화면에 모은 유틸리티입니다. 제가 쓰려고 만들었습니다.
 
 | 기능 | 내용 |
 |---|---|
-| **시스템 업데이트** | `winget`·`pip`를 업데이트하고 윈도우 업데이트/MS Store를 자동으로 띄웁니다. `wmic`으로 **GPU 제조사(NVIDIA/AMD/Intel)를 감지해 해당 드라이버 페이지를 열어준다** |
+| **시스템 업데이트** | `winget`·`pip`를 업데이트하고 윈도우 업데이트/MS Store를 자동으로 띄웁니다. `wmic`으로 **GPU 제조사(NVIDIA/AMD/Intel)를 확인해 그 회사 드라이버 페이지를 띄웁니다** |
 | **청소 & 부스트** | DNS 캐시 초기화, Temp 삭제, `dism` 이미지 정리, `netsh winsock reset`, 디스크 조각모음 |
 | **게임 모드** | 무거운 백그라운드 프로그램을 일괄 종료하고 탐색기를 재시작해 메모리를 회수합니다 |
 | **핑 테스트** | 8.8.8.8과 1.1.1.1 핑 결과를 **정규식으로 파싱**해 지연시간을 등급으로 평가합니다 |
@@ -39,10 +39,10 @@
 
 **기술 포인트**
 
-- **관리자 권한 자동 획득** — 권한을 확인하고 없으면 UAC 창을 띄워 스스로 재실행합니다.
-  시스템 파일 삭제나 네트워크 설정 변경에는 관리자 권한이 필수이기 때문입니다
-- **GUI 멈춤 방지** — 모든 작업을 `threading.Thread(daemon=True)`로 분리했습니다.
-  `subprocess` 명령이 끝날 때까지 기다리면 창이 "응답 없음"이 됩니다
+- **관리자 권한 자동 획득** — 권한이 없으면 UAC 창을 띄워 스스로 다시 실행합니다.
+  시스템 파일을 지우거나 네트워크 설정을 바꾸려면 관리자 권한이 있어야 합니다
+- **GUI 멈춤 방지** — 작업을 전부 `threading.Thread(daemon=True)`로 뺐습니다.
+  `subprocess`가 끝날 때까지 기다리면 창이 "응답 없음"으로 굳어 버립니다
 - 터미널 인코딩을 UTF-8(`chcp 65001`)로 바꿔 한글 깨짐을 막았습니다
 
 | 폴더 | 버전 |

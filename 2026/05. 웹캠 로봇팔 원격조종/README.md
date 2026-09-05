@@ -6,13 +6,14 @@
 [![MediaPipe](https://img.shields.io/badge/MediaPipe-0097A7?style=flat-square&logo=google&logoColor=white)](../../기술_용어집.md#mediapipe)
 [![HuggingFace](https://img.shields.io/badge/lerobot-FFD21E?style=flat-square&logo=huggingface&logoColor=black)](../../기술_용어집.md#lerobot)
 
-**장갑도 센서도 없이, 웹캠의 2D 좌표만으로 6축 로봇팔을 조종한다**
+**장갑도 센서도 없이, 웹캠의 2D 좌표만으로 6축 로봇팔을 조종합니다**
 
 </div>
 
 ---
 
-사람이 **팔꿈치를 90° 굽히면 로봇도 90° 굽도록**, 관절 각도를 1:1로 전달하는 것이 목표였습니다.
+사람이 **팔꿈치를 90° 굽히면 로봇도 90° 굽는 것**이 목표였습니다. 비슷하게 따라
+하는 게 아니라 각도를 그대로 옮기려고 했습니다.
 
 ```mermaid
 flowchart LR
@@ -31,7 +32,7 @@ flowchart LR
 | `shoulder_lift` | 팔 위아래 | `asin((어깨y − 팔꿈치y) ÷ 위팔길이)` → 실제 각도 |
 | `elbow_flex` | 팔꿈치 굽힘 | `180° − 위팔·아래팔 사잇각` (폄 0° ~ 최대 150°) |
 | `wrist_flex` | 손목 꺾기 | 아래팔 벡터 대비 손바닥 벡터의 **부호 있는** 각도 |
-| `wrist_roll` | 손 회전 | 고정 — 2D 좌표만으로는 회전축을 추정할 수 없다 |
+| `wrist_roll` | 손 회전 | 고정 — 2D 좌표만으로는 회전축을 알 수 없습니다 |
 | `gripper` | 손 펴기/주먹 | 엄지끝 ↔ 나머지 네 손가락끝 평균거리 ÷ 손바닥 길이 |
 
 ## 기술 포인트
@@ -40,7 +41,7 @@ flowchart LR
 |---|---|
 | **떨림 제거** | **1€ Filter**(속도 적응형)와 **SmoothDamp**를 2단계로 걸었습니다 |
 | **실시간 튜닝** | 실행 중 키보드로 방향·0점·배율을 조정하고 파일로 저장합니다 |
-| **의존성 최소화** | 깊이 카메라나 IMU 장갑 없이 **일반 웹캠 1대**만 있으면 된다 |
+| **의존성 최소화** | 깊이 카메라나 IMU 장갑 없이 **일반 웹캠 1대**면 됩니다 |
 
 ## 폴더
 

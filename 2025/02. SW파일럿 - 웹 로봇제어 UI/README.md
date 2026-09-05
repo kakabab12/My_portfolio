@@ -12,8 +12,8 @@
 
 ---
 
-**웹 브라우저에서 캔버스에 좌표를 찍어 로봇을 이동시키는** 관제 UI입니다.
-브라우저와 ROS를 직접 연결하는 **roslib(rosbridge)** 를 썼습니다.
+브라우저 캔버스에 점을 찍으면 로봇이 그리로 가는 관제 UI입니다. 브라우저와 ROS를
+바로 잇는 **roslib(rosbridge)** 를 썼습니다.
 
 ```mermaid
 flowchart LR
@@ -33,7 +33,7 @@ flowchart LR
 
 | 분류 | 내용 |
 |---|---|
-| 로봇 통신 | **roslib.js** (rosbridge WebSocket) — 브라우저에서 ROS 토픽을 직접 발행합니다 |
+| 로봇 통신 | **roslib.js** (rosbridge WebSocket) — 브라우저가 ROS 토픽을 직접 발행합니다 |
 | 프론트 | HTML5 Canvas, JavaScript, SweetAlert2 |
 
 > 본격적인 로봇 프로젝트는

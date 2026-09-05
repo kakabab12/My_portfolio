@@ -26,7 +26,7 @@ rtmlib RTMPose(포즈) → **"손등팔등"(손등 + 팔꿈치까지) 판정** �
 
 **팔꿈치까지 요구** — 손만 프레임 가장자리에 걸쳐 들어온 경우(팔 전체가 안 보임)를
 걸러내기 위해, 손등 방향과 별개로 **같은 쪽 팔꿈치가 포즈 추정(rtmlib)에서 신뢰도
-있게 보여야만** 이벤트가 확정된다 — `src/postprocess/person_lock.py`의
+있게 보여야만** 이벤트가 확정됩니다 — `src/postprocess/person_lock.py`의
 `_is_elbow_visible()`. 손 판정(MediaPipe Hand Landmarker)과 팔꿈치 판정(RTMPose
 포즈)은 서로 다른 모델이지만 같은 프레임 좌표계를 쓰므로 그대로 결합했습니다. 이
 조건 때문에 `person_lock.enabled: false`로 끄면(포즈 추정 자체가 꺼짐) 이벤트가
@@ -126,7 +126,7 @@ def on_gesture_detected(label: str, confidence: float):
 바꿔 끼우면 됩니다. `label`은 항상 `next_item`입니다.
 
 또는 `configs/config.yaml`의 `event_output.mode`를 `udp`로 바꾸면 같은 이벤트를
-JSON으로 UDP 전송한다 (`class_name`/`conf`/`ts_sec`/`hand_side`).
+JSON으로 UDP 전송합니다 (`class_name`/`conf`/`ts_sec`/`hand_side`).
 
 ---
 

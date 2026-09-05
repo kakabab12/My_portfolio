@@ -42,7 +42,7 @@ python3 scripts/live_predict.py --model models/gearbox_svm_source.joblib --devic
 
 ## ROS 2 실시간 감지 및 OpenCR LED
 
-이 폴더는 ROS 2 Humble `ament_python` 패키지입니다. 기본 상태와 LED 동작은 다음과 같습니다.
+이 폴더는 ROS 2 Humble `ament_python` 패키지입니다. 감지 상태에 따라 LED가 이렇게 움직입니다.
 
 | 감지 상태 | OpenCR 모드 | LED 동작 |
 | --- | ---: | --- |

@@ -1,14 +1,18 @@
 # 2026 SW 파일럿 로보틱스 1팀 프로젝트
 
-TurtleBot3 Burger + Jetson Orin Nano 기반 로봇 프로젝트. 손 제스처·조이스틱·자이로 장갑을 이용한 수동조종, SLAM/Nav2 기반 자율주행(waypoint 순찰), 기어박스 소리 이상감지 및 OpenCR LED 알림, SO-101 로봇팔 원격 조종까지를 다룹니다. 아래는 각 폴더가 무엇을 담고 있는지, 실제 파일을 읽어보고 정리한 내용입니다.
+TurtleBot3 Burger와 Jetson Orin Nano로 만든 로봇 프로젝트입니다. 손 제스처·조이스틱·자이로
+장갑으로 직접 몰기, SLAM/Nav2로 웨이포인트 순찰하기, 기어박스 소리로 이상 감지해 OpenCR
+LED로 알리기, SO-101 로봇팔 원격 조종까지 들어 있습니다.
 
-> **실행 환경**: **Ubuntu 22.04, Jetson Orin Nano, ROS 2 Humble**에서 작업·실행됨.
+아래 설명은 폴더를 하나씩 열어 파일을 확인하면서 정리한 것입니다.
+
+> **실행 환경** — Ubuntu 22.04 · Jetson Orin Nano · ROS 2 Humble에서 만들고 돌렸습니다.
 
 ## 폴더 구조
 
 ### `sw/robot/` — 핵심 소스 코드 (이 프로젝트의 본체)
 
-젯슨 오린 나노에서 카메라로 손을 인식해 TurtleBot3를 조종하고, 자율주행·소리 이상감지·LED·로봇팔까지 하나로 묶은 실행 코드. 자세한 사용법은 `sw/robot/README.md`, 설치 체크리스트는 `sw/robot/설치순서.md`에 있습니다.
+젯슨에서 카메라로 손을 읽어 TurtleBot3를 조종하고, 자율주행·소리 이상감지·LED·로봇팔까지 한데 묶은 실행 코드입니다. 사용법은 `sw/robot/README.md`, 설치 순서는 `sw/robot/설치순서.md`에 있습니다.
 
 - `src/` — 제스처 인식 파이프라인 본체
   - `capture/` — 카메라 캡처(`camera_stream.py`) 및 다중 카메라 중 활성 카메라 선택(`dual_camera.py`)
@@ -24,7 +28,7 @@ TurtleBot3 Burger + Jetson Orin Nano 기반 로봇 프로젝트. 손 제스처·
   - `waypoint_*.py` — A→B→C→D→A 순찰 미션, 좌표 샘플링, 자율주행↔수동조종 제어권 핸드오프
   - `sound_anomaly_with_led.launch.py`, `*_mux.launch.py`, `*_with_mux.launch.py` — 통합 실행용 launch 파일
 - `camera_server/camera_server.py` — 노트북 등 별도 PC에서 카메라 영상만 네트워크로 송출하는 경량 서버(MediaPipe 불필요, 젯슨-노트북 분산 구성용)
-- `so101_mediapipe_arm/` — SO-101 로봇팔 예제. 웹캠으로 사람 팔 관절(어깨·팔꿈치·손목·손가락 벌림)을 인식해 로봇팔에 상대 위치로 대응시킴. TurtleBot3 코드와는 독립적
+- `so101_mediapipe_arm/` — SO-101 로봇팔 예제. 웹캠으로 사람 팔 관절(어깨·팔꿈치·손목·손가락 벌림)을 읽어 로봇팔에 상대 위치로 넘깁니다. TurtleBot3 코드와는 따로 돕니다
 - `opencr_update/` — OpenCR 펌웨어를 컴퓨터에서 로봇으로 업로드하는 공식 도구(Windows `update.bat` / Linux `update.sh`)와 바이너리 생성 도구
 - `firmware/esp32_mpu6050_glove/` — 자이로 장갑에 들어가는 ESP32 펌웨어(Arduino `.ino`, MPU6050 센서, Wi-Fi 설정)
 - `configs/` — 실행 설정값: `config.yaml`(카메라·모델 임계값·D-pad 감도·안전 파라미터), `tgz_850m_mux.yaml`(조이스틱 매핑), `turtlebot3_navigation.rviz`(RViz 화면 구성)

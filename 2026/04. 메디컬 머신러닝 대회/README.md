@@ -4,7 +4,7 @@
 
 [![LightGBM](https://img.shields.io/badge/LightGBM-9ACD32?style=flat-square)](../../기술_용어집.md#lightgbm)
 [![XGBoost](https://img.shields.io/badge/XGBoost-EB0C0C?style=flat-square)](../../기술_용어집.md#xgboost)
-[![SHAP](https://img.shields.io/badge/SHAP_(XAI)](../../기술_용어집.md#shap)-0088CC?style=flat-square)
+[![SHAP](https://img.shields.io/badge/SHAP_XAI-0088CC?style=flat-square)](../../기술_용어집.md#shap)
 [![Flask](https://img.shields.io/badge/Flask-000000?style=flat-square&logo=flask&logoColor=white)](../../기술_용어집.md#flask)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=flat-square&logo=scikitlearn&logoColor=white)](../../기술_용어집.md#lightgbm)
 
@@ -14,8 +14,8 @@
 
 ---
 
-수술 기록·진단·검사·활력징후 데이터를 병합해 **두 가지를 동시에 예측**하고,
-**왜 그렇게 판단했는지 의료진에게 설명**하는 시스템입니다.
+수술 기록·진단·검사·활력징후 데이터를 합쳐 **두 가지를 함께 예측**하고,
+**왜 그렇게 판단했는지 의료진에게 설명**까지 하는 시스템입니다.
 
 | 예측 대상 | 문제 유형 | 모델 |
 |---|:-:|---|
@@ -37,13 +37,13 @@ flowchart TD
 
 ## 가장 신경 쓴 세 가지
 
-**① 데이터 누수 차단** — 의료 예측 모델에서 가장 흔한 실수가 **미래 정보를 학습에 섞는
-것**입니다. `cutoff_time`을 엄격히 통제해 **수술 전 시점의 데이터만** 쓰도록 만들었습니다.
-그래야 실제 수술 전에 쓸 수 있는 모델이 됩니다.
+**① 데이터 누수 차단** — 의료 예측에서 제일 흔한 실수가 **미래 정보를 학습에 섞는
+것**입니다. `cutoff_time`을 걸어 **수술 전 시점 데이터만** 쓰게 했습니다. 그래야
+진짜 수술 전에 쓸 수 있는 모델이 됩니다.
 
-**② 설명가능 AI(XAI)** — 의료진이 "AI가 그렇다니까"만으로는 쓸 수 없습니다. SHAP으로
-**전체 변수 중요도**와 **개별 환자 폭포수 차트**("이 환자는 왜 오래 걸리나")를
-각각 시각화했습니다.
+**② 설명가능 AI(XAI)** — 의료진 입장에서 "AI가 그렇다는데요"로는 쓸 수가 없습니다.
+SHAP으로 **전체 변수 중요도**와 **환자별 폭포수 차트**("이 환자는 왜 오래 걸리나")를
+따로 그렸습니다.
 
 **③ 임상 보정** — AI가 내놓은 단순 확률값에 **ASA 등급·응급 여부·혈액검사 수치** 등
 의료 지식을 더해 위험도를 보정하는 로직을 서버에 넣었습니다.
@@ -66,7 +66,7 @@ flowchart TD
 
 | 파일 | 설명 |
 |---|---|
-| `visualize_metrics.py` | AUROC·Accuracy·Precision·F1 막대그래프. **OS를 자동 감지해 한글 폰트 깨짐을 막는다** |
+| `visualize_metrics.py` | AUROC·Accuracy·Precision·F1 막대그래프. **OS를 확인해 한글 폰트 깨짐을 막습니다** |
 | `visualize_regression.py` | 특정 환자 맞춤형 **SHAP 폭포수 차트**. 고령·ASA 4등급 같은 가상 환자의 결정 요인을 분석합니다 |
 
 ### 서빙

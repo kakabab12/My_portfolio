@@ -120,7 +120,7 @@ python teleop_so101.py --dry-run
 python teleop_so101.py --port COM3 --lock-pan
 ```
 
-최초 1회는 lerobot 캘리브레이션이 실행된다 (각 관절을 손으로 끝까지 움직이는 대화형 절차).
+최초 1회는 lerobot 캘리브레이션이 실행됩니다 (각 관절을 손으로 끝까지 움직이는 대화형 절차).
 
 ---
 
