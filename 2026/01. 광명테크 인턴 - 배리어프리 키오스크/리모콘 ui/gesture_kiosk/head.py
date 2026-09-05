@@ -373,6 +373,49 @@ POINTER_SMOOTHING_ALPHA_OVERRIDE = 0.32           # config 기본 0.2 (2026-08-1
 # 움직이는 것)는 이 정도로 느리게 반응해도 체감상 문제없을 만큼 드물게 바뀐다
 POINTER_DISTANCE_SMOOTHING_ALPHA_OVERRIDE = 0.08   # config 기본 0.15 (2026-08-13: 0.3→0.2, 2026-08-14: 0.2→0.08)
 
+# ★2026-09-05 커서 평활을 1유로 필터로 교체.
+#
+# eyebrow.py·forehead.py는 이미 1유로 필터를 쓰는데 **head.py만 빠져 있었다.**
+# 세 진입점이 같은 _CursorMapper를 쓰는데 head.py에만 ONE_EURO_ENABLED가 없어서
+# 기본값(False)으로 떨어졌고, 그래서 혼자 위의 EMA(alpha=0.32)로 돌고 있었다.
+#
+# 위 EMA는 근본적인 트레이드오프에 갇혀 있다 — 세게 걸면 떨림은 줄지만 그만큼
+# 늦게 따라오고(0.22→0.32 이력이 그 줄다리기다), 약하게 걸면 반대가 된다.
+# 1유로 필터는 **움직임 속도에 따라 세기를 바꿔서** 그 줄다리기를 벗어난다:
+# 가만히 있을 때는 세게 걸어 떨림을 지우고, 고개를 돌리는 순간에는 알아서
+# 풀어 지연을 만들지 않는다.
+#
+#   · **Casiez, G., Roussel, N., Vogel, D. (2012).** "1€ Filter: A Simple
+#     Speed-based Low-pass Filter for Noisy Input in Interactive Systems."
+#     *CHI '12*, 2527-2530.
+#
+# 가상 카메라로 쟀다(광각 90도, 600·1000·1300mm × 씨앗 3개 평균):
+#
+#     방식                     정지 떨림    10도 계단 90% 도달
+#     EMA 0.32 (직전)            1.098%          5프레임
+#     1유로 0.25/1.5             0.701%          5프레임
+#
+# **지연은 똑같은데 떨림만 36% 줄었다.** 지연이 그대로라는 게 중요하다 —
+# "고개를 돌리면 커서가 뒤늦게 따라온다"는 보고로 EMA를 0.22→0.32까지 올려온
+# 이력이 있어서, 떨림을 잡겠다고 지연을 되돌리면 안 된다.
+#
+# 값은 eyebrow.py·forehead.py와 **일부러 똑같이 맞췄다.** 훑어보니 더 공격적인
+# 설정(cutoff 0.2·beta 2.5 = 0.716%/4프레임)도 EMA보다 낫지만, 지금 값은 실기로
+# 다듬은 것이고 세 진입점이 같은 손맛이어야 한다. 실기에서 다시 볼 것.
+#
+# EMA 상수는 지우지 않고 남겨둔다 — one_euro_enabled를 False로 되돌리면
+# 즉시 예전 거동으로 돌아갈 수 있어야 한다(현장에서 되돌릴 길을 막지 않는다).
+ONE_EURO_ENABLED = True
+ONE_EURO_MIN_CUTOFF = 0.25
+ONE_EURO_BETA = 1.5
+# 거리 적응 — 멀어지면 얼굴이 작게 잡혀 같은 랜드마크 잡음이 화면상 더 크게
+# 증폭된다(1300mm 정지 떨림이 600mm의 2배). 이때만 컷오프를 낮춰 더 세게 건다.
+# head_tracker.py의 ONE_EURO_ADAPT_MAX_SCALE=1.0이 "가까울 때는 절대 더 풀지
+# 않는다"를 보장하므로(그 파일 상수 설명 참고 — 2.0으로 풀었더니 가까운 거리
+# 떨림이 21% 나빠졌다), 켜서 같거나 나아지기만 한다.
+ONE_EURO_DISTANCE_ADAPTIVE = True
+ONE_EURO_REFERENCE_DIST_PX = 60.0
+
 # 데드존(2026-08-13 사용자 요청 — "엄청 미세하게 떨리긴하는데 수정해주면
 # 좋긴해"): 스무딩을 더 세게 걸면 이번엔 반응이 처지므로, 대신 목표 위치와
 # 현재 표시 위치의 거리가 이 값(화면 비율)보다 작으면 렌더 루프가 아예
@@ -1417,6 +1460,11 @@ def main():
     config["head_tracker"]["pointer"]["sensitivity_y"] = SENSITIVITY_Y_OVERRIDE
     config["head_tracker"]["pointer"]["smoothing_alpha"] = POINTER_SMOOTHING_ALPHA_OVERRIDE
     config["head_tracker"]["pointer"]["distance_smoothing_alpha"] = POINTER_DISTANCE_SMOOTHING_ALPHA_OVERRIDE
+    config["head_tracker"]["pointer"]["one_euro_enabled"] = ONE_EURO_ENABLED
+    config["head_tracker"]["pointer"]["one_euro_min_cutoff"] = ONE_EURO_MIN_CUTOFF
+    config["head_tracker"]["pointer"]["one_euro_beta"] = ONE_EURO_BETA
+    config["head_tracker"]["pointer"]["one_euro_distance_adaptive"] = ONE_EURO_DISTANCE_ADAPTIVE
+    config["head_tracker"]["pointer"]["one_euro_reference_dist_px"] = ONE_EURO_REFERENCE_DIST_PX
     config["head_tracker"]["mouth_click"]["open_margin"] = MOUTH_OPEN_MARGIN_OVERRIDE
     config["head_tracker"]["mouth_click"]["close_margin"] = MOUTH_CLOSE_MARGIN_OVERRIDE
     config["head_tracker"]["recenter_dwell"]["enabled"] = RECENTER_DWELL_ENABLED_OVERRIDE

@@ -18,6 +18,7 @@
   · 화각 — 광각 / 망원(거의 평행투영)
   · **렌즈 왜곡** — 광각 렌즈의 배럴 왜곡(2026-09-03 추가)
   · 랜드마크 잡음 — 실측 기반(안구간거리 60px에서 커서 3.0px, 8/26 측정)
+  · **표정에 따라 움직이는 점** — 입·눈꺼풀·눈썹 (2026-09-03 추가)
   · 거울 반전 — 프레임 좌우 반전 여부
   · **사람마다 다른 얼굴** — 안구간거리·얼굴 폭·코 높이 (2026-09-03 추가)
 
@@ -98,6 +99,34 @@ FACE_MODEL = {
     50: (-38.0, 12.0, 10.0), 280: (38.0, 12.0, 10.0),
 }
 LANDMARK_COUNT = 478
+
+# 표정에 따라 움직이는 점 — 강체가 아니다 (2026-09-03 추가).
+#
+# 왜 넣나: 정합에 쓸 점을 늘리면 잡음에 강해진다(22점이 8점보다 끌림 3.4배
+# 개선). 그런데 늘리다가 움직이는 점이 섞이면 오히려 나빠진다. "움직이는
+# 점을 골라낼 수 있는가"를 시험하려면 움직이는 점이 있어야 한다.
+#
+# 값은 (기준위치, 움직이는 방향과 크기). expression 인자로 얼마나 움직일지 준다.
+#   입 = 벌리면 아래로, 눈꺼풀 = 감으면 아래로, 눈썹 = 올리면 위로
+MOVING_LANDMARKS = {
+    # 입 (벌림)
+    13: ((0.0, 30.0, -14.0), (0.0, 9.0, 0.0)),
+    14: ((0.0, 34.0, -14.0), (0.0, -9.0, 0.0)),
+    17: ((0.0, 44.0, -12.0), (0.0, -12.0, 0.0)),
+    0: ((0.0, 26.0, -16.0), (0.0, 4.0, 0.0)),
+    61: ((-24.0, 32.0, -4.0), (0.0, -3.0, 0.0)),
+    291: ((24.0, 32.0, -4.0), (0.0, -3.0, 0.0)),
+    # 눈꺼풀 (깜빡임)
+    159: ((-20.0, -6.0, 2.0), (0.0, 4.0, 0.0)),
+    145: ((-20.0, 4.0, 2.0), (0.0, -4.0, 0.0)),
+    386: ((20.0, -6.0, 2.0), (0.0, 4.0, 0.0)),
+    374: ((20.0, 4.0, 2.0), (0.0, -4.0, 0.0)),
+    # 눈썹 (올림·찌푸림)
+    105: ((-22.0, -20.0, 0.0), (0.0, -5.0, 0.0)),
+    334: ((22.0, -20.0, 0.0), (0.0, -5.0, 0.0)),
+    70: ((-32.0, -22.0, 2.0), (0.0, -4.0, 0.0)),
+    300: ((32.0, -22.0, 2.0), (0.0, -4.0, 0.0)),
+}
 
 
 def varied_face(interocular=1.0, width=1.0, height=1.0, nose=1.0, scale=1.0):
@@ -232,16 +261,22 @@ class VirtualCamera:
         """
         self._rng = np.random.default_rng(self._seed)
 
-    def observe(self, head_rotation=None, offset_mm=(0.0, 0.0, 0.0)):
+    def observe(self, head_rotation=None, offset_mm=(0.0, 0.0, 0.0),
+                expression=0.0):
         """머리를 그만큼 돌린 상태를 이 카메라로 본다 -> VirtualFace.
 
         offset_mm은 몸이 움직인 것(평행이동) — 커서가 따라가면 안 되는 성분이라
         시험에서 자주 쓴다.
+
+        expression은 표정의 세기(0~1). 입을 벌리거나 눈을 감으면 MOVING_LANDMARKS
+        가 그만큼 제자리를 벗어난다 — 강체가 아닌 점을 골라내는 시험에 쓴다.
         """
         head_rotation = np.eye(3) if head_rotation is None else np.asarray(head_rotation)
         pts = np.zeros((LANDMARK_COUNT, 3), dtype=np.float64)
 
-        for idx, model_xyz in self.face.items():
+        moving = {i: tuple(b[k] + expression * d[k] for k in range(3))
+                  for i, (b, d) in MOVING_LANDMARKS.items()} if expression or True else {}
+        for idx, model_xyz in list(self.face.items()) + list(moving.items()):
             world = head_rotation @ np.asarray(model_xyz, dtype=np.float64)
             world = world + np.asarray(offset_mm, dtype=np.float64)
             # 카메라 좌표로: 카메라 배치를 걸고 거리만큼 앞에 둔다
@@ -267,7 +302,7 @@ class VirtualCamera:
             pts[idx] = (x_px, y_px, z_px)
 
         if self.noise_px > 0.0:
-            idx = list(self.face)
+            idx = list(self.face) + list(MOVING_LANDMARKS)
             pts[idx] += self._rng.normal(0.0, self.noise_px, (len(idx), 3))
 
         # MediaPipe의 변환행렬에 해당하는 값 — 카메라가 보는 머리의 자세.

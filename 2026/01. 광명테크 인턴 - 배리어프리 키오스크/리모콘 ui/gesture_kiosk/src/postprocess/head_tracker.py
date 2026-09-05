@@ -44,7 +44,9 @@ from src.postprocess.gesture_filter import GestureEvent
 from src.postprocess.auto_arc import OnlineArcCompensator
 from src.postprocess.head_orientation import HeadOrientation
 from src.postprocess.lens_calibration import LensSelfCalibrator
+from src.utils.display_size import detect_screen_size_mm
 from src.utils.logger import get_logger
+
 
 logger = get_logger("postprocess")
 
@@ -289,7 +291,11 @@ class _CursorMapper:
                  orientation_half_span_x_deg=15.0, orientation_half_span_y_deg=10.0,
                  orientation_rotation_source="auto", orientation_auto_arc=True,
                  orientation_lens_calibration=True,
-                 orientation_lens_distortion=False):
+                 orientation_lens_distortion=False,
+                 orientation_distance_scaling=True,
+                 orientation_reach_gain=1.0,
+                 screen_width_mm=None, screen_height_mm=None,
+                 reference_distance_mm=None):
         """one_euro_enabled(2026-08-27 forehead.py 대응 신설, OneEuroFilter 독스트링
         참고) — 기본 False라 head.py·eyebrow.py는 예전과 완전히 동일한 단순 EMA
         평활을 그대로 쓴다(동작 변화 없음). True면 EMA 대신 1€ 필터로 최종 커서
@@ -369,10 +375,77 @@ class _CursorMapper:
         self._lens_calibrator = None
         self._lens_applied = False
         # tan으로 미리 바꿔 둔다 — 매 프레임 삼각함수를 다시 부르지 않게
+        # ★반폭 — 설치 치수를 알면 계산하고, 모르면 설정값을 쓴다 (2026-09-05).
+        #
+        # 사용자가 화면에서 Z만큼 떨어져 고개를 θ 돌리면 시선이 화면에서
+        # Z·tan(θ)만큼 옮겨간다. 그러니 화면 절반 폭 W/2에 닿는 각도는
+        #
+        #     반폭 = atan((W/2) / Z)
+        #
+        # 로 **기하학이 정해 준다.** 이 값을 쓰면 "얼굴이 향한 곳에 커서가
+        # 있다"가 성립한다 — 사용자가 아이콘을 보면 커서가 거기 있으므로
+        # 커서를 보며 조이스틱처럼 몰 필요가 없다.
+        #
+        # 15도라는 기존 상수에는 근거가 없었다. 530mm 화면 기준으로 맞는
+        # 거리는 989mm 하나뿐이고, 600mm에서는 23.8도여야 한다.
+        #
+        # 화면 크기는 운영체제가 알려 준다(display_size.py — 모니터 EDID).
+        # 거리는 사람이 한 번 정한다: 그 화면 앞에 사용자가 앉거나 서는 거리.
+        #
+        # ★거리를 카메라로 추정해 보려다 접었다. Z = f x 얼굴크기 / 화면크기로
+        # 구할 수 있는데, f가 얼굴 생김새에 따라 중앙값 15.7%, 최악 69.3%까지
+        # 틀린다. 그 추정을 섞어 봤더니 **오히려 나빠졌다** — 실제로 생기는
+        # 거리 편차(기준 대비 +-20%) 안에서 재 보면:
+        #
+        #     방식                    평균   중앙값  90분위   최악
+        #     15도 고정               6.4%   5.0%   15.5%  20.0%
+        #     화면 치수만 (채택)        3.1%   2.7%    7.0%  11.0%
+        #     + f로 거리 추정 (w=0.4)  3.6%   2.8%    7.6%  13.8%
+        #     + f로 거리 추정 (w=1.0)  5.9%   5.0%   14.3%  20.4%
+        #
+        # 사람이 한 번 준 거리가 f보다 정확하다. 그래서 f는 원근 되돌리기에만
+        # 쓰고 거리에는 안 쓴다. 사용자가 그 자리에서 앞뒤로 움직이는 것은
+        # **거리 변화 비율**이 맡는다 — 그쪽은 f가 필요 없어 0.7% 안쪽이다.
+        #
+        # 안 주면 예전 그대로 설정 상수를 쓴다 — 거동이 안 바뀐다.
+        span_x_deg = orientation_half_span_x_deg
+        span_y_deg = orientation_half_span_y_deg
+        self._screen_geometry = None
+        if (screen_width_mm and screen_height_mm and reference_distance_mm
+                and screen_width_mm > 0 and screen_height_mm > 0
+                and reference_distance_mm > 0):
+            span_x_deg = math.degrees(math.atan(
+                (screen_width_mm * 0.5) / reference_distance_mm))
+            span_y_deg = math.degrees(math.atan(
+                (screen_height_mm * 0.5) / reference_distance_mm))
+            self._screen_geometry = (float(screen_width_mm),
+                                     float(screen_height_mm),
+                                     float(reference_distance_mm))
+            logger.info(
+                "화면 치수로 반폭을 계산했습니다: %.0fx%.0fmm 화면, %.0fmm 거리 "
+                "-> 가로 %.1f도 세로 %.1f도 (설정값 %.1f/%.1f 대신)",
+                screen_width_mm, screen_height_mm, reference_distance_mm,
+                span_x_deg, span_y_deg,
+                orientation_half_span_x_deg, orientation_half_span_y_deg)
         self._orientation_tan_x = math.tan(math.radians(
-            max(1.0, min(60.0, orientation_half_span_x_deg))))
+            max(1.0, min(60.0, span_x_deg))))
         self._orientation_tan_y = math.tan(math.radians(
-            max(1.0, min(60.0, orientation_half_span_y_deg))))
+            max(1.0, min(60.0, span_y_deg))))
+        self._orientation_distance_scaling = bool(orientation_distance_scaling)
+        # ★도달 배율 (2026-09-05 신설) — 고개가 조금밖에 안 돌아가는 사람용.
+        #
+        # 좌우 7도까지만 돌아가는 사람은 화면 폭의 46%에서 멈춘다. 가장자리
+        # 버튼을 아예 못 누르므로 정확도가 아니라 "쓸 수 있냐"의 문제다.
+        # 이 값을 올리면 그만큼 적게 돌려도 끝까지 간다.
+        #
+        # **자동으로 정하지 않는다.** 관측만으로는 "못 돌리는 사람"과 "그냥
+        # 가운데만 쓴 사람"이 구별되지 않는다 — 왕복 최대치의 상위 75%/95%
+        # 비가 전자 0.93, 후자 0.87로 겹친다(measure_reach.py). 잘못 올리면
+        # 목이 멀쩡한 사람은 아무 이득 없이 떨림만 배율만큼 커진다.
+        #
+        # 그래서 **재서 정한다.** scripts/measure_reach.py가 그 사람의 실제
+        # 가동범위를 재고 권장값을 알려 준다. 기본 1.0은 손대지 않음이다.
+        self._reach_gain = max(0.5, min(3.0, float(orientation_reach_gain or 1.0)))
         self._orientation_calibrating = True
         self._orientation_started_sec = None
         self._one_euro_base_cutoff = one_euro_min_cutoff
@@ -658,9 +731,29 @@ class _CursorMapper:
         if self._auto_arc is not None:
             raw_tan_y = self._auto_arc.update(raw_tan_x, raw_tan_y)
 
+        # ★거리 보정 (2026-09-05) — head_orientation.py의 DISTANCE_* 설명 참고.
+        #
+        # 화면 끝까지 닿는 데 필요한 고개 각도는 고정이 아니다. 화면에서 Z만큼
+        # 떨어져 고개를 θ 돌리면 시선이 화면에서 Z·tan(θ)만큼 움직이므로,
+        # 화면 절반 폭 W/2에 닿는 각도는 atan((W/2)/Z) — **멀수록 작다.**
+        # 530mm 화면이면 600mm에서 23.8도, 1300mm에서 11.5도다.
+        #
+        # 그런데 반폭은 15도로 고정돼 있었다. 그래서 뒤로 물러난 사람은 필요
+        # 이상으로 크게 돌려야 했고(가장자리에 못 닿는다), 가까이 붙은 사람은
+        # 조금만 돌려도 커서가 날아갔다. 캘리브레이션 때 대비 거리 비율을
+        # 곱해 이걸 없앤다 — 비율은 얼굴 크기 비라서 초점거리도 실제 얼굴
+        # 치수도 필요 없고, 가상 카메라 측정에서 오차가 0.7% 안쪽이다.
+        span_scale = 1.0
+        if self._orientation_distance_scaling:
+            span_scale = getattr(self._orientation, "distance_ratio", 1.0) or 1.0
+
+
         # 반쪽 화면을 채우는 각도로 나눈다 -> 그 각도에서 정확히 화면 끝
-        offset_x = _clamp(raw_tan_x / self._orientation_tan_x * 0.5, self._max_offset_ratio)
-        offset_y = _clamp(raw_tan_y / self._orientation_tan_y * 0.5, self._max_offset_ratio)
+        scale = span_scale * self._reach_gain
+        offset_x = _clamp(raw_tan_x * scale / self._orientation_tan_x * 0.5,
+                          self._max_offset_ratio)
+        offset_y = _clamp(raw_tan_y * scale / self._orientation_tan_y * 0.5,
+                          self._max_offset_ratio)
         raw_x, raw_y = 0.5 + offset_x, 0.5 + offset_y
 
         if self.cursor_x_ratio is None:
@@ -881,6 +974,15 @@ class HeadTracker:
         calibration_window_sec = ht["calibration_window_sec"]
 
         pointer = ht["pointer"]
+        # 화면의 실제 크기 — 설정에 없으면 운영체제(모니터 EDID)에서 읽는다.
+        # 픽셀 해상도로는 알 수 없다: 1920x1080이 14인치일 수도 55인치일
+        # 수도 있고 물리 크기는 4배 차이다 (display_size.py 참고)
+        screen_w = pointer.get("screen_width_mm")
+        screen_h = pointer.get("screen_height_mm")
+        if pointer.get("reference_distance_mm") and not (screen_w and screen_h):
+            detected = detect_screen_size_mm()
+            if detected:
+                screen_w, screen_h = detected
         self._cursor_mapper = _CursorMapper(
             calibration_window_sec, pointer["sensitivity_x"], pointer["sensitivity_y"],
             pointer["smoothing_alpha"], pointer["distance_smoothing_alpha"],
@@ -905,6 +1007,14 @@ class HeadTracker:
             # 켜면 감도(sensitivity_x/y)와 곡률 보정(arc_compensation)이 함께
             # 무시된다 — 이 경로는 각도로 직접 매핑해서 둘 다 필요 없다
             orientation_mapping=pointer.get("orientation_mapping", False),
+            orientation_distance_scaling=pointer.get("orientation_distance_scaling", True),
+            orientation_reach_gain=pointer.get("orientation_reach_gain", 1.0),
+            # 설치 치수 — 있으면 반폭을 기하학으로 계산한다 (위 설명 참고).
+            # 화면 크기를 안 적어 놨으면 운영체제에서 알아본다 —
+            # 이게 있어야 데스크탑과 키오스크가 같은 빌드로 돈다
+            screen_width_mm=screen_w,
+            screen_height_mm=screen_h,
+            reference_distance_mm=pointer.get("reference_distance_mm"),
             orientation_half_span_x_deg=pointer.get("orientation_half_span_x_deg", 15.0),
             orientation_half_span_y_deg=pointer.get("orientation_half_span_y_deg", 10.0),
             orientation_rotation_source=pointer.get("orientation_rotation_source", "auto"),

@@ -178,6 +178,52 @@ SIGN_REFERENCE_LANDMARK = 4
 # head_tracker.MIN_INTEROCULAR_DIST_PX와 같은 취지
 MIN_SCALE = 1e-6
 
+# ── 거리 변화 추적 (2026-09-05 신설) ────────────────────────────────────────
+#
+# 왜 필요한가: 화면을 한쪽 끝에서 반대 끝까지 훑는 데 **필요한 고개 각도는
+# 거리에 따라 달라진다.** 사용자가 화면에서 Z만큼 떨어져 있고 고개를 θ 돌리면
+# 시선이 화면에서 Z·tan(θ)만큼 옮겨간다. 즉 화면 절반 폭 W/2에 닿는 각도는
+#
+#     반폭 = atan((W/2) / Z)
+#
+# 로 **거리가 멀수록 작아진다.** 530mm 화면이면 600mm에서 23.8도, 1000mm에서
+# 14.8도, 1300mm에서 11.5도다. 그런데 코드는 이 값을 15도로 못 박아 놨다.
+# 결과적으로 뒤로 물러난 사람은 필요 이상으로 크게 돌려야 하고(가장자리에
+# 못 닿는다), 가까이 붙은 사람은 조금만 돌려도 커서가 날아간다.
+#
+# 절대 거리는 못 믿는다 — 상대 거리만 쓴다
+# ----------------------------------------
+# 절대 거리를 알려면 초점거리 f가 필요하다(Z = f·얼굴크기mm / 얼굴크기px).
+# 그런데 f는 얼굴 생김새에 따라 크게 틀린다. 가상 카메라로 얼굴 6종 × 렌즈
+# 3종을 재 봤다(참 거리 600mm):
+#
+#     절대 거리 오차   중앙값 15.7%,  최악 +69.3% (코 낮은 얼굴/광각)
+#     상대 거리 오차   최악 0.7%
+#
+# **비율은 사실상 정확하다.** f도 실제 얼굴 치수도 약분돼 사라지기 때문이다 —
+# 같은 얼굴을 같은 렌즈로 보면서 크기만 비교하니 모르는 값이 양쪽에 똑같이
+# 들어갔다가 나눠진다. 그래서 절대 거리는 쓰지 않고, **중립을 잡은 순간을
+# 기준으로 몇 배 멀어졌나**만 쓴다. 반폭은 그 비율만큼 조절된다.
+#
+# 크기는 프로베니우스 노름(중심을 뺀 좌표 제곱합의 제곱근)으로 잰다.
+# 회전에 안 변하는 양이라 고개를 돌려도 "멀어졌다"로 오인하지 않는다 —
+# estimate_rotation이 크기 정규화에 쓰는 것과 같은 양이다.
+DISTANCE_SMOOTHING_ALPHA = 0.06   # 느리게 — 앞뒤 이동은 드물고, 빨리 따라가면 그 잡음이 감도에 실린다
+MIN_DISTANCE_RATIO = 0.45         # 이보다 가까워지면(2.2배 확대) 그냥 묶는다
+MAX_DISTANCE_RATIO = 2.60         # 이보다 멀어지면 랜드마크가 이미 못 믿을 크기다
+
+
+def point_size(points):
+    """중심을 뺀 점구름의 크기 — 회전 불변, 거리에 반비례한다."""
+    if points is None:
+        return None
+    p = np.asarray(points, dtype=np.float64)
+    if p.ndim != 2 or len(p) < MIN_POINTS:
+        return None
+    p = p - p.mean(axis=0)
+    size = float(np.sqrt((p ** 2).sum()))
+    return size if size > MIN_SCALE else None
+
 
 def _rotation_vector(rot):
     """회전행렬 -> 회전벡터 (로드리게스 역변환). 각이 0에 가까워도 안정적.
@@ -361,6 +407,8 @@ class HeadOrientation:
         self._axes = None
         self._samples = []
         self._rotation_samples = []
+        self._neutral_size = None
+        self.distance_ratio = 1.0
 
     # ------------------------------------------------------------------ 렌즈
     @property
@@ -382,6 +430,7 @@ class HeadOrientation:
         if axes is None:
             return False
         self._neutral_points = points
+        self._neutral_size = point_size(points)   # 기준 크기도 같은 좌표계로
         self._axes = axes
         self._decide_signs(axes)
         return True
@@ -437,6 +486,8 @@ class HeadOrientation:
             return False
         self._neutral_raw = median         # 렌즈를 나중에 알면 여기서 다시 만든다
         self._neutral_points = rectified
+        self._neutral_size = point_size(rectified)
+        self.distance_ratio = 1.0
         self._axes = axes
         self._decide_signs(axes)
         # 중립 회전 행렬 — 표본 절반 이상에서 행렬이 왔을 때만 확정한다.
@@ -469,6 +520,8 @@ class HeadOrientation:
             return False
         self._neutral_raw = points
         self._neutral_points = rectified
+        self._neutral_size = point_size(rectified)
+        self.distance_ratio = 1.0
         self._axes = axes
         self._decide_signs(axes)
         rot = getattr(face, "head_rotation", None)
@@ -487,6 +540,7 @@ class HeadOrientation:
         if not self.is_ready:
             return None
         points = self._rectify(extract_rigid_points(face))
+        self._update_distance(points)
         prefer_landmarks = self._prefers_landmarks()
 
         # ★1순위 — 렌즈를 알면 랜드마크, 모르면 행렬 (생성자 독스트링의 근거 참고)
@@ -517,6 +571,25 @@ class HeadOrientation:
         # ★부호 — 두 경로 공통. 중립을 잡을 때 대수로 확정해 둔 값이다
         # (독스트링 "반사 켤레와 부호 자가 학습" 참고)
         return (self._sign_h * raw[0], self._sign_v * raw[1])
+
+    def _update_distance(self, points):
+        """중립 때 대비 지금 몇 배 멀리 있나 (위 DISTANCE_* 상수 설명 참고).
+
+        얼굴이 작게 보이면 멀어진 것이므로 비율은 (중립 크기 / 지금 크기)다.
+        곧바로 쓰지 않고 천천히 따라가게 하는 이유: 이 값이 감도를 곧장
+        곱하므로, 프레임마다 튀면 그 잡음이 커서 감도로 그대로 새어 나간다.
+        앞뒤로 움직이는 것은 원래 드문 일이라 느려도 체감되지 않는다.
+        """
+        if self._neutral_size is None:
+            return
+        size = point_size(points)
+        if size is None:
+            return
+        ratio = self._neutral_size / size
+        if not math.isfinite(ratio):
+            return
+        ratio = max(MIN_DISTANCE_RATIO, min(MAX_DISTANCE_RATIO, ratio))
+        self.distance_ratio += DISTANCE_SMOOTHING_ALPHA * (ratio - self.distance_ratio)
 
     def _decide_signs(self, axes):
         """중립 축에서 부호를 대수로 확정한다 (독스트링 "반사 켤레" 참고).
