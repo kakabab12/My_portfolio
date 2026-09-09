@@ -54,3 +54,18 @@ forehead.exe
 # 아니다. ARC_COMPENSATION을 소스에 하드코딩하는 것과 같은 이유로 제외한다
 eyebrow_tuning.json
 forehead_tuning.json
+
+# 2026-09-09: 화면비 고정 exe 6개(head/eyebrow/forehead x 16-9_데스크탑/9-16_키오스크)는
+# 위 방침의 **예외로 커밋한다** — 사용자 요청("exe도 같이 올리기"). 현장에서 받아
+# 바로 쓰기 위한 것이다. 각 8MB라 여섯이면 약 46MB가 저장소에 들어가고,
+# 코드를 고칠 때마다 make_aspect_exes.bat으로 다시 빌드해 함께 커밋해야 한다.
+# 그게 부담이 되면 아래 주석을 풀어 다른 exe들과 같은 취급으로 되돌리면 된다.
+#head_16-9_데스크탑.exe
+#head_9-16_키오스크.exe
+#eyebrow_16-9_데스크탑.exe
+#eyebrow_9-16_키오스크.exe
+#forehead_16-9_데스크탑.exe
+#forehead_9-16_키오스크.exe
+
+# 화면비 exe 빌드용 임시 venv (make_aspect_exes.bat) — 끝나면 지워지지만 혹시 몰라
+.build_venv_tmp_aspect/

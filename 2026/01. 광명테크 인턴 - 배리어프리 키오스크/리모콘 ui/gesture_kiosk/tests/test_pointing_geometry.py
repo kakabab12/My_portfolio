@@ -354,7 +354,15 @@ def test_invert_x_flips_only_horizontal():
     assert flipped_y == pytest.approx(plain_y, rel=1e-6), "세로까지 뒤집혔다"
 
 
-def test_invert_x_is_off_by_default():
-    """기본은 꺼짐 — 이 스위치가 생겼다고 기존 설치가 바뀌면 안 된다."""
-    config = load_config(CONFIG_PATH)
-    assert config["head_tracker"]["pointer"]["orientation_invert_x"] is False
+def test_invert_x_is_an_explicit_boolean():
+    """이 스위치는 **설정에 명시돼 있어야** 한다 — 빠뜨리면 조용히 꺼진다.
+
+    값 자체는 설치마다 다르다. 2026-09-05 테스트 보고("모든 헤드트래커 커서가
+    좌우 반대로 돈다. 손 dpad는 정상")로 지금 배포본은 true로 두고 있다.
+    그러니 "기본은 false"를 못박으면 안 된다 — 그건 실제 배포 상태와 어긋난다.
+
+    ★근본 원인을 찾아 부호를 제대로 고치면 이 스위치는 없어져야 한다.
+    그때 이 시험도 함께 지울 것(head_tracker.py의 _invert_x 주석 참고).
+    """
+    value = load_config(CONFIG_PATH)["head_tracker"]["pointer"]["orientation_invert_x"]
+    assert isinstance(value, bool), f"불리언이어야 한다: {value!r}"

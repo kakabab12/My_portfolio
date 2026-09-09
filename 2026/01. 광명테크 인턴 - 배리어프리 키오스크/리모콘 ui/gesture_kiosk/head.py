@@ -167,7 +167,7 @@ CAMERA_WINDOW_NAME = "head tracker camera"
 #     cv2.waitKey(1)  중앙 10.5ms / 최악 17.1ms
 #     cv2.pollKey()   중앙  0.00ms / 최악  0.06ms
 #
-# 공짜가 됐으므로 "몇 틱에 한 번만 부르기"라는 예전 우회는 없쥜다 —
+# 공짜가 됐으므로 "몇 틱에 한 번만 부르기"라는 예전 우회는 없어졌다 —
 # 매 틱 부른다. 덕분에 q/ESC 반응도 다시 즉각적이다.
 # pollKey는 OpenCV 4.5+에만 있어, 없으면 예전 방식으로 돌아간다
 _HAS_POLL_KEY = hasattr(cv2, "pollKey")
@@ -178,7 +178,6 @@ def _pump_window_events():
     pollKey는 기다리지 않아 렌더 예산을 전혀 먹지 않는다."""
     return (cv2.pollKey() if _HAS_POLL_KEY else cv2.waitKey(1)) & 0xFF
 
-# 세로 절반 위쪽 제한 — 모듈 독스트링 참고. 0.5 = 화면 상단 절반까지만 커서가 감
 # 세로 커서 도달 범위 — 화면 세로 중 커서가 실제로 쓰는 구간.
 #
 # ★2026-08-27 사용자 요청 — "head.py·eyebrow.py 둘 다 밑에 화면 쓰게 바꿔줘".
@@ -190,7 +189,21 @@ def _pump_window_events():
 #   CURSOR_Y_ANCHOR_BOTTOM = False  -> 화면 위  절반 (세로  0%~ 50%, 예전 동작)
 #
 # 폭과 방향을 나눠 뒀으니 전체 화면을 쓰려면 SPAN을 1.0으로 올리면 된다.
-CURSOR_Y_SPAN = 0.5
+#
+# ★2026-09-09 사용자 요청 — "전체 화면으로 다 쓰이게" 바꿨다.
+# 0.5(하단 절반) -> 1.0(화면 전체). 위 이력에 적어 둔 대로 SPAN만 올리면 된다.
+#
+# 무엇이 바뀌나 — 트래커 내부 세로 좌표(0~1)가 덮는 화면 높이가 두 배가 된다.
+# 즉 **같은 고개 움직임이 두 배의 픽셀을 지나간다.** 화면 위쪽에 닿을 수
+# 있게 된 대신, 세로 떨림도 픽셀 기준으로 두 배가 된다. 공짜가 아니다.
+#
+# 세로가 너무 예민하면 SENSITIVITY_Y_OVERRIDE를 낮추면 되는데, 그러면 위아래
+# 끝에 다시 못 닿는다 — 도달 범위와 정밀도는 맞바꾸는 관계다. 실기에서
+# 어느 쪽이 나은지 확인할 것.
+#
+# SPAN이 1.0이면 CURSOR_Y_ANCHOR_BOTTOM은 의미가 없어진다(OFFSET이 0이라
+# 어느 쪽에 붙이든 같다). 되돌리려면 SPAN만 0.5로 내리면 된다.
+CURSOR_Y_SPAN = 1.0
 CURSOR_Y_ANCHOR_BOTTOM = True
 CURSOR_Y_OFFSET = (1.0 - CURSOR_Y_SPAN) if CURSOR_Y_ANCHOR_BOTTOM else 0.0
 
@@ -291,6 +304,32 @@ MOUTH_CLOSE_MARGIN_OVERRIDE = 0.05   # config 기본 0.15 — open보다 낮게 
 # 2초 동안 흔들림 없이 벌리고 있는 건 생각보다 어렵다 — 아래 닫힘 확인
 # (MOUTH_CLOSE_CONFIRM_SEC)과 함께 드래그가 실제로 걸리게 만드는 조치다.
 # 일반 클릭은 입을 0.3~0.5초 정도만 벌렸다 닫으므로 1.2초와는 충분히 구분된다
+# ─ 클릭하는 동안 커서 붙잡기 ────────────────────────────────────────────
+# ★2026-09-09 사용자 보고 두 건 — "입 벌리면 커서가 움직인다",
+# "커서가 파란색이 아닌데 드래그가 되는 현상이 있다".
+#
+# 두 보고는 뿌리가 하나다. 2026-08-31부터 **입을 벌리는 순간** mouse.press()를
+# 보내는데(그 자리 주석 참고), 파란색은 MOUTH_HOLD_SEC(0.7초)이 지나야 켜졌다.
+# 그 0.7초 동안 OS 버튼은 이미 눌려 있고 커서는 살아 있으니
+#   ① 화면은 초록(=안 눌린 색)인데 실제로는 드래그가 나가고,
+#   ② 입을 벌리느라 얼굴이 밀린 만큼 커서가 흘러 "누를 때 커서가 움직인다"가 된다.
+#
+# 고치는 방법 세 가지.
+#   - 눌린 순간 바로 파란색으로 바꾼다 — 보이는 색 = 실제 버튼 상태.
+#   - 눌린 뒤 드래그로 넘어가기 전까지 커서를 붙잡아 둔다. 짧은 벌림(=클릭)은
+#     이제 원리적으로 커서를 못 움직인다.
+#   - 붙잡는 지점은 지금 위치가 아니라 LOOKBACK만큼 이전 위치다. 입이
+#     벌어졌다고 판정될 무렵엔 이미 턱이 내려가 랜드마크가 밀린 뒤라,
+#     그 직전 위치가 사용자가 실제로 겨눈 곳이다.
+CLICK_FREEZE_ENABLED = True
+# 얼마나 이전 위치를 겨눈 곳으로 볼지. 임계값(MOUTH_OPEN_MARGIN_OVERRIDE)을
+# 넘기까지 걸리는 시간에서 온 값이라, 임계값을 바꾸면 여기도 같이 봐야 한다.
+CLICK_FREEZE_LOOKBACK_SEC = 0.15
+# 드래그로 넘어갈 때 붙잡던 지점에서 현재 위치로 이어 주는 시간.
+# 0으로 두면 그 순간 커서가 튄다(0.7초 동안 고개가 움직였을 수 있으므로).
+CLICK_UNFREEZE_SEC = 0.25
+CLICK_FREEZE_HISTORY_SEC = 0.6   # 되짚기용 기록 보관 길이 — LOOKBACK보다 넉넉히
+
 MOUTH_HOLD_SEC = 0.7   # 이 이상 계속 벌리고 있으면 "꾹 누르기"(드래그 시작)로 전환.
 # ★2026-08-24 1.2 -> 0.7 (사용자 요청 "드래그하는거 좀 더 짧게, 2초는 너무 긴 것 같은데").
 #
@@ -523,6 +562,10 @@ SETTLING_LABEL_LINE1 = "커서 재정렬 중입니다"
 # 아니라 1번만 나갔고, 입을 다물고 캘리브레이션하니 정상으로 돌아왔다.
 # 말하거나 하품하면서 서 있으면 실사용에서도 그대로 생기는 문제라 안내에 넣는다.
 SETTLING_LABEL_LINE2 = "커서 중앙을 봐주시고 입은 다문 채 편한자세로 있어주세요"
+
+# 정지 유예 안내 두 줄 사이 여백(px) — 1줄이 **실제로 칠한 범위** 아래에서부터 잰다.
+# 두 줄이 31px 겹쳐 1줄 아래가 지워지던 것을 고치며 신설(2026-09-09, 그리는 곳 주석 참고)
+SETTLING_LINE_GAP_PX = 6
 
 # 큰 격차 완만한 합류(2026-08-14 최초 도입 — "5초후 갑자기 커서가 순간이동을
 # 하는데"). ★같은 날 재설계(로그로 확인한 실제 원인 — 위 SETTLE_DELAY_SEC·
@@ -1422,6 +1465,28 @@ def main():
     parser.add_argument("--device", type=int, default=None, help="카메라 장치 번호 (기본: config device_id)")
     parser.add_argument("--no-window", action="store_true",
                         help="디버그 창을 띄우지 않는다 (콘솔의 quit로만 종료 가능해짐)")
+    # ★2026-09-09 사용자 요청 — "3가지 버전 다 16:9 비율 버전 9:16 키오스크 버전
+    # 각각 이렇게 6개". 파일을 6개로 복사하지 않고 이 옵션 하나로 가른다.
+    # 세 파일이 이미 서로 사본에 가까워서, 여섯 벌이 되면 오늘 고친 것 같은
+    # 수정을 매번 여섯 군데에 반복해야 한다(오늘만 해도 세 군데였다).
+    # 실행 진입점은 launchers/ 의 배치 파일 6개가 대신한다.
+    #
+    # 화면비에 따라 실제로 달라지는 것은 **카메라 프레임 크롭 하나뿐**이다.
+    #   - 커서 캔버스는 GetSystemMetrics로 잰 실제 해상도를 그대로 쓴다.
+    #   - 겨냥 반폭은 EDID로 읽은 화면 실치수(mm)에서 계산한다.
+    #   둘 다 이미 모니터를 직접 보고 정하므로 손댈 것이 없다.
+    #
+    # 크롭은 세로 키오스크용이다 — 가로 프레임 중앙만 남겨 9:16을 만든다
+    # (config camera.portrait_crop). 가로 모니터에서는 그만큼 좌우 화각을
+    # 버리는 셈이라, 몸이 옆으로 움직이면 얼굴이 프레임 밖으로 나간다.
+    # 자르지 않아도 얼굴의 픽셀 크기는 그대로다(높이는 안 건드리므로) —
+    # 즉 인식 정확도를 잃지 않고 좌우 여유만 얻는다. 대신 추론 프레임이
+    # 405x720에서 1280x720으로 커져 그만큼 무거워진다.
+    parser.add_argument("--aspect", choices=("auto", "kiosk", "desktop"),
+                        default="auto",
+                        help="화면비. kiosk=9:16 세로(카메라 중앙 크롭), "
+                             "desktop=16:9 가로(크롭 없음), "
+                             "auto=화면 해상도를 보고 결정 (기본)")
     args = parser.parse_args()
 
     disable_console_quick_edit()
@@ -1475,6 +1540,18 @@ def main():
     config["head_tracker"]["pointer"]["face_local_gain"] = FACE_LOCAL_GAIN
 
     mouse = _Win32Mouse()
+    # --aspect auto는 여기서 갈린다 — 세로가 더 긴 화면이면 세로 키오스크로 본다.
+    # 정사각형에 가까운 화면은 어느 쪽도 아니므로 가로로 친다(크롭을 안 하는 쪽이
+    # 화각을 안 버려서 덜 위험하다).
+    if args.aspect == "auto":
+        is_portrait_screen = mouse.screen_h_px > mouse.screen_w_px
+    else:
+        is_portrait_screen = (args.aspect == "kiosk")
+    use_portrait_crop = is_portrait_screen
+    logger.info("화면비 %s — 카메라 세로 크롭 %s (%dx%d)",
+                "9:16 키오스크" if is_portrait_screen else "16:9 데스크탑",
+                "적용" if use_portrait_crop else "안 함",
+                mouse.screen_w_px, mouse.screen_h_px)
     logger.info("화면 해상도 %dx%d 감지 — 커서는 세로 %d~%dpx 구간(%s %.0f%%)만 사용",
                 mouse.screen_w_px, mouse.screen_h_px,
                 int(_cursor_y_to_screen(0.0) * mouse.screen_h_px),
@@ -1588,6 +1665,10 @@ def main():
         "open_since_sec": None,  # 이번에 벌어지기 시작한 시각
         "is_holding": False,     # MOUTH_HOLD_SEC를 넘어 이미 마우스를 누르고 있는 중인지
         "close_since_sec": None,  # 닫힘 문턱 아래로 내려간 시각 — MOUTH_CLOSE_CONFIRM_SEC 확인용
+        # 클릭 중 커서 붙잡기 — 위 CLICK_FREEZE_* 상수 설명 참고
+        "freeze_xy": None,             # 붙잡아 둔 지점(비면 안 붙잡는 중)
+        "unfreeze_since_sec": None,    # 드래그로 넘어가며 이어 주기 시작한 시각
+        "unfreeze_from_xy": None,      # 이어 주기 출발점
     }
 
     feedback = CursorFeedback()   # 클릭·드래그를 커서 색으로 알린다
@@ -1612,6 +1693,60 @@ def main():
         head_tracker.reset_recenter_dwell 독스트링 참고."""
         head_tracker.reset_recenter_dwell()
 
+    cursor_history = []   # [(시각, x, y)] — 눌린 지점을 되짚기 위한 짧은 기록
+
+    def _lookback_cursor(now_sec):
+        """LOOKBACK만큼 이전 커서 위치. 기록이 짧으면 가진 것 중 가장 오래된 것."""
+        target_sec = now_sec - CLICK_FREEZE_LOOKBACK_SEC
+        chosen = None
+        for sample in cursor_history:
+            if sample[0] <= target_sec:
+                chosen = sample
+            else:
+                break
+        if chosen is None:
+            chosen = cursor_history[0] if cursor_history else None
+        return None if chosen is None else (chosen[1], chosen[2])
+
+    def _begin_click_freeze(now_sec):
+        """입이 벌어졌다 — 겨눴던 지점에 커서를 붙잡아 둔다."""
+        mouth_gesture_state["freeze_xy"] = _lookback_cursor(now_sec)
+        mouth_gesture_state["unfreeze_since_sec"] = None
+        mouth_gesture_state["unfreeze_from_xy"] = None
+
+    def _end_click_freeze(now_sec, blend):
+        """붙잡기 해제. blend=True(드래그 시작)면 현재 위치로 이어 준다."""
+        frozen = mouth_gesture_state["freeze_xy"]
+        mouth_gesture_state["freeze_xy"] = None
+        if blend and frozen is not None:
+            mouth_gesture_state["unfreeze_from_xy"] = frozen
+            mouth_gesture_state["unfreeze_since_sec"] = now_sec
+        else:
+            mouth_gesture_state["unfreeze_from_xy"] = None
+            mouth_gesture_state["unfreeze_since_sec"] = None
+
+    def _apply_click_freeze(now_sec, x_ratio, y_ratio):
+        """커서 좌표를 내보내기 직전에 통과시킨다 — 기록도 여기서 쌓는다."""
+        cursor_history.append((now_sec, x_ratio, y_ratio))
+        while (cursor_history
+               and now_sec - cursor_history[0][0] > CLICK_FREEZE_HISTORY_SEC):
+            cursor_history.pop(0)
+        if not CLICK_FREEZE_ENABLED:
+            return x_ratio, y_ratio
+        frozen = mouth_gesture_state["freeze_xy"]
+        if frozen is not None:
+            return frozen
+        since = mouth_gesture_state["unfreeze_since_sec"]
+        origin = mouth_gesture_state["unfreeze_from_xy"]
+        if since is not None and origin is not None:
+            ratio = (now_sec - since) / CLICK_UNFREEZE_SEC
+            if ratio < 1.0:
+                return (origin[0] + (x_ratio - origin[0]) * ratio,
+                        origin[1] + (y_ratio - origin[1]) * ratio)
+            mouth_gesture_state["unfreeze_since_sec"] = None
+            mouth_gesture_state["unfreeze_from_xy"] = None
+        return x_ratio, y_ratio
+
     def _release_mouth_hold_if_stuck():
         """추적을 잃으면(진짜 미검출·재캘리브레이션 등) 입 제스처 상태를
         통째로 되돌린다 — 특히 꾹 누르기(드래그) 도중 얼굴을 놓치면 마우스
@@ -1629,6 +1764,7 @@ def main():
         mouth_gesture_state["open_since_sec"] = None
         mouth_gesture_state["is_holding"] = False
         mouth_gesture_state["close_since_sec"] = None
+        _end_click_freeze(time.monotonic(), False)
         feedback.set_holding(False)   # 색도 같이 되돌린다 — 안 그러면 드래그 색이 남는다
 
     def _update_mouth_gesture(now_sec):
@@ -1661,9 +1797,15 @@ def main():
                 # ②짧은 벌림 = 클릭, 긴 벌림 = 드래그가 자연스럽게 갈리며
                 # ③드래그도 0.7초 대기 없이 곧바로 시작된다. hold_start/
                 # hold_end/select 콘솔 규약은 그대로다(델파이 호환).
+                # 겨눴던 지점에 커서를 붙잡는다 — 제어를 껐을 때도 마찬가지다
+                # (입을 벌려 얼굴이 밀리는 건 버튼과 무관하게 일어나므로)
+                _begin_click_freeze(now_sec)
                 if state["is_control_active"]:
                     try:
                         mouse.press()
+                        # ★버튼이 눌린 바로 이 순간부터 파란색 — 예전엔 0.7초
+                        # 뒤에야 켜져서 "파란색이 아닌데 드래그가 된다"였다
+                        feedback.set_holding(True)
                     except Exception:   # noqa: 방어적
                         logger.exception("누르기 시도 실패")
         else:
@@ -1689,6 +1831,7 @@ def main():
                         # 드래그 끝 — 더블클릭 합성 없이 떼기만 한다.
                         # 제어를 끈 상태여도 반드시(release_if_pressed 독스트링)
                         mouse.release_if_pressed()
+                        _end_click_freeze(now_sec, False)
                         mouth_gesture_state["is_holding"] = False
                         feedback.set_holding(False)      # 드래그 색 해제
                         console.emit("hold_end")
@@ -1697,6 +1840,9 @@ def main():
                         # press(벌림)+release(다묾)가 한 번의 클릭 —
                         # release_click이 더블클릭 합성까지 처리한다
                         mouse.release_click()
+                        # 붙잡기 해제 — 이어 주기 없이(클릭은 커서를 안 옮긴다)
+                        _end_click_freeze(now_sec, False)
+                        feedback.set_holding(False)   # 눌린 순간 켠 것을 되돌린다
                         feedback.flash(now_sec)          # 클릭 1회 = 한 번 깜빡
                         console.emit("select")
                         logger.info("클릭 (trigger=mouth)")
@@ -1712,6 +1858,8 @@ def main():
                     # press는 벌리는 순간 이미 보냈다(2026-08-31, 위 참고) —
                     # 여기서는 드래그 표시와 콘솔 규약만 처리한다
                     mouth_gesture_state["is_holding"] = True
+                    # 여기서부터는 진짜 드래그 — 붙잡기를 풀되 튀지 않게 이어 준다
+                    _end_click_freeze(now_sec, True)
                     feedback.set_holding(True)           # 누르는 동안 색 유지
                     console.emit("hold_start")
                     logger.info("꾹 누르기 시작 (trigger=mouth, drag press)")
@@ -1742,7 +1890,9 @@ def main():
             # 진짜 새 프레임일 때만 찍는다 — 카메라가 멈추면 같은 그림이 계속
             # 돌아오는데, 그것까지 "살아 있다"로 세면 고장을 영영 못 잡는다
             health_state["frame_sec"] = time.monotonic()
-        frame = preprocessor.preprocess_frame(raw_frame, apply_crop=True)
+        # 크롭 여부는 --aspect가 정한다 (그 옵션 설명 참고)
+        frame = preprocessor.preprocess_frame(
+            raw_frame, apply_crop=use_portrait_crop)
 
         faces = face_estimator.infer(frame)
         user_face = face_anchor.update(faces)
@@ -1802,8 +1952,12 @@ def main():
 
         # 세로는 위쪽 절반으로 재매핑(모듈 독스트링 참고) — 가로는 그대로
         screen_y_ratio = _cursor_y_to_screen(result.cursor_y_ratio)
+        # 클릭 판정 중이면 붙잡아 둔 지점으로 바뀐다 —
+        # CLICK_FREEZE_* 상수 설명 참고
+        cursor_x_ratio, screen_y_ratio = _apply_click_freeze(
+            now_sec, result.cursor_x_ratio, screen_y_ratio)
         with target_lock:
-            target_state["x_ratio"] = result.cursor_x_ratio
+            target_state["x_ratio"] = cursor_x_ratio
             target_state["y_ratio"] = screen_y_ratio
             target_state["is_tracking"] = True
             target_state["recenter_progress"] = head_tracker.debug.get("recenter_progress", 0.0)
@@ -1813,7 +1967,7 @@ def main():
         # 한 줄(접두어 없이 이름만). 여기 xy는 실제 커서가 놓이는 좌표(화면
         # 위쪽 절반 재매핑 반영 후) — head_tracker 원본 비율이 아니라 이
         # 화면에 실제로 쓰이는 값을 보여준다
-        console.emit(f"x={result.cursor_x_ratio:.3f} y={screen_y_ratio:.3f}")
+        console.emit(f"x={cursor_x_ratio:.3f} y={screen_y_ratio:.3f}")
 
         # 정지 유예 중엔 모든 키(select/home/calibration)를 무시한다(2026-08-13
         # 사용자 요청 — "모든 키가 안되게 해줘야해 5초 정지 안에"): 커서는 render
@@ -2197,17 +2351,35 @@ def main():
                             center_x_px = int(CENTER_X_RATIO * overlay_w_px)
                             line1_y_px = (int(_cursor_y_to_screen(CENTER_Y_RATIO) * overlay_h_px)
                                          + CURSOR_RADIUS_PX + 20)
-                            line2_y_px = line1_y_px + line1_font_px + 10
+                            # ★2026-09-09 — 두 줄이 31px 겹쳐 1줄 아래가 지워지던 것을 고침
+                            # (사용자 보고 "캘리브레이션 될 때 글씨가 겹쳐서 사라진다").
+                            #
+                            # put_korean_text는 글자 크기의 절반을 여백으로 두르고 **아래로는
+                            # 그 두 배**를 칠한다. 30px 글자면 시작점 기준 -15 ~ +60까지다.
+                            # 그런데 2줄 시작을 `1줄 + 글자크기 + 10`(=+40)으로 잡고 있었고,
+                            # 2줄은 자기 여백만큼 더 위(+29)부터 패널을 칠한다. 그래서 2줄의
+                            # 배경 패널이 1줄 글자의 아래쪽을 덮어 지웠다.
+                            #
+                            # 간격을 숫자로 다시 맞추면 글자 크기를 바꿀 때 또 어긋난다.
+                            # **1줄을 먼저 그리고, 실제로 칠한 범위를 받아 그 아래에 2줄을
+                            # 놓는다** — 칠한 쪽이 알려주는 값만 쓴다(아래 2026-08-31 설명과
+                            # 같은 원칙).
+                            rect1 = put_korean_text(
+                                overlay_canvas, SETTLING_LABEL_LINE1,
+                                (int(center_x_px - line1_w_px / 2), line1_y_px),
+                                line1_font_px, CURSOR_COLOR, panel_color=(28, 28, 28))
+                            # 2줄도 자기 여백(글자크기의 절반)만큼 위에서부터 칠하므로,
+                            # 그만큼 내려서 시작해야 1줄 범위와 안 겹친다
+                            line2_y_px = ((rect1[3] if rect1 else line1_y_px + line1_font_px)
+                                          + SETTLING_LINE_GAP_PX + line2_font_px // 2)
+                            rect2 = put_korean_text(
+                                overlay_canvas, SETTLING_LABEL_LINE2,
+                                (int(center_x_px - line2_w_px / 2), line2_y_px),
+                                line2_font_px, CURSOR_COLOR, panel_color=(28, 28, 28))
                             # ★2026-08-31 — 글자가 실제로 칠한 범위를 그리는 쪽에서 받아 지울 목록에
                             # 넣는다. 예전엔 여기서 따로 계산했는데 put_korean_text의 실제 범위와
                             # 어긋나(아래 36px·좌우 11px) 문구가 안 지워졌다 — 사용자 실기 보고
-                            for _text_rect in (
-                                    put_korean_text(overlay_canvas, SETTLING_LABEL_LINE1,
-                                                    (int(center_x_px - line1_w_px / 2), line1_y_px),
-                                                    line1_font_px, CURSOR_COLOR, panel_color=(28, 28, 28)),
-                                    put_korean_text(overlay_canvas, SETTLING_LABEL_LINE2,
-                                                    (int(center_x_px - line2_w_px / 2), line2_y_px),
-                                                    line2_font_px, CURSOR_COLOR, panel_color=(28, 28, 28))):
+                            for _text_rect in (rect1, rect2):
                                 drawn_rect = _union_rect(drawn_rect, _clip_rect(
                                     _text_rect, overlay_w_px, overlay_h_px))
                     # ★고장 알림 (WATCHDOG_STALL_SEC 상수 설명 참고) — 추적

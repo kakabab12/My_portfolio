@@ -134,3 +134,44 @@ def test_on_this_machine_it_either_works_or_says_it_cannot():
     finally:
         DS.detect_screen_size_mm.cache_clear()
     assert size is None or (len(size) == 2 and DS._sane(size[0], size[1]))
+
+
+# ── 세로로 돌려 단 화면 (9:16 키오스크) ────────────────────────────────────
+#
+# EDID는 패널이 **원래 생긴 모양**을 말한다. 가로형 패널을 벽에 세로로 돌려
+# 달아도 EDID는 그대로 "597 x 336 mm"라고 답하는데, 사용자 앞의 화면은
+# 336mm 폭에 597mm 높이다. 그대로 쓰면 겨냥 반폭의 가로·세로가 통째로
+# 뒤바뀌어 좌우는 너무 많이 가고 위아래는 모자란다. (2026-09-09 신설)
+
+@pytest.mark.parametrize("w_mm,h_mm,pixels,expected,why", [
+    (597.0, 336.0, (1080, 1920), (336.0, 597.0),
+     "32인치 가로 패널을 세로로 돌려 단 키오스크 — 바꿔야 한다"),
+    (340.0, 190.0, (1920, 1080), (340.0, 190.0),
+     "평범한 가로 모니터 — 손대면 안 된다"),
+    (336.0, 597.0, (1920, 1080), (597.0, 336.0),
+     "드라이버가 이미 세로 mm를 준 가로 화면 — 다시 맞춘다"),
+    (336.0, 597.0, (1080, 1920), (336.0, 597.0),
+     "양쪽 다 세로 — 이미 맞다(두 번 바꾸면 안 된다)"),
+    (340.0, 330.0, (1280, 1240), (340.0, 330.0),
+     "정사각형에 가깝다 — 어느 쪽도 아니므로 지어내지 않는다"),
+    (597.0, 336.0, None, (597.0, 336.0),
+     "해상도를 못 읽었다 — 판단 근거가 없으니 그대로 둔다"),
+])
+def test_rotated_screen_is_corrected(monkeypatch, w_mm, h_mm, pixels, expected, why):
+    monkeypatch.setattr(DS, "_screen_pixel_size", lambda: pixels)
+    assert DS._apply_screen_rotation(w_mm, h_mm) == expected, why
+
+
+def test_detect_applies_rotation(monkeypatch):
+    """EDID가 준 값이 detect_screen_size_mm를 통과할 때 회전이 반영돼야 한다.
+
+    회전 보정을 _apply_screen_rotation에만 넣고 부르는 것을 잊으면 조용히
+    틀린 채로 돈다 — 그래서 경로 전체로 확인한다.
+    """
+    DS.detect_screen_size_mm.cache_clear()
+    monkeypatch.setattr(DS, "_from_edid", lambda: (597.0, 336.0))
+    monkeypatch.setattr(DS, "_screen_pixel_size", lambda: (1080, 1920))
+    try:
+        assert DS.detect_screen_size_mm() == (336.0, 597.0)
+    finally:
+        DS.detect_screen_size_mm.cache_clear()

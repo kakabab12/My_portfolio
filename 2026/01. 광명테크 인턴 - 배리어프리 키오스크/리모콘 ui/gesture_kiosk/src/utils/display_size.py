@@ -43,7 +43,10 @@ MIN_WIDTH_MM = 150.0
 MAX_WIDTH_MM = 2200.0
 MIN_HEIGHT_MM = 90.0
 MAX_HEIGHT_MM = 1400.0
-# 가로세로비가 이 범위를 벗어나면 이상하다 (4:3=1.33 ~ 21:9=2.33, 여유 포함)
+# 가로세로비가 이 범위를 벗어나면 이상하다 (4:3=1.33 ~ 21:9=2.33, 여유 포함).
+# 이 검사는 **패널이 원래 생긴 모양** 기준이다 — 세로로 돌려 단 화면이라도
+# EDID는 가로형 값을 주므로 여기서는 걸리지 않는다. 돌려 단 것을 실제 화면
+# 방향으로 바꾸는 일은 검사를 통과한 뒤 _apply_screen_rotation이 한다
 MIN_ASPECT = 1.0
 MAX_ASPECT = 3.2
 
@@ -117,6 +120,62 @@ def _from_device_caps():
     return (width_mm, height_mm)
 
 
+def _screen_pixel_size():
+    """지금 화면의 픽셀 해상도. 화면이 돌아가 있는지 알아보는 데만 쓴다."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+    except ImportError:
+        return None
+    SM_CXSCREEN, SM_CYSCREEN = 0, 1
+    try:
+        user32 = ctypes.windll.user32
+        width_px = int(user32.GetSystemMetrics(SM_CXSCREEN))
+        height_px = int(user32.GetSystemMetrics(SM_CYSCREEN))
+    except (AttributeError, OSError):
+        return None
+    if width_px <= 0 or height_px <= 0:
+        return None
+    return (width_px, height_px)
+
+
+def _apply_screen_rotation(width_mm, height_mm):
+    """화면을 세로로 돌려 놨으면 가로·세로 mm를 바꿔 준다 (2026-09-09 신설).
+
+    **9:16 세로 키오스크에서 꼭 필요하다.** EDID는 패널이 원래 어떻게 생겼는지를
+    말한다 — 가로형 패널을 벽에 세로로 돌려 달아도 EDID는 여전히
+    "597 x 336 mm"라고 답한다. 그런데 사용자 앞에 있는 화면은 336mm 폭에
+    597mm 높이다. 그대로 쓰면 겨냥 반폭의 가로·세로가 통째로 뒤바뀌어,
+    좌우는 너무 많이 가고 위아래는 모자라게 된다.
+
+    윈도우 회전 설정을 따로 묻지 않고 **픽셀 해상도와 비교**한다. 회전은
+    해상도에 그대로 나타나고(1080x1920), 실제 화면과 픽셀의 가로세로 방향은
+    반드시 같기 때문이다 — 화면 설정과 드라이버 중 어느 쪽이 회전을 반영하고
+    어느 쪽이 안 하든 이 비교는 성립한다.
+
+    두 방향이 확실히 어긋날 때만 바꾼다. 정사각형에 가까운 화면(1.0 근처)에서는
+    어느 쪽도 아니므로 손대지 않는다.
+    """
+    pixels = _screen_pixel_size()
+    if not pixels:
+        return (width_mm, height_mm)
+    pixel_is_portrait = pixels[1] > pixels[0] * 1.05
+    mm_is_portrait = height_mm > width_mm * 1.05
+    mm_is_landscape = width_mm > height_mm * 1.05
+    if pixel_is_portrait and mm_is_landscape:
+        logger.info("화면이 세로로 돌아가 있습니다(%dx%d px) - 실치수도 "
+                    "%.0f x %.0f mm 로 바꿔 씁니다", pixels[0], pixels[1],
+                    height_mm, width_mm)
+        return (height_mm, width_mm)
+    if not pixel_is_portrait and mm_is_portrait:
+        logger.info("화면은 가로인데(%dx%d px) 실치수가 세로로 왔습니다 - "
+                    "%.0f x %.0f mm 로 바꿔 씁니다", pixels[0], pixels[1],
+                    height_mm, width_mm)
+        return (height_mm, width_mm)
+    return (width_mm, height_mm)
+
+
 @functools.lru_cache(maxsize=1)
 def detect_screen_size_mm():
     """화면의 실제 (가로mm, 세로mm). 못 알아내면 None.
@@ -136,7 +195,9 @@ def detect_screen_size_mm():
         if size and _sane(size[0], size[1]):
             logger.info("화면 물리 크기를 %s에서 읽었습니다: %.0f x %.0f mm",
                         source, size[0], size[1])
-            return size
+            # 세로로 돌려 단 화면이면 여기서 가로·세로를 바꾼다
+            # (_apply_screen_rotation 독스트링 참고 — 9:16 키오스크에 필요)
+            return _apply_screen_rotation(size[0], size[1])
         if size:
             logger.info("%s가 준 화면 크기(%.0f x %.0f mm)가 말이 안 돼 버립니다",
                         source, size[0], size[1])

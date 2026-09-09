@@ -35,7 +35,7 @@
 | `SENSITIVITY_X_OVERRIDE` | 좌우 감도 | 회전이 둔하면 올리고, 너무 예민하면 낮춘다 |
 | `SENSITIVITY_Y_OVERRIDE` | 상하 감도 | 위와 동일 (세로는 원래 좌우보다 낮게 잡는 게 정상 — 고개가 상하보다 좌우로 더 많이 돈다) |
 | `FOREHEAD_NOSE_BLEND_RATIO` | 커서 기준점을 코끝 쪽으로 얼마나 당길지(0~1) | 0에 가까우면 미간에 가깝고 회전 신호가 작음(둔함), 1에 가까우면 코끝과 같아지고 회전은 좋지만 좌우로 움직일 때 살짝 휘어지는 현상·입 벌릴 때 커서 밀림이 커짐. **지금 0.3** — 이 셋의 절충점 |
-| `TOP_HALF_Y_SCALE` | 커서가 화면 세로 몇 %까지 내려가는지(0~1) | 화면 하단 요소(안내 배너 등)에 커서가 안 닿으면 올린다. 1.0이면 화면 전체 |
+| `CURSOR_Y_SPAN` | 커서가 화면 세로의 몇 %를 쓰는지(0~1) | **지금 1.0 = 화면 전체.** 낮추면 그만큼만 쓰고, 어느 쪽에 붙일지는 `CURSOR_Y_ANCHOR_BOTTOM`이 정한다 |
 
 ### 클릭 · 드래그
 
@@ -84,7 +84,7 @@
 | 고개를 돌려도 커서 반응이 둔하다 | `SENSITIVITY_X_OVERRIDE`↑ 또는 `FOREHEAD_NOSE_BLEND_RATIO`↑ |
 | 좌우로 움직일 때 커서가 곡선을 그린다 | `FOREHEAD_NOSE_BLEND_RATIO`↓ (코 성분을 줄인다) |
 | 입 벌려 클릭하려 하면 커서가 밀린다 | `FOREHEAD_NOSE_BLEND_RATIO`↓ |
-| 화면 하단(안내 배너 등)에 커서가 안 닿는다 | `TOP_HALF_Y_SCALE`↑ |
+| 화면 끝(위·아래)에 커서가 안 닿는다 | `CURSOR_Y_SPAN`↑ (최대 1.0) · 그래도 안 되면 `SENSITIVITY_Y_OVERRIDE`↑ |
 | 어두운 곳에서 인식이 잘 안 된다 | `LOW_LIGHT_MEAN_LUMA_THRESHOLD`↑ (더 밝은 조건까지 보정 켜짐), `NOSE_CLUSTER_AVERAGING`이 `True`인지 확인 |
 | 가만히 있어도 커서가 떨린다 | `ONE_EURO_MIN_CUTOFF`↓ |
 | 빠르게 고개를 돌릴 때 반응이 늦다 | `ONE_EURO_BETA`↑ |
@@ -100,7 +100,7 @@
 SENSITIVITY_X_OVERRIDE      = 2.2
 SENSITIVITY_Y_OVERRIDE      = 2.0
 FOREHEAD_NOSE_BLEND_RATIO   = 0.3
-TOP_HALF_Y_SCALE            = 0.7
+CURSOR_Y_SPAN               = 1.0
 LOW_LIGHT_ENHANCEMENT_ENABLED = True
 LOW_LIGHT_MEAN_LUMA_THRESHOLD = 80.0
 ONE_EURO_ENABLED  = True
