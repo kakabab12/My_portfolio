@@ -111,6 +111,8 @@ from src.inference.face_estimator import (
 from src.inference.preprocessor import Preprocessor
 from src.postprocess.face_anchor import FaceAnchor
 from src.postprocess.head_tracker import EVENT_SELECT, HeadTracker
+from src.postprocess.mouth_gesture import (      # noqa: E402
+    CLICK, HOLD_END, HOLD_START, PRESS, ClickFreeze, MouthGesture)
 from src.utils.config_loader import load_config
 from src.utils.cursor_render import (   # 커서 크기·그리기 공용 (2026-08-31)
     CURSOR_RADIUS_PX,
@@ -313,30 +315,58 @@ MOUTH_CLOSE_MARGIN_OVERRIDE = 0.05   # config 기본 0.15
 # 2026-08-20: 드래그가 잘 안 걸린다는 실기 보고로 2.0→1.2 하향 + 닫힘 확인
 # 시간 신설 — head.py와 동일 이유·동일 값(그 파일 상수 설명 참고)
 # ─ 클릭하는 동안 커서 붙잡기 ────────────────────────────────────────────
-# ★2026-09-09 사용자 보고 두 건 — "입 벌리면 커서가 움직인다",
-# "커서가 파란색이 아닌데 드래그가 되는 현상이 있다".
+# 판정과 붙잡기 자체는 src/postprocess/mouth_gesture.py에 있다(세 트래커 공용).
+# 여기 있는 건 이 트래커에서 쓸 값들뿐이다.
 #
-# 두 보고는 뿌리가 하나다. 2026-08-31부터 **입을 벌리는 순간** mouse.press()를
-# 보내는데(그 자리 주석 참고), 파란색은 MOUTH_HOLD_SEC(0.7초)이 지나야 켜졌다.
-# 그 0.7초 동안 OS 버튼은 이미 눌려 있고 커서는 살아 있으니
-#   ① 화면은 초록(=안 눌린 색)인데 실제로는 드래그가 나가고,
-#   ② 입을 벌리느라 얼굴이 밀린 만큼 커서가 흘러 "누를 때 커서가 움직인다"가 된다.
-#
-# 고치는 방법 세 가지.
-#   - 눌린 순간 바로 파란색으로 바꾼다 — 보이는 색 = 실제 버튼 상태.
-#   - 눌린 뒤 드래그로 넘어가기 전까지 커서를 붙잡아 둔다. 짧은 벌림(=클릭)은
-#     이제 원리적으로 커서를 못 움직인다.
-#   - 붙잡는 지점은 지금 위치가 아니라 LOOKBACK만큼 이전 위치다. 입이
-#     벌어졌다고 판정될 무렵엔 이미 턱이 내려가 랜드마크가 밀린 뒤라,
-#     그 직전 위치가 사용자가 실제로 겨눈 곳이다.
+# ★2026-09-09~10 — 사용자 보고 두 차례를 가상 사용자로 재현해서 정한 값들이다
+# (tests/virtual_user.py, tests/test_mouth_gesture.py). 짐작으로 고쳤다가
+# 두 번째 보고가 첫 번째 수정 때문에 생긴 일이었다.
 CLICK_FREEZE_ENABLED = True
-# 얼마나 이전 위치를 겨눈 곳으로 볼지. 임계값(MOUTH_OPEN_MARGIN_OVERRIDE)을
-# 넘기까지 걸리는 시간에서 온 값이라, 임계값을 바꾸면 여기도 같이 봐야 한다.
-CLICK_FREEZE_LOOKBACK_SEC = 0.15
+# 어느 시점 위치를 붙잡을지. 0이면 "누른 그 자리".
+#
+# 처음엔 되짚어 잡았다 — 입이 벌어졌다고 판정될 무렵엔 이미 턱이 내려가
+# 랜드마크가 밀린 뒤라, 그 직전이 진짜 겨눈 곳이라고 봤다. 그런데 가상
+# 사용자로 재 보니 **되짚어 얻은 정확도가 고스란히 드래그로 나갔다.**
+# 보정이 버튼이 내려간 **뒤에** 일어나서, OS는 "누른 자리에서 겨눈 자리로
+# 끌었다"로 받는다. 렌더 루프가 목표를 향해 이어 주므로 실제로 그렇게 끌린다.
+#
+# 겨눈 곳에서 벗어난 거리 / 눌린 채 끌린 거리 (px, 1920x1080, 고개 0~6도):
+#   되짚기 0.00초 -> 12~25 /  0     <- 지금 값
+#   되짚기 0.04초 ->  0    / 12~25
+#   되짚기 0.08초 -> 14    / 23~39
+#   붙잡기 아예 끔 -> 25~264 / 63~242
+# 되짚은 만큼 그대로 끌린다 — 일대일이다. 그래서 안 되짚는다.
+# 남는 12~25px는 턱이 임계값을 넘는 동안 흐른 양인데, 키오스크 아이콘보다
+# 훨씬 작고 무엇보다 **드래그가 아니다**(사용자가 보고한 것이 드래그였다).
+#
+# 되짚기를 살리려면 붙잡기를 누르기 **전에** 걸어야 한다(턱이 오르기
+# 시작할 때 미리 붙잡는 식). 말할 때도 커서가 붙잡히는 값을 치르게 되므로,
+# 12~25px을 그 값과 바꿀 만하다고 판단되면 그때 하면 된다.
+CLICK_FREEZE_LOOKBACK_SEC = 0.0
 # 드래그로 넘어갈 때 붙잡던 지점에서 현재 위치로 이어 주는 시간.
-# 0으로 두면 그 순간 커서가 튄다(0.7초 동안 고개가 움직였을 수 있으므로).
+# 0으로 두면 그 순간 커서가 튄다(붙잡는 동안 고개가 움직였을 수 있으므로).
 CLICK_UNFREEZE_SEC = 0.25
 CLICK_FREEZE_HISTORY_SEC = 0.6   # 되짚기용 기록 보관 길이 — LOOKBACK보다 넉넉히
+
+# ─ 입 판정 — 다묾을 "얼마나 벌렸었나"에 견주어 본다 ──────────────────────
+# ★2026-09-09 사용자 보고: "입 벌릴 때 클릭 노란색으로 안 뜨더라. 한 번
+# 클릭 하려고 하는데 바로 파란색으로 변하고 드래그 되더라."
+#
+# 원인은 사람이 클릭한 뒤 입을 **완전히 원래대로 안 다문다**는 것이었다.
+# 다묾 선이 기준선+0.05인데 턱이 0.11에 머무르면 영영 안 내려온다. 그러면
+# 클릭이 확정 안 되고(노란 깜빡임 없음) -> 0.7초 뒤 드래그(파란색) ->
+# 드래그 해제는 더 빡빡해서 역시 안 걸림 -> **버튼이 눌린 채로 남는다.**
+# 가상 사용자로 재현: 잔여 0.10까지는 클릭, 0.11부터 전부 갇혔다.
+#
+# 그래서 "최대치에서 이 비율만큼 내려왔으면 다문 것"을 함께 본다.
+# 고친 뒤에는 잔여 0.20까지 전부 클릭이 된다(mouth_gesture.py 참고).
+MOUTH_CLOSE_FRACTION = 0.55
+MOUTH_HOLD_RELEASE_FRACTION = 0.75   # 드래그 중엔 더 확실히 다물어야 놓아준다
+# 다문 값이 사람마다·시간마다 달라지는 것을 따라잡는 창 길이
+MOUTH_REST_WINDOW_SEC = 6.0
+# 이보다 오래 벌린 채면 판정이 갇힌 것으로 보고 버튼을 놓는다. 눌린 채
+# 두면 사용자가 할 수 있는 일이 없다 — 이보다 긴 드래그는 포기한다.
+MOUTH_STUCK_OPEN_SEC = 8.0
 
 MOUTH_HOLD_SEC = 0.7   # 2026-08-24 1.2 -> 0.7 — head.py와 동일 이유·동일 값
                        # (그 파일 상수 설명에 "얼마까지 줄여도 클릭이 안 새는가" 실측표)
@@ -1542,186 +1572,91 @@ def main():
     health_state = {"loop_sec": 0.0, "frame_sec": 0.0}
 
     # 입 제스처 상태 — head.py와 동일 이유(그 파일 주석 참고)
-    mouth_gesture_state = {
-        "is_open": False,
-        "open_since_sec": None,
-        "is_holding": False,
-        "close_since_sec": None,   # MOUTH_CLOSE_CONFIRM_SEC 확인용 — head.py와 동일 이유
-        # 클릭 중 커서 붙잡기 — 위 CLICK_FREEZE_* 상수 설명 참고
-        "freeze_xy": None,             # 붙잡아 둔 지점(비면 안 붙잡는 중)
-        "unfreeze_since_sec": None,    # 드래그로 넘어가며 이어 주기 시작한 시각
-        "unfreeze_from_xy": None,      # 이어 주기 출발점
-    }
-
-    feedback = CursorFeedback()   # 클릭·드래그를 커서 색으로 알린다
-
-    def _reset_recenter_timer():
-        """클릭·드래그가 일어나면 자동 재정렬 대기 시간을 처음부터 다시 센다 —
-        head.py와 동일 이유(그 파일 동명 함수 독스트링 참고). ★2026-08-20:
-        reset_event_gates()(모든 판정 초기화)에서 reset_recenter_dwell()(재정렬
-        시계만)로 대상을 좁혔다 — 전자는 응시 클릭이 재정렬 시계를 계속
-        되돌리는 무한 루프를 만들어 재정렬이 영영 안 됐다(head.py 동명 함수
-        독스트링에 실측 근거)."""
-        head_tracker.reset_recenter_dwell()
-
-    cursor_history = []   # [(시각, x, y)] — 눌린 지점을 되짚기 위한 짧은 기록
-
-    def _lookback_cursor(now_sec):
-        """LOOKBACK만큼 이전 커서 위치. 기록이 짧으면 가진 것 중 가장 오래된 것."""
-        target_sec = now_sec - CLICK_FREEZE_LOOKBACK_SEC
-        chosen = None
-        for sample in cursor_history:
-            if sample[0] <= target_sec:
-                chosen = sample
-            else:
-                break
-        if chosen is None:
-            chosen = cursor_history[0] if cursor_history else None
-        return None if chosen is None else (chosen[1], chosen[2])
-
-    def _begin_click_freeze(now_sec):
-        """입이 벌어졌다 — 겨눴던 지점에 커서를 붙잡아 둔다."""
-        mouth_gesture_state["freeze_xy"] = _lookback_cursor(now_sec)
-        mouth_gesture_state["unfreeze_since_sec"] = None
-        mouth_gesture_state["unfreeze_from_xy"] = None
-
-    def _end_click_freeze(now_sec, blend):
-        """붙잡기 해제. blend=True(드래그 시작)면 현재 위치로 이어 준다."""
-        frozen = mouth_gesture_state["freeze_xy"]
-        mouth_gesture_state["freeze_xy"] = None
-        if blend and frozen is not None:
-            mouth_gesture_state["unfreeze_from_xy"] = frozen
-            mouth_gesture_state["unfreeze_since_sec"] = now_sec
-        else:
-            mouth_gesture_state["unfreeze_from_xy"] = None
-            mouth_gesture_state["unfreeze_since_sec"] = None
-
-    def _apply_click_freeze(now_sec, x_ratio, y_ratio):
-        """커서 좌표를 내보내기 직전에 통과시킨다 — 기록도 여기서 쌓는다."""
-        cursor_history.append((now_sec, x_ratio, y_ratio))
-        while (cursor_history
-               and now_sec - cursor_history[0][0] > CLICK_FREEZE_HISTORY_SEC):
-            cursor_history.pop(0)
-        if not CLICK_FREEZE_ENABLED:
-            return x_ratio, y_ratio
-        frozen = mouth_gesture_state["freeze_xy"]
-        if frozen is not None:
-            return frozen
-        since = mouth_gesture_state["unfreeze_since_sec"]
-        origin = mouth_gesture_state["unfreeze_from_xy"]
-        if since is not None and origin is not None:
-            ratio = (now_sec - since) / CLICK_UNFREEZE_SEC
-            if ratio < 1.0:
-                return (origin[0] + (x_ratio - origin[0]) * ratio,
-                        origin[1] + (y_ratio - origin[1]) * ratio)
-            mouth_gesture_state["unfreeze_since_sec"] = None
-            mouth_gesture_state["unfreeze_from_xy"] = None
-        return x_ratio, y_ratio
+    # 입 판정과 커서 붙잡기 — 세 트래커 공용(src/postprocess/mouth_gesture.py).
+    # 예전엔 이 파일 안에 통째로 복사돼 있어서 가상 얼굴로 써 볼 수가 없었다
+    mouth = MouthGesture(
+        MOUTH_OPEN_MARGIN_OVERRIDE, MOUTH_CLOSE_MARGIN_OVERRIDE, MOUTH_HOLD_SEC,
+        MOUTH_CLOSE_CONFIRM_SEC, MOUTH_HOLD_RELEASE_MARGIN,
+        MOUTH_HOLD_RELEASE_CONFIRM_SEC,
+        close_fraction=MOUTH_CLOSE_FRACTION,
+        hold_release_fraction=MOUTH_HOLD_RELEASE_FRACTION,
+        rest_window_sec=MOUTH_REST_WINDOW_SEC,
+        stuck_open_sec=MOUTH_STUCK_OPEN_SEC)
+    click_freeze = ClickFreeze(
+        lookback_sec=CLICK_FREEZE_LOOKBACK_SEC,
+        unfreeze_sec=CLICK_UNFREEZE_SEC,
+        history_sec=CLICK_FREEZE_HISTORY_SEC,
+        enabled=CLICK_FREEZE_ENABLED)
 
     def _release_mouth_hold_if_stuck():
         """추적을 잃으면 입 제스처 상태를 되돌린다 — head.py와 동일 이유(그
         파일 동명 함수 독스트링 참고)."""
-        # ★벌리는 순간 누르는 방식(2026-08-31)이라, holding 전이라도 눌려
+        # ★벌리는 순간 누르는 방식(2026-08-31)이라, 드래그 전이라도 눌려
         # 있을 수 있다 — 상태와 무관하게 뗀다. 누른 건 우리이므로 떼는 것도
         # 우리 책임이다(release_if_pressed 독스트링 참고)
         try:
             mouse.release_if_pressed()
-            if mouth_gesture_state["is_holding"] or mouth_gesture_state["is_open"]:
+            if mouth.is_holding or mouth.is_open:
                 logger.info("추적 끊김 - 입 제스처 강제 해제 (release)")
         except Exception:   # noqa: 방어적
             logger.exception("입 제스처 강제 해제 실패")
-        mouth_gesture_state["is_open"] = False
-        mouth_gesture_state["open_since_sec"] = None
-        mouth_gesture_state["is_holding"] = False
-        mouth_gesture_state["close_since_sec"] = None
-        _end_click_freeze(time.monotonic(), False)
+        mouth.reset()
+        click_freeze.end(time.monotonic(), False)
         feedback.set_holding(False)
 
     def _update_mouth_gesture(now_sec):
-        """단일 클릭 즉시/꾹 누르기 판정 — head.py와 동일 이유·동일 로직(그
-        파일 동명 함수 독스트링 참고 — 더블클릭은 별도 판정 없이 Windows의
-        기본 더블클릭 인식에 맡긴다)."""
-        jaw_open = head_tracker.debug.get("jaw_open")
-        jaw_base = head_tracker.debug.get("jaw_base")
-        if jaw_base is None:
-            return
+        """입 벌림으로 클릭·드래그를 낸다. 판정은 MouthGesture가 하고 여기서는
+        그 결과를 마우스·커서 색·콘솔로 옮긴다(콘솔 규약은 델파이 호환).
 
-        if not mouth_gesture_state["is_open"]:
-            if jaw_open >= jaw_base + MOUTH_OPEN_MARGIN_OVERRIDE:
-                mouth_gesture_state["is_open"] = True
-                mouth_gesture_state["open_since_sec"] = now_sec
-                mouth_gesture_state["close_since_sec"] = None
-                # ★2026-08-31 저녁 — 벌리는 **순간** 누른다 (실기 보고 "클릭
-                # 반응성이 느려"). 예전에는 다물 때 mouse.click()을 한 번에
-                # 보냈는데, 그러면 벌리고-다무는 시간(보통 0.5초 안팎)이
-                # 통째로 지연으로 느껴졌다. 마우스 본래 의미대로 press를
-                # 여기서, release를 다물 때 보내면 ①버튼이 즉시 눌려 보이고
-                # ②짧은 벌림 = 클릭, 긴 벌림 = 드래그가 자연스럽게 갈리며
-                # ③드래그도 0.7초 대기 없이 곧바로 시작된다. hold_start/
-                # hold_end/select 콘솔 규약은 그대로다(델파이 호환).
+        ★2026-09-09 — 파란색은 **드래그가 시작될 때만** 켠다. 한때 누르는
+        순간부터 켰는데("파란색이 아닌데 드래그가 된다"에 대한 대응), 그러면
+        한 번 클릭하려는 사람도 매번 파란색을 보게 돼서 사용자가 "바로
+        파란색으로 변하고 드래그 되더라"고 다시 보고했다.
+        누르는 동안 초록색이어도 이제는 안전하다 — 그 사이 커서는 붙잡혀
+        있어서 의도치 않은 드래그가 **원리적으로** 안 나온다(가상 사용자로
+        측정: 붙잡는 동안 끌린 거리 0 px).
+        """
+        events = mouth.update(head_tracker.debug.get("jaw_open"),
+                              head_tracker.debug.get("jaw_base"), now_sec)
+        for event in events:
+            if event == PRESS:
                 # 겨눴던 지점에 커서를 붙잡는다 — 제어를 껐을 때도 마찬가지다
                 # (입을 벌려 얼굴이 밀리는 건 버튼과 무관하게 일어나므로)
-                _begin_click_freeze(now_sec)
+                click_freeze.begin(now_sec)
                 if state["is_control_active"]:
                     try:
                         mouse.press()
-                        # ★버튼이 눌린 바로 이 순간부터 파란색 — 예전엔 0.7초
-                        # 뒤에야 켜져서 "파란색이 아닌데 드래그가 된다"였다
-                        feedback.set_holding(True)
                     except Exception:   # noqa: 방어적
                         logger.exception("누르기 시도 실패")
-        else:
-            held_sec = now_sec - mouth_gesture_state["open_since_sec"]
-            # 드래그 중이면 더 깊이·더 오래 닫아야 놓아준다 — head.py와 동일
-            holding = mouth_gesture_state["is_holding"]
-            close_margin = (MOUTH_HOLD_RELEASE_MARGIN if holding
-                            else MOUTH_CLOSE_MARGIN_OVERRIDE)
-            close_confirm = (MOUTH_HOLD_RELEASE_CONFIRM_SEC if holding
-                             else MOUTH_CLOSE_CONFIRM_SEC)
-            is_below = jaw_open <= jaw_base + close_margin
-            if is_below:
-                # 닫힘 확인 — head.py와 동일 이유(턱 떨림으로 잠깐 내려간 것을
-                # 닫힘으로 세면 드래그가 매번 중간에 끊긴다)
-                if mouth_gesture_state["close_since_sec"] is None:
-                    mouth_gesture_state["close_since_sec"] = now_sec
-                elif now_sec - mouth_gesture_state["close_since_sec"] >= close_confirm:
-                    mouth_gesture_state["is_open"] = False
-                    mouth_gesture_state["close_since_sec"] = None
-                    if mouth_gesture_state["is_holding"]:
-                        # 드래그 끝 — 더블클릭 합성 없이 떼기만 한다.
-                        # 제어를 끈 상태여도 반드시(release_if_pressed 독스트링)
-                        mouse.release_if_pressed()
-                        _end_click_freeze(now_sec, False)
-                        mouth_gesture_state["is_holding"] = False
-                        feedback.set_holding(False)
-                        console.emit("hold_end")
-                        logger.info("꾹 누르기 종료 (trigger=mouth, drag release)")
-                    else:
-                        # press(벌림)+release(다묾)가 한 번의 클릭 —
-                        # release_click이 더블클릭 합성까지 처리한다
-                        mouse.release_click()
-                        # 붙잡기 해제 — 이어 주기 없이(클릭은 커서를 안 옮긴다)
-                        _end_click_freeze(now_sec, False)
-                        feedback.set_holding(False)   # 눌린 순간 켠 것을 되돌린다
-                        feedback.flash(now_sec)
-                        console.emit("select")
-                        logger.info("클릭 (trigger=mouth)")
-                    _reset_recenter_timer()
-            else:
-                mouth_gesture_state["close_since_sec"] = None
-                if not mouth_gesture_state["is_holding"] and held_sec >= MOUTH_HOLD_SEC:
-                    mouth_gesture_state["is_holding"] = True
-                    # 여기서부터는 진짜 드래그 — 붙잡기를 풀되 튀지 않게 이어 준다
-                    _end_click_freeze(now_sec, True)
-                    feedback.set_holding(True)
-                    # press는 벌리는 순간 이미 보냈다(위 참고) — 여기서는
-                    # 드래그 표시와 콘솔 규약만 처리한다
-                    console.emit("hold_start")
-                    logger.info("꾹 누르기 시작 (trigger=mouth, drag press)")
-                    _reset_recenter_timer()
-                elif mouth_gesture_state["is_holding"]:
-                    # 드래그 중에는 계속 시계를 되돌린다 — head.py와 동일 이유
-                    _reset_recenter_timer()
+            elif event == CLICK:
+                # press(벌림)+release(다묾)가 한 번의 클릭 —
+                # release_click이 더블클릭 합성까지 처리한다
+                mouse.release_click()
+                click_freeze.end(now_sec, False)   # 클릭은 커서를 안 옮긴다
+                feedback.flash(now_sec)            # 노랑 한 번
+                console.emit("select")
+                logger.info("클릭 (trigger=mouth)")
+                _reset_recenter_timer()
+            elif event == HOLD_START:
+                # 여기서부터 진짜 드래그 — 붙잡기를 풀되 튀지 않게 이어 준다.
+                # press는 벌리는 순간 이미 보냈다
+                click_freeze.end(now_sec, True)
+                feedback.set_holding(True)         # 파랑 — 드래그 중
+                console.emit("hold_start")
+                logger.info("꾹 누르기 시작 (trigger=mouth, drag press)")
+                _reset_recenter_timer()
+            elif event == HOLD_END:
+                # 드래그 끝 — 더블클릭 합성 없이 떼기만 한다.
+                # 제어를 끈 상태여도 반드시(release_if_pressed 독스트링)
+                mouse.release_if_pressed()
+                click_freeze.end(now_sec, False)
+                feedback.set_holding(False)
+                console.emit("hold_end")
+                logger.info("꾹 누르기 종료 (trigger=mouth, drag release)")
+                _reset_recenter_timer()
+        if mouth.is_holding:
+            # 드래그 중에는 계속 시계를 되돌린다 — head.py와 동일 이유
+            _reset_recenter_timer()
 
     def _process_one_frame():
         tuning_reloader.maybe_reload(head_tracker)
@@ -1822,7 +1757,7 @@ def main():
         screen_y_ratio = _cursor_y_to_screen(result.cursor_y_ratio)
         # 클릭 판정 중이면 붙잡아 둔 지점으로 바뀐다 —
         # CLICK_FREEZE_* 상수 설명 참고
-        cursor_x_ratio, screen_y_ratio = _apply_click_freeze(
+        cursor_x_ratio, screen_y_ratio = click_freeze.apply(
             now_sec, result.cursor_x_ratio, screen_y_ratio)
         with target_lock:
             target_state["x_ratio"] = cursor_x_ratio

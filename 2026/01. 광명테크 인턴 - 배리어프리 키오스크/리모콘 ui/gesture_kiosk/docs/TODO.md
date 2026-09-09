@@ -203,7 +203,7 @@
       까딱 2회로 click이 나가는지 (종전엔 손목을 크게 두 번 해야 인식)
 - [ ] **손 모양 오판 재확인** — 손바닥→주먹 오판이 실측 26%(래치가 상당 부분 흡수).
       실사용에서 temp 3종이 명령(back/home/confirm)으로 잘못 나가는 일이 있는지
-- [ ] benchmark 30 FPS 확인 (`py scriptsenchmark.py`) — 키오스크 CPU 기준
+- [ ] benchmark 30 FPS 확인 (`py scripts\benchmark.py`) — 키오스크 CPU 기준
 - [ ] 두 사람 동시 프레임 진입 시 단일 손 추적 유지 확인 (옆 사람 손 차단)
 - [ ] 정확도 매트릭스 측정 (`py scripts\eval_accuracy.py`) — KPI 85% 검증(№5)
 

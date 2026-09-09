@@ -78,11 +78,15 @@ gesture_kiosk/
 │   ├─ postprocess/hand_select.py    # 앵커 게이트 + 단일 손 추적 + 손 실측 거리 자
 │   ├─ postprocess/hand_shape.py     # 손 모양 — 주먹/한 손가락/손바닥 (21점 기하 규칙)
 │   ├─ postprocess/gesture_filter.py # 동작 판정 — 모양 래치 + 첫 선 궤적 + 탭 클릭
+│   ├─ postprocess/head_orientation.py # 상대 회전 추정 (Kabsch-Umeyama)
+│   ├─ postprocess/head_tracker.py    # 헤드 커서 매핑 — 겨냥 반폭·거리 보정
+│   ├─ postprocess/mouth_gesture.py   # 입 벌리기 클릭·드래그 판정 + 클릭 중 커서 붙잡기
+│   ├─ utils/display_size.py          # 화면 실치수(mm) — EDID, 회전 화면 보정
 │   ├─ pipeline/realtime_loop.py     # 실시간 루프 조립 (멀티스레딩)
 │   └─ pipeline/event_sender.py      # ★ 회사 프로그램 연동 접점 (stdio/console)
 ├─ scripts/                 # calibrate(임계 자동 보정) · pipe_listen · download_weights
 │                           #   · benchmark · smoke_test · eval_accuracy
-├─ tests/                   # 단위 테스트 705건 (카메라·모델 없이 실행 가능)
+├─ tests/                   # 단위 테스트 802건 (카메라·모델 없이 실행 가능)
 ├─ docs/코드설명서.md       # 코드 지도 — 어디서 무엇을 하는지 (2026-08-03)
 └─ docs/TODO.md             # 작업 분해 및 회사 확인 필요 항목
 ```
@@ -98,7 +102,7 @@ gesture_kiosk/
 | `py main.py --debug` | 창을 켠 채 시작 |
 | `py scripts\calibrate.py` | 임계값 자동 보정 — 실제 동작을 재서 config 반영 |
 | `py scripts\pipe_listen.py` | 델파이 대역 — 파이프 수신 규격 자가 검증 |
-| `py scriptsenchmark.py` | 추론 단독 FPS 측정 (기획서 6.1 — KPI 30 FPS) |
+| `py scripts\benchmark.py` | 추론 단독 FPS 측정 (기획서 6.1 — KPI 30 FPS) |
 | `py -m unittest discover tests -v` | 판정·손 추적·손모양·시나리오 단위 테스트 |
 | `py scripts\diagnose_tracking.py` | **커서가 안 움직일 때 원인 진단** (2026-08-31 신설) — 카메라·검출·회전 추정 중 막힌 단계를 이름으로 알려준다 |
 | 실행 중 `tune` (+Enter) | **실시간 감도·곡률 조절 슬라이더** (2026-08-28 신설) — 창을 닫아도 값이 유지된다 |
@@ -182,6 +186,52 @@ reference_distance_mm: 800    # 데스크탑(앉아서) 500~700, 키오스크(�
 ```bash
 py scripts/measure_reach.py
 ```
+
+### 화면비 — 16:9 데스크탑과 9:16 키오스크 한 벌로 (2026-09-09)
+
+```bash
+py forehead.py --aspect desktop   # 16:9 가로
+py forehead.py --aspect kiosk     # 9:16 세로
+py forehead.py                    # auto — 화면 해상도를 보고 결정
+```
+
+화면비에 따라 실제로 달라지는 것은 **카메라 프레임 크롭 하나뿐**이다. 커서
+캔버스는 실제 해상도를, 겨냥 반폭은 EDID 실치수를, 랜드마크 척도는 두 눈
+사이 거리를 이미 직접 보고 정한다. 그래서 파일을 화면비별로 나누지 않았다.
+
+**세로로 돌려 단 화면 주의** — EDID는 패널이 *원래 생긴 모양*을 말한다.
+가로형 패널을 세로로 달아도 "597×336 mm"라고 답하는데 실제 화면은 336×597이라,
+그대로 쓰면 겨냥 반폭의 가로·세로가 뒤바뀐다(700 mm에서 23.1도 ↔ 13.5도).
+윈도우 회전 설정을 묻지 않고 **픽셀 해상도와 대조**해 바로잡는다. 자세한
+것은 `화면비_exe_안내.md`.
+
+### 클릭·드래그 — 가상 사용자로 확인한다 (2026-09-10)
+
+입을 벌리는 **순간** 버튼이 눌린다(반응성). 짧게 벌렸다 다물면 클릭(노란
+깜빡임), 계속 벌리고 있으면 드래그(파란 커서)다. 판정은
+`src/postprocess/mouth_gesture.py`에 있고 세 진입점이 함께 쓴다.
+
+누르는 동안에는 **커서를 붙잡는다.** 안 그러면 입을 벌리느라 얼굴이 밀린
+만큼 커서가 흘러가고, 버튼이 이미 눌려 있으므로 그 흘러감이 곧 의도치 않은
+드래그가 된다.
+
+이 판정은 실기에서 두 번 어긋났고 두 번 다 짐작으로 고쳤다가, 두 번째
+보고가 첫 번째 수정 때문에 생긴 일이었다. 그래서 판정을 모듈로 꺼내고
+**가상 사용자가 실제 파이프라인으로 직접 써 보게** 했다
+(`tests/virtual_user.py`, `tests/test_virtual_user_click.py`). 사람은 클릭
+도중에도 고개를 움직이고 입을 매번 같은 깊이로 다물지 않으므로, 시나리오에
+그것이 들어 있다.
+
+그렇게 찾은 결함 둘:
+
+- **다물어도 클릭이 안 되던 것.** 다묾 선이 기준선+0.05인데 사람은 클릭 뒤
+  입을 완전히 안 다문다. 턱이 0.11에 머무르면 영영 안 내려와서 → 클릭 실패
+  → 0.7초 뒤 드래그 → 드래그 해제는 더 빡빡해 역시 실패 → **버튼이 눌린 채
+  남았다.** "얼마나 벌렸었나에 견주어" 판단하도록 고쳤다.
+- **되짚기가 곧 드래그였던 것.** 밀림을 되돌리려고 조금 이전 위치를 붙잡았는데,
+  보정이 버튼이 내려간 뒤에 일어나 그만큼 그대로 끌렸다. 되짚은 거리와 끌린
+  거리가 일대일이라 되짚기를 뺐다(겨냥 오차 12~25 px, 끌림 0 px. 붙잡기를
+  아예 끄면 오차 25~264 px에 끌림 63~242 px).
 
 ## 회사 프로그램(UI) 연동 계약
 

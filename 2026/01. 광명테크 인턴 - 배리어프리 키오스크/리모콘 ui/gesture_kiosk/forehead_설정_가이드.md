@@ -42,8 +42,22 @@
 | 이름 | 뜻 |
 |---|---|
 | `MOUTH_OPEN_MARGIN_OVERRIDE` | 입을 얼마나 벌려야 "벌렸다"로 인정하는지 |
+| `MOUTH_CLOSE_MARGIN_OVERRIDE` | 얼마나 다물어야 "다물었다"로 인정하는지. 벌림보다 **작아야** 한다(턱 떨림 대응) |
+| `MOUTH_CLOSE_FRACTION` | 다묾을 "얼마나 벌렸었나"에 견주어 보는 비율. **사람은 클릭 뒤 입을 완전히 안 다문다** — 이게 없으면 잔여 턱이 조금만 남아도 클릭이 안 되고 드래그로 갇힌다 |
+| `MOUTH_HOLD_RELEASE_FRACTION` | 위와 같지만 드래그 중일 때. 더 확실히 다물어야 놓아준다 |
 | `MOUTH_HOLD_SEC` | 이 시간 이상 계속 벌리면 클릭 대신 꾹 누르기(드래그)로 전환 |
+| `MOUTH_REST_WINDOW_SEC` | 사람의 "다문 턱" 값이 달라지는 것을 따라잡는 창 길이 |
+| `MOUTH_STUCK_OPEN_SEC` | 이보다 오래 벌린 채면 판정이 갇힌 것으로 보고 버튼을 놓는다. **이보다 긴 드래그는 안 된다** |
 | `DOUBLE_CLICK_WINDOW_SEC` | 이 시간 안에 두 번째 입 벌림이 오면 더블클릭으로 처리 |
+
+입을 벌리는 **순간** 버튼이 눌립니다(반응성). 그래서 누른 뒤 커서가 움직이면
+그게 곧 의도치 않은 드래그입니다 — 그걸 막으려고 누르는 동안 커서를 붙잡습니다.
+
+| 이름 | 뜻 |
+|---|---|
+| `CLICK_FREEZE_ENABLED` | 누르는 동안 커서를 붙잡을지. 끄면 클릭이 겨눈 곳에서 최대 264 px까지 벗어난다(가상 사용자 측정) |
+| `CLICK_FREEZE_LOOKBACK_SEC` | 어느 시점 위치를 붙잡을지. **0이 기본** — 되짚으면 그만큼 그대로 드래그로 나간다(코드 주석에 표) |
+| `CLICK_UNFREEZE_SEC` | 드래그로 넘어갈 때 붙잡던 지점에서 현재 위치로 이어 주는 시간. 0이면 커서가 튄다 |
 
 ### 저조도(어두운 곳) 대응
 
@@ -65,6 +79,8 @@
 | 색 | 의미 |
 |---|---|
 | 초록 원 (십자 포함) | 실제 커서 위치 |
+| 노란 원 | 클릭이 확정된 순간 잠깐 (0.12초) |
+| 파란 원 | 드래그(꾹 누르기) 중 — 다물 때까지 계속 |
 | 노란 점 "혼합점" | 커서를 계산하는 기준점(코-눈 혼합점) |
 | 하늘색 점 2개 "눈" | 두 눈 바깥쪽 끝(원재료) |
 | 마젠타 십자 "원점(눈 중점)" | 좌표계의 원점 |
@@ -83,14 +99,22 @@
 | 몸을 움직이면 커서도 움직인다 | `FACE_LOCAL_MAPPING`이 `True`인지 확인(기본 켜짐 — 이게 꺼지면 이 문제가 재발한다) |
 | 고개를 돌려도 커서 반응이 둔하다 | `SENSITIVITY_X_OVERRIDE`↑ 또는 `FOREHEAD_NOSE_BLEND_RATIO`↑ |
 | 좌우로 움직일 때 커서가 곡선을 그린다 | `FOREHEAD_NOSE_BLEND_RATIO`↓ (코 성분을 줄인다) |
-| 입 벌려 클릭하려 하면 커서가 밀린다 | `FOREHEAD_NOSE_BLEND_RATIO`↓ |
+| 입 벌려 클릭하려 하면 커서가 밀린다 | 먼저 `CLICK_FREEZE_ENABLED`가 `True`인지 확인(누르는 동안 커서를 붙잡는다). 그래도 남으면 `FOREHEAD_NOSE_BLEND_RATIO`↓ |
+| 한 번 클릭하려는데 드래그가 된다 | `MOUTH_CLOSE_FRACTION`↓ (덜 다물어도 다문 것으로 본다) 또는 `MOUTH_HOLD_SEC`↑ |
+| 드래그하려는데 자꾸 클릭으로 끝난다 | `MOUTH_HOLD_RELEASE_FRACTION`↑ 또는 `MOUTH_HOLD_SEC`↓ |
+| 클릭 노란색이 안 뜨고 파란색이 된다 | 위 두 줄과 같은 원인이다 — 다묾이 확정 안 돼 드래그로 넘어간 것이다 |
 | 화면 끝(위·아래)에 커서가 안 닿는다 | `CURSOR_Y_SPAN`↑ (최대 1.0) · 그래도 안 되면 `SENSITIVITY_Y_OVERRIDE`↑ |
 | 어두운 곳에서 인식이 잘 안 된다 | `LOW_LIGHT_MEAN_LUMA_THRESHOLD`↑ (더 밝은 조건까지 보정 켜짐), `NOSE_CLUSTER_AVERAGING`이 `True`인지 확인 |
 | 가만히 있어도 커서가 떨린다 | `ONE_EURO_MIN_CUTOFF`↓ |
 | 빠르게 고개를 돌릴 때 반응이 늦다 | `ONE_EURO_BETA`↑ |
 
 값을 바꾼 뒤에는 반드시 다시 실행해서 확인하고, exe로 배포하는 경우
-`make_forehead_exe.bat`을 다시 실행해 재빌드해야 반영됩니다.
+`make_forehead_exe.bat`(화면비 고정 exe는 `make_aspect_exes.bat`)을
+다시 실행해 재빌드해야 반영됩니다.
+
+클릭·드래그 판정을 손봤다면 `py -3 -m pytest tests/test_mouth_gesture.py
+tests/test_virtual_user_click.py` 로 먼저 확인하십시오 — 가상 사용자가
+실제 파이프라인으로 클릭과 드래그를 해 봅니다.
 
 ---
 
