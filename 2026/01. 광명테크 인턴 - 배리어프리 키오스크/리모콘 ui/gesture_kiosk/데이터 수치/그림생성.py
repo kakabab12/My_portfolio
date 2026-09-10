@@ -16,6 +16,7 @@
 """
 import csv
 import io
+import math
 import os
 import sys
 
@@ -72,26 +73,64 @@ def label_bars(ax, bars, fmt="%.2f", offset=0.01):
 # 1. 기하학적 반폭 — 고정 15도가 왜 틀렸나
 # ─────────────────────────────────────────────────────────────────────────
 def fig_geometric_span():
-    rows = read_csv("거리별_기하반폭.csv")
-    screens = {}
-    for r in rows:
-        screens.setdefault(r["화면"], []).append(
-            (float(r["사용자 거리(mm)"]), float(r["맞는 반폭(도)"])))
-    fig, ax = plt.subplots(figsize=(7.0, 4.2))
-    styles = ["-o", "-s", "-^", "-d"]
-    for (name, pts), st in zip(screens.items(), styles):
-        pts.sort()
-        ax.plot([p[0] for p in pts], [p[1] for p in pts], st,
-                label=name, markersize=4, linewidth=1.6)
-    ax.axhline(15.0, color=WORSE, linestyle="--", linewidth=1.8)
-    ax.text(1310, 15.4, "코드에 있던 고정 15도", color=WORSE,
-            fontsize=9, ha="right")
-    ax.set_xlabel("사용자와 화면 사이 거리 (mm)")
-    ax.set_ylabel("화면 끝에 닿는 고개 각도 (도)")
-    ax.set_title("겨냥 반폭은 고를 값이 아니라 기하학이 정한다\n"
-                 "반폭 = atan((화면 가로 ÷ 2) ÷ 거리)")
-    ax.legend(fontsize=9)
-    save(fig, "01_기하반폭.png", "거리·화면별 맞는 반폭 vs 고정 15도")
+    """화면비 16:9(데스크탑)와 9:16(키오스크)에서 맞는 반폭.
+
+    기준을 **같은 패널을 가로로 달았을 때와 세로로 달았을 때**로 잡았다.
+    그래야 화면비만 변수가 되고, 이 제품이 실제로 쓰이는 두 배치와도
+    그대로 겹친다(--aspect desktop / kiosk).
+
+    32인치(대각 813 mm) 하나를 돌려 단 것으로 본다. 제품 두 배치가 대개
+    비슷한 크기의 패널을 쓰고, 크기를 바꾸면 화면비의 효과와 섞여 버린다.
+    """
+    diagonal_mm = 32 * 25.4                      # 32인치
+    ratio = math.hypot(16.0, 9.0)
+    long_mm = diagonal_mm * 16.0 / ratio         # 708 mm
+    short_mm = diagonal_mm * 9.0 / ratio         # 398 mm
+    dists = [400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300]
+
+    def span(size_mm, dist_mm):
+        return math.degrees(math.atan((size_mm * 0.5) / dist_mm))
+
+    # 그림에 쓰는 값을 CSV로도 남긴다 — 표로 확인할 수 있게
+    rows = []
+    for label, w_mm, h_mm in (("16:9 가로 (데스크탑)", long_mm, short_mm),
+                              ("9:16 세로 (키오스크)", short_mm, long_mm)):
+        for d in dists:
+            rows.append([label, round(w_mm, 1), round(h_mm, 1), d,
+                         round(span(w_mm, d), 2), round(span(h_mm, d), 2)])
+    with open(os.path.join(HERE, "화면비별_기하반폭.csv"), "w",
+              encoding="utf-8-sig", newline="") as fp:
+        wr = csv.writer(fp)
+        wr.writerow(["배치", "가로(mm)", "세로(mm)", "사용자 거리(mm)",
+                     "가로 반폭(도)", "세로 반폭(도)"])
+        wr.writerows(rows)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9.6, 4.3), sharey=True)
+    panels = ((ax1, "16:9 가로 — 데스크탑", long_mm, short_mm, (500, 700)),
+              (ax2, "9:16 세로 — 키오스크", short_mm, long_mm, (700, 1000)))
+    for ax, title, w_mm, h_mm, band in panels:
+        ax.plot(dists, [span(w_mm, d) for d in dists], "-o", color=AFTER,
+                markersize=4, linewidth=1.8, label="가로 반폭")
+        ax.plot(dists, [span(h_mm, d) for d in dists], "-s", color=NEUTRAL,
+                markersize=4, linewidth=1.8, label="세로 반폭")
+        ax.axhline(15.0, color=WORSE, linestyle="--", linewidth=1.6)
+        ax.axvspan(band[0], band[1], color="#F0F0F0", zorder=0)
+        ax.text((band[0] + band[1]) / 2, 3.0, "흔히 쓰는 거리",
+                ha="center", fontsize=8, color="#606060")
+        ax.set_title("%s\n%.0f x %.0f mm" % (title, w_mm, h_mm), fontsize=10)
+        ax.set_xlabel("사용자와 화면 사이 거리 (mm)")
+        ax.legend(fontsize=9)
+    ax1.set_ylabel("화면 끝에 닿는 고개 각도 (도)")
+    ax1.set_ylim(0, 45)
+    for ax in (ax1, ax2):
+        ax.annotate("코드에 있던 고정 15도", xy=(1150, 15.0),
+                    xytext=(1030, 8.0), color=WORSE, fontsize=9, ha="center",
+                    arrowprops=dict(arrowstyle="->", color=WORSE, lw=1.2))
+    fig.suptitle("겨냥 반폭은 고를 값이 아니다 — 화면비와 거리가 정한다\n"
+                 "같은 32인치 패널을 돌려 달면 가로·세로 반폭이 서로 바뀐다",
+                 fontsize=12)
+    fig.tight_layout(rect=(0, 0, 1, 0.88))      # 큰 제목과 소제목이 안 겹치게
+    save(fig, "01_기하반폭.png", "16:9 / 9:16 배치별 맞는 반폭")
 
 
 # ─────────────────────────────────────────────────────────────────────────
