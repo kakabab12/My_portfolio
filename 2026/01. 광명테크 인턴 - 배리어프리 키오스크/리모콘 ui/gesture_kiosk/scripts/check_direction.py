@@ -95,51 +95,81 @@ def main():
     print()
     print(" 먼저 3초간 **정면**을 봐 주세요 (기준을 잡습니다).")
 
-    base_face_x = base_cursor = None
-    face_x_at_peak = cursor_at_peak = None
-    peak = 0.0
-    started = time.monotonic()
-    told = False
-    try:
-        while time.monotonic() - started < args.seconds + 3.0:
+    def record(label, seconds):
+        """한 방향을 기록한다 -> (얼굴 이동 px, 커서 이동). 실패면 (None, None).
+
+        ★2026-09-10 — 예전에는 오른쪽 한 번만 재고 **사용자가 정말 오른쪽으로
+        돌렸다고 가정**했다(frame_is_mirrored = d_face > 0). 그런데 실기에서
+        왼쪽으로 돌린 순간이 최댓값으로 잡히자 거울 판정이 통째로 뒤집혀
+        "커서가 반대로 간다"는 정반대 결론이 나왔다. 세 번 재고 나서야 알았다.
+
+        그래서 **두 방향을 다 재고 서로 반대인지 확인한다.** 반대가 아니면
+        측정이 잘못된 것이므로 판정하지 않는다. 사람이 안내를 제대로 따랐는지를
+        도구가 스스로 확인하는 셈이다.
+        """
+        nonlocal seq
+        base_face = base_cur = None
+        peak = 0.0
+        face_at_peak = cur_at_peak = None
+        started = time.monotonic()
+        told = False
+        while time.monotonic() - started < seconds + 3.0:
             try:
-                raw, seq = camera.capture_new_frame(seq)
+                raw_frame, seq = camera.capture_new_frame(seq)
             except RuntimeError:
                 continue
-            frame = preprocessor.preprocess_frame(raw, apply_crop=True)
+            frame = preprocessor.preprocess_frame(raw_frame, apply_crop=True)
             face = select_user_face(estimator.infer(frame))
             result = tracker.update(face)
             elapsed = time.monotonic() - started
             if face is None or result.cursor_x_ratio is None:
                 continue
-            # 얼굴이 영상에서 어디 있나 — 두 눈 바깥쪽의 가운데
             left = face.landmark_px(LMK_LEFT_EYE_OUTER)
             right = face.landmark_px(LMK_RIGHT_EYE_OUTER)
             face_x = 0.5 * (left[0] + right[0])
-
             if elapsed < 3.0:
-                base_face_x, base_cursor = face_x, result.cursor_x_ratio
+                base_face, base_cur = face_x, result.cursor_x_ratio
                 continue
             if not told:
                 told = True
                 print()
-                print(" 이제 **고개를 본인 기준 오른쪽(오른손 쪽)으로** 천천히 크게")
-                print(" 돌렸다가 정면으로 돌아와 주세요. %.0f초 동안 기록합니다." % args.seconds)
+                print(" 이제 **고개를 %s으로만** 천천히 크게 돌려서" % label)
+                print(" 그대로 유지해 주세요. %.0f초 동안 기록합니다." % seconds)
+                print(" (반대쪽으로는 돌리지 마세요 — 판정이 뒤집힙니다.)")
                 print()
-            if base_face_x is None:
+            if base_face is None:
                 continue
-            shift = result.cursor_x_ratio - base_cursor
+            shift = result.cursor_x_ratio - base_cur
             if abs(shift) > abs(peak):
                 peak = shift
-                face_x_at_peak = face_x
-                cursor_at_peak = result.cursor_x_ratio
+                face_at_peak, cur_at_peak = face_x, result.cursor_x_ratio
             print("\r   기록 중... 커서 이동 %+.3f" % peak, end="", flush=True)
+        print("\r" + " " * 44 + "\r", end="")
+        if base_face is None or face_at_peak is None:
+            return None, None
+        return face_at_peak - base_face, cur_at_peak - base_cur
+
+    try:
+        d_face, d_cursor = record("본인 기준 오른쪽(오른손 쪽)", args.seconds)
+        if d_face is None:
+            print(" 얼굴이 충분히 안 잡혔습니다. 조명을 밝게 하고 다시 해 주세요.")
+            return 1
+        print(" 좋습니다. 정면으로 돌아와 주세요.")
+        time.sleep(2.0)
+        l_face, l_cursor = record("본인 기준 왼쪽(왼손 쪽)", args.seconds)
     finally:
         camera.stop()
 
-    print("\r" + " " * 40)
-    if base_face_x is None or face_x_at_peak is None:
-        print(" 얼굴이 충분히 안 잡혔습니다. 조명을 밝게 하고 다시 해 주세요.")
+    if l_face is None:
+        print(" 왼쪽 기록에 실패했습니다. 다시 해 주세요.")
+        return 1
+
+    # 프로토콜 검증 — 두 방향이 서로 반대여야 한다
+    if d_face * l_face >= 0 or d_cursor * l_cursor >= 0:
+        print(" 두 방향이 서로 반대로 안 나왔습니다 — 안내대로 안 움직이신 것 같습니다.")
+        print("   오른쪽: 얼굴 %+.1fpx 커서 %+.3f" % (d_face, d_cursor))
+        print("   왼쪽  : 얼굴 %+.1fpx 커서 %+.3f" % (l_face, l_cursor))
+        print(" 한 방향씩만, 크게 돌려서 다시 해 주세요.")
         return 1
 
     d_face = face_x_at_peak - base_face_x

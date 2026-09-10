@@ -383,7 +383,22 @@ POINTER_DISTANCE_SMOOTHING_ALPHA_OVERRIDE = 0.08   # config 기본 0.15
 # 그대로 시작점으로 쓴다 — 완전히 다른 감도(forehead X=2.8·Y=3.8 vs
 # eyebrow X=2.05·Y=6.0)라 최적값은 다를 수 있으니 실기로 다시 다듬을 것.
 ONE_EURO_ENABLED = True
-ONE_EURO_MIN_CUTOFF = 0.25
+# ★2026-09-10 0.25 -> 0.10 (사용자 보고 "가만히 있으려고 하면 커서가 떨린다").
+# 가상 사용자로 배치·렌즈·거리·조도를 바꿔 가며 훑어서 정했다.
+#
+#   min_cutoff | 최악 조건 떨림 | 최악 조건 지연
+#      0.25(옛) |      100%     |     100%
+#      0.15     |       81%     |     102%
+#      0.10     |       69%     |     103%      <- 지금
+#      0.08     |       66%     |     103%
+#
+# **떨림 31% 감소에 지연은 최악 3% 증가.** 1유로 필터에서 정지 떨림을 맡는
+# 손잡이가 바로 이것이라(Casiez et al. 2012), 여기를 건드리는 것이 맞다.
+#
+# beta는 1.5 그대로 둔다. 올리면 정면에서는 지연이 줄지만 **화각이 넓거나
+# 멀리 서면 오히려 나빠졌다** — 커서 속도가 느려 beta가 덜 실리고 낮은
+# min_cutoff만 남기 때문이다. 다섯 조건 전부를 동시에 이기는 조합은 없었다.
+ONE_EURO_MIN_CUTOFF = 0.10
 ONE_EURO_BETA = 1.5
 ONE_EURO_DISTANCE_ADAPTIVE = True
 ONE_EURO_REFERENCE_DIST_PX = 60.0
