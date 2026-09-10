@@ -1690,6 +1690,28 @@ def main():
     health_state = {"loop_sec": 0.0, "frame_sec": 0.0}
 
     # 입 제스처 상태(MOUTH_HOLD_SEC 상수 설명 참고)
+    feedback = CursorFeedback()   # 클릭·드래그를 커서 색으로 알린다
+
+    def _reset_recenter_timer():
+        """클릭·드래그가 일어나면 자동 재정렬(캘리브레이션) 대기 시간을 처음부터
+        다시 세게 한다 (2026-08-20 사용자 요청 — "클릭하거나 드래그 등 할 때
+        캘리브레이션 시간 초기화").
+
+        조작 중이라는 건 사용자가 화면을 잘 쓰고 있다는 뜻이라 재정렬이 필요
+        없는 상태다. 그런데 재정렬은 '커서가 한자리에 머무는 시간'만 보기 때문에,
+        아이콘을 겨냥하려고 커서를 멈춰 두는 동작이 그대로 재정렬 조건이 되어
+        조작 도중에 커서가 중앙으로 튀는 일이 있었다. 클릭·드래그 때마다 시계를
+        0으로 되돌려 조작 중에는 재정렬이 끼어들지 못하게 한다.
+
+        ★2026-08-20 수정 — 처음엔 reset_event_gates()(모든 판정 초기화)를 불렀는데
+        그게 재정렬을 아예 불가능하게 만들었다. 가만히 있으면 1.5초마다 응시
+        클릭이 나가고 → 그 클릭이 다시 재정렬 시계를 0으로 되돌리는 무한 루프라
+        10초를 영영 못 채운다(실측 로그: 27초 동안 응시 클릭 13번, 재정렬 0번).
+        덤으로 응시 클릭의 '한 번 누르면 커서가 반경을 벗어나야 다시 누름' 규칙도
+        같이 지워져서 클릭이 계속 반복됐다. 이제 재정렬 시계만 콕 집어 되돌린다 —
+        head_tracker.reset_recenter_dwell 독스트링 참고."""
+        head_tracker.reset_recenter_dwell()
+
     # 입 판정과 커서 붙잡기 — 세 트래커 공용(src/postprocess/mouth_gesture.py).
     # 예전엔 이 파일 안에 통째로 복사돼 있어서 가상 얼굴로 써 볼 수가 없었다
     mouth = MouthGesture(
@@ -2006,10 +2028,11 @@ def main():
     frame_interval_sec = 1.0 / render_hz
     logger.warning(
         "헤드트래커 시작 — 코끝으로 커서 이동, 입 벌리기/1.5초 응시로 클릭. "
-        "커서는 화면 %s 절반만 사용. 화면 주사율 %dHz · 렌더 %dHz 고정. "
+        "커서는 화면 %s %.0f%%만 사용. 화면 주사율 %dHz · 렌더 %dHz 고정. "
         "콘솔에 p+Enter로 실제 마우스 제어 켜기/끄기, quit+Enter로 종료. "
         "창이 있으면 q/ESC로도 종료.",
-        "하단" if CURSOR_Y_ANCHOR_BOTTOM else "상단", refresh_hz, render_hz,
+        "하단" if CURSOR_Y_ANCHOR_BOTTOM else "상단", CURSOR_Y_SPAN * 100,
+        refresh_hz, render_hz,
     )
     logger.info("Startup %.1fs (interpreter + imports + models)", time.monotonic() - PROCESS_START_SEC)
 

@@ -86,7 +86,7 @@ gesture_kiosk/
 │   └─ pipeline/event_sender.py      # ★ 회사 프로그램 연동 접점 (stdio/console)
 ├─ scripts/                 # calibrate(임계 자동 보정) · pipe_listen · download_weights
 │                           #   · benchmark · smoke_test · eval_accuracy
-├─ tests/                   # 단위 테스트 802건 (카메라·모델 없이 실행 가능)
+├─ tests/                   # 단위 테스트 817건 (카메라·모델 없이 실행 가능)
 ├─ docs/코드설명서.md       # 코드 지도 — 어디서 무엇을 하는지 (2026-08-03)
 └─ docs/TODO.md             # 작업 분해 및 회사 확인 필요 항목
 ```
