@@ -15,7 +15,7 @@ import customtkinter as ctk
 
 from . import (APP_NAME, APP_VERSION, pages_action, pages_manage, pages_tweaks,
                tasks)
-from .core import (CONFIG_PATH, LOG_DIR, Config, Runner, is_admin)
+from .core import (CONFIG_PATH, ICON_PATH, LOG_DIR, Config, Runner, is_admin, log_error)
 from .i18n import t
 from .ui import (ACCENT, ACCENT_DIM, BG, BORDER, DANGER, OK, SIDEBAR, TXT, TXT_DIM, WARN,
                  ConfirmDialog, apply_table_style)
@@ -88,6 +88,11 @@ class SystemCleanerApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
+        if ICON_PATH.exists():
+            try:
+                self.iconbitmap(str(ICON_PATH))   # 호출해야 CTk 기본 아이콘으로 덮이지 않는다
+            except Exception:
+                pass
         apply_table_style()
         self._build_sidebar()
         self._build_content()
@@ -264,6 +269,7 @@ class SystemCleanerApp(ctk.CTk):
             try:
                 result = fn()
             except Exception as e:  # noqa: BLE001
+                log_error(f"bg:{getattr(fn, '__name__', '?')}", e)
                 result = e
             if on_done is not None:
                 self.ui(on_done, result)
@@ -357,7 +363,9 @@ class SystemCleanerApp(ctk.CTk):
             except tasks.Cancelled:
                 self.ui(self._finish, "cancelled", ctx)
             except Exception:  # noqa: BLE001
-                self.ui(self.log, f"\n[FATAL]\n{traceback.format_exc()}", "err")
+                tb = traceback.format_exc()
+                log_error(f"task:{getattr(fn, '__name__', '?')}", tb_text=tb)
+                self.ui(self.log, f"\n[FATAL]\n{tb}", "err")
                 self.ui(self._finish, "failed", ctx)
 
         self.worker = threading.Thread(target=wrapper, daemon=True)
@@ -387,6 +395,16 @@ class SystemCleanerApp(ctk.CTk):
                 self.active_ctx.runner.cancel_current()
             self.log("\n>> CANCEL REQUESTED...", "warn")
             self.set_status(t("cancelled", self.lang), WARN)
+
+    def report_callback_exception(self, exc, val, tb):
+        """버튼·타이머 콜백에서 난 예외. 기본 동작은 stderr 출력인데 exe 에서는 stderr 가
+        없어서 흔적 없이 사라진다. 파일에 남기고 사용자에게도 알린다."""
+        text = "".join(traceback.format_exception(exc, val, tb))
+        path = log_error("tk-callback", tb_text=text)
+        try:
+            self.toast(t("err_logged", self.lang, path=str(path or LOG_DIR)), "err", 9000)
+        except Exception:
+            pass
 
     def _on_close(self):
         self.cancel_event.set()

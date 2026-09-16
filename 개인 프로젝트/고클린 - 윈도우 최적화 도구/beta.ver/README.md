@@ -3,13 +3,19 @@
 고클린(GoClean)을 참고해 만든 윈도우 최적화 도구입니다.
 `alpha.ver` 단일 파일(`legacy/alpha_test1.py`)을 패키지 구조로 다시 만든 **BETA 1.0** 입니다.
 
+**exe 로 바로 쓰기:** `SystemCleaner.exe` 를 더블클릭 (파이썬 설치 불필요, 13 MB 단일 파일)
+
+**소스로 실행:**
+
 ```bash
 pip install -r requirements.txt
 python run.py
 ```
 
-관리자 권한이 없으면 UAC 승격을 한 번 시도하고, 취소하면 `LIMITED` 모드로 그대로 실행됩니다
-(청소·서비스 등 권한이 필요한 기능만 잠깁니다).
+실행하면 관리자 권한을 요청합니다. UAC 에서 '아니요'를 눌러도 앱은 `LIMITED` 모드로 열리고,
+청소·서비스 변경처럼 권한이 필요한 기능만 잠깁니다.
+
+오류가 나면 `%APPDATA%\SystemCleaner\logs\error_YYYYMM.log` 에 기록됩니다.
 
 ---
 
@@ -105,7 +111,9 @@ run.py                     진입점
 system_cleaner/
   __main__.py              권한 승격 + 앱 실행
   core.py                  설정, 프로세스 실행기, 휴지통, 복원 지점, 감사 로그
-  i18n.py                  한/영 문자열 (295개 키)
+  i18n.py                  한/영 문자열
+  selftest.py              읽기 전용 자가 검사 (소스와 exe 공용)
+  assets/icon.ico          앱 아이콘
   scan.py                  임시 파일 · 브라우저 캐시 · 대용량 · 중복 파일
   startup.py               시작 프로그램 (레지스트리 / 시작 폴더 / 작업 스케줄러)
   services.py              윈도우 서비스 + 권장 목록
@@ -127,14 +135,28 @@ legacy/                    alpha 버전 원본
 python tests/smoke_test.py
 ```
 
-삭제·프로세스 종료 계열은 호출하지 않는 읽기 전용 테스트입니다.
-15개 화면 생성, 목록 로딩, 정렬, 언어 전환, 작업 실행, 취소 동작을 확인합니다.
+```bash
+SystemCleaner.exe --selftest 보고서.txt
+```
+
+검사 내용은 `system_cleaner/selftest.py` 한 곳에 있고, **소스와 빌드한 exe 에서 똑같이** 돌립니다.
+exe 로 묶었을 때만 깨지는 것들(번들에서 빠진 테마 파일, 콘솔이 없어 사라지는 예외,
+창 모드 exe 의 subprocess 핸들 문제)을 잡으려고 테스트를 패키지 안에 뒀습니다.
+
+삭제·프로세스 종료·설정 변경은 호출하지 않는 읽기 전용 검사이며 50개 항목을 봅니다 —
+번들 구성, 외부 명령 실행, 승격 명령 구성, 15개 화면 생성, 목록 로딩, 정렬, 언어 전환,
+읽기 전용 작업 실행, 취소, 그리고 **검사 중 오류 로그에 예외가 하나도 안 쌓였는지**.
 
 ## 빌드
 
 ```bash
-pyinstaller system_cleaner.spec
+pyinstaller --noconfirm system_cleaner.spec
 ```
 
-- `uac_admin=True` — 런타임 재실행보다 UAC 승격이 안정적입니다.
+결과물은 `dist\SystemCleaner.exe` 입니다.
+
+- `uac_admin=False` — 매니페스트로 관리자 권한을 강제하면 UAC 를 거절했을 때 앱이 아예 안 켜집니다.
+  앱이 시작할 때 직접 승격을 요청하고, 거절하면 제한 모드로 엽니다.
 - `upx=False` — UPX 압축은 백신 오탐을 크게 늘립니다.
+- 버전 정보 포함 — 파일 속성에 제품명·버전이 보입니다. 버전 정보가 없는 서명 안 된 exe 는 휴리스틱 검사에서 더 의심받습니다.
+- Pillow 제외 — customtkinter 가 선택적으로만 import 하고 이 앱은 쓰지 않아 용량만 늘립니다.

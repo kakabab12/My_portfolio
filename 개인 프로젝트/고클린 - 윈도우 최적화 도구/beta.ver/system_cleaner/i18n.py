@@ -66,6 +66,8 @@ STR: dict[str, tuple[str, str]] = {
     "limited_warn": ("Running without admin rights - some features are disabled.",
                      "관리자 권한이 없어 일부 기능이 비활성화됩니다."),
     "nothing_sel":  ("Nothing selected.", "선택한 항목이 없습니다."),
+    "err_logged":   ("An error occurred and was logged: {path}",
+                     "오류가 발생해 로그에 기록했습니다: {path}"),
     "no_psutil":    ("psutil is required:  pip install psutil",
                      "psutil 이 필요합니다:  pip install psutil"),
 

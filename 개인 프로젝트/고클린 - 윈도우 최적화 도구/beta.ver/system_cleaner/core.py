@@ -28,22 +28,38 @@ def is_admin() -> bool:
         return False
 
 
-def relaunch_as_admin() -> bool:
-    """UAC 승격 재실행. 성공하면 True (호출부에서 현재 프로세스를 끝내야 한다).
+def is_frozen() -> bool:
+    """PyInstaller 로 빌드된 exe 로 실행 중인가."""
+    return bool(getattr(sys, "frozen", False))
+
+
+def elevation_command() -> tuple[str, str]:
+    """(실행 파일, 인자 문자열). 테스트할 수 있게 relaunch_as_admin 에서 분리했다.
 
     ' '.join(sys.argv) 로 인자를 만들면 경로에 공백이 있을 때 쪼개진다.
-    list2cmdline 으로 제대로 인용하고, PyInstaller frozen 여부도 구분한다.
+    exe 로 빌드하면 sys.executable 이 exe 자신이라, 스크립트 경로를 끼워 넣으면
+    exe 가 자기 경로를 인자로 받는 이상한 실행이 된다.
     """
+    if is_frozen():
+        return sys.executable, subprocess.list2cmdline(sys.argv[1:])
+    return sys.executable, subprocess.list2cmdline(
+        [os.path.abspath(sys.argv[0])] + sys.argv[1:])
+
+
+def relaunch_as_admin() -> bool:
+    """UAC 승격 재실행. 성공하면 True (호출부에서 현재 프로세스를 끝내야 한다)."""
     try:
-        if getattr(sys, "frozen", False):
-            target, params = sys.executable, subprocess.list2cmdline(sys.argv[1:])
-        else:
-            target = sys.executable
-            params = subprocess.list2cmdline([os.path.abspath(sys.argv[0])] + sys.argv[1:])
+        target, params = elevation_command()
         rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", target, params, os.getcwd(), 1)
-        return int(rc) > 32
+        return int(rc) > 32   # 사용자가 UAC 를 취소하면 5(SE_ERR_ACCESSDENIED)
     except Exception:
         return False
+
+
+# 아이콘 등 패키지 안의 리소스. PyInstaller 도 모듈의 __file__ 을 _MEIPASS 기준으로
+# 채워주므로 소스 실행과 exe 실행에서 같은 코드로 찾을 수 있다.
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+ICON_PATH = ASSETS_DIR / "icon.ico"
 
 
 # =====================================================================
@@ -131,6 +147,34 @@ def audit(action: str, detail: str = ""):
                 f.write(line)
     except Exception:
         pass
+
+
+# 이번 실행에서 기록된 오류 (자가 검사가 '조용히 삼켜진 오류'까지 잡아내는 데 쓴다)
+ERROR_RECORDS: list[str] = []
+
+
+def log_error(where: str, exc: BaseException | None = None, tb_text: str = "") -> Path | None:
+    """예외를 파일로 남긴다.
+
+    console=False 로 빌드한 exe 는 sys.stderr 가 None 이라, 버튼 콜백에서 난 예외가
+    화면에도 콘솔에도 안 남고 그냥 사라진다. 사용자가 '가끔 버튼이 안 먹는다'고만
+    느끼게 되므로 반드시 파일로 남긴다.
+    """
+    import traceback
+
+    if not tb_text and exc is not None:
+        tb_text = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    ERROR_RECORDS.append(f"{where}: {tb_text.strip().splitlines()[-1] if tb_text else ''}")
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        path = LOG_DIR / f"error_{datetime.now():%Y%m}.log"
+        with _log_lock:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(f"===== {datetime.now():%Y-%m-%d %H:%M:%S}  [{where}]  "
+                        f"frozen={is_frozen()}  admin={is_admin()}\n{tb_text}\n")
+        return path
+    except Exception:
+        return None
 
 
 def save_backup(name: str, payload) -> Path | None:
