@@ -7,7 +7,6 @@ wmic 은 Windows 11 24H2 부터 OS 에서 기본 제거되었다.
 
 from __future__ import annotations
 
-import json
 import re
 import socket
 import statistics

@@ -9,13 +9,14 @@ Explorer\\StartupApproved 키에 비활성 플래그를 써서 처리한다.
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import winreg
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .core import Runner, audit, is_admin, save_backup, send_to_recycle_bin
+from .core import BACKUP_DIR, Runner, audit, is_admin, save_backup, send_to_recycle_bin
 
 # (표시용 위치, 루트 키, 서브키, StartupApproved 서브키, 32비트 뷰 여부)
 _RUN_KEYS = [
@@ -249,15 +250,14 @@ def set_enabled(entry: StartupEntry, enabled: bool, runner: Runner | None = None
         return False, "관리자 권한 필요"
 
     if entry.kind == "task":
-        if runner is None:
-            return False, "runner 없음"
+        runner = runner or Runner()
         verb = "Enable-ScheduledTask" if enabled else "Disable-ScheduledTask"
         r = runner.powershell(
-            f'{verb} -TaskName "{entry.name}" -TaskPath "{entry.task_path}" | Out-Null', timeout=45)
+            f"{verb} {_task_args(entry)} -ErrorAction Stop | Out-Null", timeout=45)
         if r.ok:
             audit("startup.task", f"{entry.name} -> {'enabled' if enabled else 'disabled'}")
             return True, ""
-        return False, str(r)
+        return False, _first_line(r)
 
     value_name = entry.name if entry.kind == "registry" else Path(entry.source).name
     if not entry.approved_key:
@@ -269,7 +269,48 @@ def set_enabled(entry: StartupEntry, enabled: bool, runner: Runner | None = None
     return False, "레지스트리 쓰기 실패"
 
 
-def delete_entry(entry: StartupEntry) -> tuple[bool, str]:
+def _ps_quote(text: str) -> str:
+    """PowerShell 작은따옴표 문자열. 큰따옴표는 $ 가 변수로 풀려 이름에 따라 깨진다."""
+    return "'" + (text or "").replace("'", "''") + "'"
+
+
+def _task_args(entry: StartupEntry) -> str:
+    return f"-TaskName {_ps_quote(entry.name)} -TaskPath {_ps_quote(entry.task_path or chr(92))}"
+
+
+def _first_line(r) -> str:
+    text = (r.err or r.out or "").strip()
+    return text.splitlines()[0][:200] if text else str(r)
+
+
+def delete_task(entry: StartupEntry, runner: Runner | None = None) -> tuple[bool, str]:
+    """작업 스케줄러 항목 삭제. 먼저 XML 로 내보내 백업하고, 백업에 실패하면 지우지 않는다.
+
+    되돌리기:  Register-ScheduledTask -Xml (Get-Content '<백업.xml>' -Raw) -TaskName '<이름>'
+    """
+    runner = runner or Runner()
+    exported = runner.powershell(f"Export-ScheduledTask {_task_args(entry)} -ErrorAction Stop",
+                                 timeout=60)
+    if not exported.ok or "<Task" not in exported.out:
+        return False, "작업 정의를 백업하지 못해 삭제하지 않았습니다: " + _first_line(exported)
+    try:
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        safe = re.sub(r'[\\/:*?"<>|]+', "_", entry.name)[:60]
+        xml_path = BACKUP_DIR / f"task_{safe}_{datetime.now():%Y%m%d_%H%M%S}.xml"
+        xml_path.write_text(exported.out, encoding="utf-16")   # Export-ScheduledTask 형식과 동일
+    except OSError as e:
+        return False, f"작업 정의를 백업하지 못해 삭제하지 않았습니다: {e}"
+
+    removed = runner.powershell(
+        f"Unregister-ScheduledTask {_task_args(entry)} -Confirm:$false -ErrorAction Stop",
+        timeout=60)
+    if removed.ok:
+        audit("startup.task.delete", f"{entry.task_path}{entry.name} :: backup={xml_path}")
+        return True, str(xml_path)
+    return False, _first_line(removed)
+
+
+def delete_entry(entry: StartupEntry, runner: Runner | None = None) -> tuple[bool, str]:
     if entry.needs_admin and not is_admin():
         return False, "관리자 권한 필요"
 
@@ -281,7 +322,9 @@ def delete_entry(entry: StartupEntry) -> tuple[bool, str]:
         return False, "휴지통으로 옮기지 못했습니다"
 
     if entry.kind == "task":
-        return False, "작업 스케줄러 항목은 삭제 대신 '사용 안 함'을 쓰세요"
+        # 예전엔 작업 스케줄러 항목을 삭제 대상에서 조용히 빼서,
+        # 선택하고 삭제를 누르면 '선택한 항목이 없습니다'라고 떴다
+        return delete_task(entry, runner)
 
     try:
         with winreg.OpenKey(entry.hive, entry.subkey, 0, winreg.KEY_SET_VALUE) as k:

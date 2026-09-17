@@ -6,7 +6,6 @@ from __future__ import annotations
 import os
 import re
 import shutil
-import sys
 import threading
 import time
 import webbrowser
@@ -25,6 +24,48 @@ except ImportError:
 
 class Cancelled(Exception):
     """사용자가 취소 버튼을 눌렀을 때."""
+
+
+class QuietContext:
+    """상태 표시줄·터미널을 건드리지 않는 조용한 컨텍스트.
+
+    대시보드 점검처럼 읽기만 하는 작업용이다. 이런 작업이 공용 작업 칸(run_task)을
+    차지하면, 앱을 켜자마자 다른 기능을 눌렀을 때 '진행 중'으로 거절된다.
+    """
+
+    def __init__(self, app, cancel: threading.Event | None = None):
+        self.app = app
+        self.cancel = cancel or threading.Event()
+        self.runner = Runner()
+        self.errors: list[str] = []
+
+    lang = property(lambda self: self.app.lang)
+    cfg = property(lambda self: self.app.cfg)
+
+    def t(self, key, **kw) -> str:
+        return t(key, self.lang, **kw)
+
+    def begin(self, total_steps: int):
+        pass
+
+    def step(self, label: str = ""):
+        self.check()
+
+    def progress(self, fraction: float):
+        pass
+
+    def check(self):
+        if self.cancel.is_set():
+            raise Cancelled()
+
+    def log(self, msg: str, tag: str = "info"):
+        pass
+
+    def summary(self, title, rows):
+        pass
+
+    def fail(self, item: str, detail: str = ""):
+        self.errors.append(item if not detail else f"{item}: {detail}")
 
 
 class TaskContext:
@@ -127,15 +168,15 @@ class CleanPlan:
     total: int = 0
 
 
-def scan_clean(ctx: TaskContext) -> CleanPlan:
-    """삭제하지 않고 대상 크기만 잰다."""
+def scan_clean(ctx: TaskContext, share: float = 1.0) -> CleanPlan:
+    """삭제하지 않고 대상 크기만 잰다. share: 전체 진행률 중 검사가 차지하는 비율."""
     ctx.log(ctx.t("clean_scan"), "dim")
     targets = scan.build_clean_targets(ctx.cfg, ctx.lang)
     if not targets:
         return CleanPlan([], 0)
 
     def on_progress(frac, tgt):
-        ctx.progress(frac)
+        ctx.progress(frac * share)
 
     total = scan.measure_targets(targets, ctx.cancel, on_progress)
     ctx.check()
@@ -151,7 +192,8 @@ def scan_clean(ctx: TaskContext) -> CleanPlan:
 def task_clean(ctx: TaskContext):
     """검사 -> 확인 -> 삭제 -> 부가 최적화."""
     ctx.begin(7)
-    plan = scan_clean(ctx)
+    # 검사가 막대를 100% 까지 채웠다가 첫 단계에서 14% 로 되돌아가던 것을 막는다
+    plan = scan_clean(ctx, share=1 / 7)
     if not plan.targets:
         ctx.log(ctx.t("v_none"), "warn")
         return
@@ -615,38 +657,39 @@ def collect_health(ctx: TaskContext, deep: bool = True) -> Health:
         ctx.step("Scoring")
 
     # --- 점수/조언 ---
+    # 조언은 번역된 문장이 아니라 (분류, 문자열 키, 값) 으로 남긴다.
+    # 문장으로 저장하면 검사 뒤 언어를 바꿔도 검사할 때 언어로 남는다.
     score = 100
-    L = ctx.lang
     for v in h.volumes:
         if v.size and v.percent_free < 15:
             score -= 20 if v.percent_free < 8 else 10
-            h.advice.append(("disk", t("adv_disk_low", L, d=v.letter, p=v.percent_free)))
+            h.advice.append(("disk", "adv_disk_low", dict(d=v.letter, p=v.percent_free)))
     if h.junk_bytes > 2 * 1024 ** 3:
         score -= 10
-        h.advice.append(("clean", t("adv_junk", L, s=human_bytes(h.junk_bytes))))
+        h.advice.append(("clean", "adv_junk", dict(s=human_bytes(h.junk_bytes))))
     elif h.junk_bytes > 512 * 1024 ** 2:
         score -= 5
-        h.advice.append(("clean", t("adv_junk", L, s=human_bytes(h.junk_bytes))))
+        h.advice.append(("clean", "adv_junk", dict(s=human_bytes(h.junk_bytes))))
     if h.startup_count > 10:
         score -= 10
-        h.advice.append(("startup", t("adv_startup", L, n=h.startup_count)))
+        h.advice.append(("startup", "adv_startup", dict(n=h.startup_count)))
     if h.startup_broken:
         score -= 3
-        h.advice.append(("startup", t("adv_broken_startup", L, n=h.startup_broken)))
+        h.advice.append(("startup", "adv_broken_startup", dict(n=h.startup_broken)))
     if h.ram_percent >= 85:
         score -= 10
-        h.advice.append(("memory", t("adv_ram", L, p=int(h.ram_percent))))
+        h.advice.append(("memory", "adv_ram", dict(p=int(h.ram_percent))))
     days = int(h.uptime // 86400)
     if days >= 7:
         score -= 5
-        h.advice.append(("system", t("adv_uptime", L, d=days)))
+        h.advice.append(("system", "adv_uptime", dict(d=days)))
     if h.bin_bytes > 1024 ** 3:
         score -= 3
-        h.advice.append(("clean", t("adv_bin", L, s=human_bytes(h.bin_bytes))))
+        h.advice.append(("clean", "adv_bin", dict(s=human_bytes(h.bin_bytes))))
     for d in h.disks:
         if not d.healthy:
             score -= 25
-            h.advice.append(("disk", t("adv_disk_bad", L, n=d.name, h=d.health)))
+            h.advice.append(("disk", "adv_disk_bad", dict(n=d.name, h=d.health)))
 
     h.score = max(0, min(100, score))
     return h

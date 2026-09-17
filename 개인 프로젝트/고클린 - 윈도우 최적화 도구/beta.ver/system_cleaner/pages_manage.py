@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import os
-import threading
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog
@@ -12,10 +11,10 @@ from tkinter import filedialog
 import customtkinter as ctk
 
 from . import procs, programs, scan, services, startup, sysinfo
-from .core import (Runner, human_bytes, is_admin, open_in_explorer,
+from .core import (BACKUP_DIR, Runner, human_bytes, is_admin, open_in_explorer,
                    send_to_recycle_bin)
-from .ui import (ACCENT, BORDER, CARD, DANGER, OK, TXT, TXT_DIM, WARN,
-                 DataTable, Page, StatCard, toolbar_button)
+from .ui import (ACCENT, DANGER, OK, TXT_DIM, WARN, DataTable, Page, StatCard,
+                 toolbar_button)
 
 
 class TablePage(Page):
@@ -57,6 +56,10 @@ class TablePage(Page):
     def reload(self):
         pass
 
+    def rerender(self):
+        """언어만 바뀌었을 때. 기본은 다시 불러오기, 데이터를 들고 있는 화면은 다시 그리기만."""
+        self.reload()
+
     # --- 도구 ---
     def add_button(self, bar, key, command, kind="ghost", width=110, pad=(0, 0)):
         btn = toolbar_button(bar, self.t(key), command, kind, width)
@@ -71,11 +74,55 @@ class TablePage(Page):
         items = self.table.checked_payloads()
         return items or self.table.selected_payloads()
 
+    def target_or_warn(self):
+        item = self.table.target_payload()
+        if item is None:
+            self.set_status(self.t("nothing_sel"), WARN)
+        return item
+
+    def run_actions(self, work, done):
+        """시스템을 바꾸는 동작은 백그라운드에서 한다.
+
+        화면 스레드에서 PowerShell 을 기다리면 서비스 하나당 수십 초씩
+        '응답 없음' 상태가 된다.
+        """
+        self.set_status(self.t("working"), TXT_DIM)
+        for btn, _key in self._buttons:
+            btn.configure(state="disabled")
+
+        def finished(result):
+            for btn, _key in self._buttons:
+                btn.configure(state="normal")
+            if isinstance(result, Exception):
+                self.set_status(str(result), DANGER)
+                return
+            done(result)
+
+        self.app.run_bg(work, finished)
+
+    def reload_then(self, message: str, color: str):
+        """새로고침이 끝난 뒤에 결과 메시지를 보여준다.
+
+        먼저 보여주면 새로고침이 끝나는 순간 '총 N개' 문구에 곧바로 덮인다.
+        """
+        self._pending_status = (message, color)
+        self.reload()
+
+    def show_pending_or(self, text: str, color: str = TXT_DIM):
+        pending = getattr(self, "_pending_status", None)
+        if pending:
+            self._pending_status = None
+            self.set_status(*pending)
+        else:
+            self.set_status(text, color)
+
     def retranslate(self):
         super().retranslate()
         for btn, key in self._buttons:
             btn.configure(text=self.t(key))
-        self.reload()
+        self.table.set_headings(self.make_columns())
+        self.set_status("")          # 이전 언어로 남아 있는 안내 문구 지우기
+        self.rerender()
 
 
 # =====================================================================
@@ -85,6 +132,11 @@ class StartupPage(TablePage):
     key = "startup"
     title_key = "startup_title"
     desc_key = "startup_desc"
+
+    def __init__(self, app, **kw):
+        self._entries: list = []
+        self._loading = False
+        super().__init__(app, **kw)
 
     def make_columns(self):
         return [("name", self.t("col_name"), 200, "w"),
@@ -99,15 +151,29 @@ class StartupPage(TablePage):
         self.add_button(bar, "btn_delete", self.delete, "danger", pad=(8, 0))
         self.add_button(bar, "btn_open", self.open_location, "ghost", width=130, pad=(8, 0))
 
+    def on_show(self):
+        # 처음 열었을 때 표가 비어 있던 문제: 이 화면만 on_show 에서 불러오지 않았다
+        if not self._entries and not self._loading:
+            self.reload()
+
     def reload(self):
         # 작업 스케줄러 조회에 PowerShell 이 필요해 UI 스레드에서 하면 몇 초 멈춘다
+        self._loading = True
         self.set_status("...")
         self.app.run_bg(lambda: startup.list_startup(Runner()), self._apply)
 
+    def rerender(self):
+        if self._entries:
+            self._apply(self._entries)
+        else:
+            self.reload()
+
     def _apply(self, entries):
+        self._loading = False
         if isinstance(entries, Exception):
             self.set_status(str(entries), DANGER)
             return
+        self._entries = entries
         rows, tags = [], {}
         for i, e in enumerate(entries):
             status = self.t("st_enabled") if e.enabled else self.t("st_disabled")
@@ -119,7 +185,7 @@ class StartupPage(TablePage):
             rows.append((e, (e.name, status, e.location, e.command)))
         self.table.set_rows(rows, tags)
         enabled = sum(1 for e in entries if e.enabled)
-        self.set_status(self.t("startup_count", n=len(entries), e=enabled))
+        self.show_pending_or(self.t("startup_count", n=len(entries), e=enabled))
 
     def apply(self, enable: bool):
         items = self.checked_or_selected()
@@ -128,45 +194,55 @@ class StartupPage(TablePage):
             return
         if any(e.needs_admin for e in items) and not self.app.require_admin():
             return
-        ok = fail = 0
-        problems = []
-        for e in items:
-            good, detail = startup.set_enabled(e, enable, self.app.shared_runner)
-            if good:
-                ok += 1
-            else:
-                fail += 1
-                problems.append(f"{e.name}: {detail}")
-        self.reload()
-        msg = f"{ok} {self.t('v_ok')}" + (f" / {fail} {self.t('v_failed')}" if fail else "")
-        self.set_status(msg, WARN if fail else OK)
-        if problems:
-            self.app.toast(problems[0], "warn")
+
+        def work():
+            runner = Runner()
+            return [(e, *startup.set_enabled(e, enable, runner)) for e in items]
+
+        def done(results):
+            fails = [f"{e.name}: {d}" for e, good, d in results if not good]
+            ok = len(results) - len(fails)
+            msg = f"{ok} {self.t('v_ok')}" + (
+                f" / {len(fails)} {self.t('v_failed')} - {fails[0]}" if fails else "")
+            self.reload_then(msg, WARN if fails else OK)
+
+        self.run_actions(work, done)
 
     def delete(self):
-        items = [e for e in self.checked_or_selected() if e.kind != "task"]
+        # 예전엔 작업 스케줄러 항목을 여기서 걸러내서, 그런 항목만 선택하고 삭제를 누르면
+        # 실제로는 선택했는데도 '선택한 항목이 없습니다'가 떴다 (예: KMS_Activation)
+        items = self.checked_or_selected()
         if not items:
             self.set_status(self.t("nothing_sel"), WARN)
             return
         if any(e.needs_admin for e in items) and not self.app.require_admin():
             return
-        backup = startup.backup_entries(items)
+        warn = self.t("backup_note", p=BACKUP_DIR)
+        if any(e.kind == "task" for e in items):
+            warn += "\n" + self.t("startup_task_backup")
         ok = self.app.confirm(
             self.t("startup_del_q", n=len(items)),
             "\n".join(f"· {e.name}  [{e.location}]" for e in items[:12]),
-            warn=self.t("startup_backup", p=backup) if backup else None,
-            danger=True)
+            warn=warn, danger=True)
         if not ok:
             return
-        done = 0
-        for e in items:
-            good, _ = startup.delete_entry(e)
-            done += 1 if good else 0
-        self.reload()
-        self.set_status(f"{done} / {len(items)} {self.t('v_ok')}", OK)
+        startup.backup_entries(items)        # 취소했을 때 백업 파일만 쌓이지 않도록 확인 뒤에
+
+        def work():
+            runner = Runner()
+            return [(e, *startup.delete_entry(e, runner)) for e in items]
+
+        def done(results):
+            fails = [f"{e.name}: {detail}" for e, good, detail in results if not good]
+            ok_n = len(results) - len(fails)
+            self.reload_then(f"{ok_n} / {len(results)} {self.t('v_ok')}"
+                             + (f" - {fails[0]}" if fails else ""),
+                             WARN if fails else OK)
+
+        self.run_actions(work, done)
 
     def open_location(self):
-        entry = self.table.focused_payload()
+        entry = self.target_or_warn()
         if entry is None:
             return
         target = startup.extract_target(entry.command) if entry.kind != "folder" else entry.source
@@ -187,6 +263,7 @@ class ProcessPage(TablePage):
     desc_key = "proc_desc"
 
     def __init__(self, app, **kw):
+        self._items: list = []
         super().__init__(app, **kw)
         self._timer = None
 
@@ -232,10 +309,17 @@ class ProcessPage(TablePage):
     def reload(self):
         self.app.run_bg(lambda: procs.list_processes(sample_cpu=True), self._apply)
 
+    def rerender(self):
+        if self._items:
+            self._apply(self._items)
+        else:
+            self.reload()
+
     def _apply(self, items):
         if isinstance(items, Exception):
             self.set_status(str(items), DANGER)
             return
+        self._items = items
         rows, tags, sorts = [], {}, []
         for i, p in enumerate(items):
             rows.append((p, (p.name, p.pid, human_bytes(p.memory), f"{p.cpu:.1f}%",
@@ -247,7 +331,7 @@ class ProcessPage(TablePage):
                 tags[i] = "warn"
         self.table.set_rows(rows, tags, sort_values=sorts)
         total = sum(p.memory for p in items)
-        self.set_status(self.t("proc_count", n=len(items), m=human_bytes(total)))
+        self.show_pending_or(self.t("proc_count", n=len(items), m=human_bytes(total)))
 
     def kill(self):
         items = self.checked_or_selected()
@@ -267,14 +351,18 @@ class ProcessPage(TablePage):
             danger=True)
         if not ok:
             return
-        closed, failed = procs.close_processes(targets)
-        self.reload()
-        self.set_status(f"{closed} / {len(targets)} {self.t('v_ok')}"
-                        + (f" · {', '.join(sorted(set(failed))[:3])}" if failed else ""),
-                        WARN if failed else OK)
+
+        def done(result):
+            closed, failed = result
+            self.reload_then(f"{closed} / {len(targets)} {self.t('v_ok')}"
+                             + (f" · {', '.join(sorted(set(failed))[:3])}" if failed else ""),
+                             WARN if failed else OK)
+
+        # 정상 종료를 기다리는 데 최대 10초 - 화면 스레드에서 기다리면 '응답 없음'
+        self.run_actions(lambda: procs.close_processes(targets), done)
 
     def open_location(self):
-        item = self.table.focused_payload()
+        item = self.target_or_warn()
         if item is not None and item.exe:
             open_in_explorer(item.exe)
 
@@ -316,7 +404,7 @@ class ServicePage(TablePage):
         self._sync_filter_label()
 
     def _sync_filter_label(self):
-        self.only_box.configure(text="권장 항목만" if self.lang == "KO" else "Optional only")
+        self.only_box.configure(text=self.t("svc_filter"))
 
     def on_show(self):
         if not self._all:
@@ -325,6 +413,12 @@ class ServicePage(TablePage):
     def reload(self):
         self.set_status("...")
         self.app.run_bg(services.list_services, self._apply)
+
+    def rerender(self):
+        if self._all:
+            self._render()
+        else:
+            self.reload()
 
     def _apply(self, items):
         if isinstance(items, Exception):
@@ -357,7 +451,7 @@ class ServicePage(TablePage):
                 tags[i] = "warn"
         self.table.set_rows(rows, tags)
         running = sum(1 for s in self._all if s.running)
-        self.set_status(self.t("svc_count", n=len(self._all), r=running))
+        self.show_pending_or(self.t("svc_count", n=len(self._all), r=running))
 
     def control(self, action: str):
         items = self.checked_or_selected()
@@ -366,19 +460,20 @@ class ServicePage(TablePage):
             return
         if not self.app.require_admin():
             return
-        ok = fail = 0
-        last = ""
-        for s in items:
-            good, detail = services.control(self.app.shared_runner, s, action)
-            if good:
-                ok += 1
-            else:
-                fail += 1
-                last = detail
-        self.reload()
-        self.set_status(f"{ok} {self.t('v_ok')}"
-                        + (f" / {fail} {self.t('v_failed')} - {last}" if fail else ""),
-                        WARN if fail else OK)
+
+        def work():
+            runner = Runner()
+            return [services.control(runner, s, action) for s in items]
+
+        self.run_actions(work, self._report)
+
+    def _report(self, results):
+        fails = [d for good, d in results if not good]
+        ok = len(results) - len(fails)
+        self.reload_then(f"{ok} {self.t('v_ok')}"
+                         + (f" / {len(fails)} {self.t('v_failed')} - {fails[-1]}"
+                            if fails else ""),
+                         WARN if fails else OK)
 
     def set_type(self, start: str):
         items = self.checked_or_selected()
@@ -389,26 +484,19 @@ class ServicePage(TablePage):
             return
         label = {"auto": self.t("svc_auto"), "manual": self.t("svc_manual"),
                  "disabled": self.t("svc_dis")}[start]
-        services.backup_services(self._all)
         ok = self.app.confirm(
             self.t("svc_set_q", n=len(items), m=label),
             "\n".join(f"· {s.display}" for s in items[:12]),
-            danger=(start == "disabled"))
+            warn=self.t("backup_note", p=BACKUP_DIR), danger=(start == "disabled"))
         if not ok:
             return
-        good_n = fail_n = 0
-        last = ""
-        for s in items:
-            good, detail = services.set_start_type(self.app.shared_runner, s, start)
-            if good:
-                good_n += 1
-            else:
-                fail_n += 1
-                last = detail
-        self.reload()
-        self.set_status(f"{good_n} {self.t('v_ok')}"
-                        + (f" / {fail_n} {self.t('v_failed')} - {last}" if fail_n else ""),
-                        WARN if fail_n else OK)
+        services.backup_services(self._all)   # 취소했을 때 백업 파일만 쌓이지 않도록 확인 뒤에
+
+        def work():
+            runner = Runner()
+            return [services.set_start_type(runner, s, start) for s in items]
+
+        self.run_actions(work, self._report)
 
     def retranslate(self):
         self._sync_filter_label()
@@ -439,7 +527,8 @@ class ProgramsPage(TablePage):
         self.add_button(bar, "btn_refresh", self.reload, "accent")
         self.add_button(bar, "btn_uninstall", self.uninstall, "danger", width=120, pad=(8, 0))
         self.add_button(bar, "btn_open", self.open_location, "ghost", width=130, pad=(8, 0))
-        self.search = ctk.CTkEntry(bar, width=200, height=32, placeholder_text="search...",
+        self.search = ctk.CTkEntry(bar, width=200, height=32,
+                                   placeholder_text=self.t("prog_search"),
                                    fg_color="#1a1a1a", border_color="#3d3d3d")
         self.search.pack(side="left", padx=(14, 0))
         self.search.bind("<KeyRelease>", lambda _e: self._render())
@@ -451,6 +540,13 @@ class ProgramsPage(TablePage):
     def reload(self):
         self.set_status("...")
         self.app.run_bg(programs.list_programs, self._apply)
+
+    def rerender(self):
+        self.search.configure(placeholder_text=self.t("prog_search"))
+        if self._all:
+            self._render()
+        else:
+            self.reload()
 
     def _apply(self, items):
         if isinstance(items, Exception):
@@ -479,7 +575,7 @@ class ProgramsPage(TablePage):
             self.set_status(self.t("nothing_sel"), WARN)
             return
         if not prog.removable:
-            self.app.toast("제거 명령이 등록되어 있지 않습니다", "warn")
+            self.set_status(self.t("prog_no_cmd"), WARN)
             return
         ok = self.app.confirm(self.t("prog_run_q", n=prog.name),
                               f"{prog.publisher}  {prog.version}\n"
@@ -493,9 +589,9 @@ class ProgramsPage(TablePage):
             self.set_status(detail, DANGER)
 
     def open_location(self):
-        prog = self.table.focused_payload()
+        prog = self.target_or_warn()
         if prog is not None and not programs.open_location(prog):
-            self.app.toast(self.t("v_notfound"), "warn")
+            self.set_status(f"{prog.name}: {self.t('v_notfound')}", WARN)
 
     def on_double(self, payload):
         self.uninstall()
@@ -517,8 +613,10 @@ class _FileScanPage(TablePage):
                                          height=32, fg_color="#1a1a1a",
                                          border_color="#3d3d3d")
         self.folder_entry.pack(side="left", padx=(14, 0))
-        toolbar_button(bar, self.t("big_browse"), self.browse, "ghost",
-                       width=90).pack(side="left", padx=(6, 0))
+        self.btn_browse = toolbar_button(bar, self.t("big_browse"), self.browse, "ghost",
+                                         width=90)
+        self.btn_browse.pack(side="left", padx=(6, 0))
+        self._buttons.append((self.btn_browse, "big_browse"))
         if with_size:
             self.size_var = ctk.StringVar(value=str(self.app.cfg["large_file_min_mb"]))
             ctk.CTkEntry(bar, textvariable=self.size_var, width=70, height=32,
@@ -544,8 +642,12 @@ class _FileScanPage(TablePage):
     def start_scan(self):
         raise NotImplementedError
 
+    def rerender(self):
+        pass                     # 검사 결과 목록은 언어와 무관
+
     def delete_checked(self):
-        items = self.table.checked_payloads()
+        # 체크만 보던 탓에 줄을 클릭하고 삭제를 누르면 '선택한 항목이 없습니다'가 나왔다
+        items = self.checked_or_selected()
         paths = [self._path_of(i) for i in items]
         paths = [p for p in paths if p]
         if not paths:
@@ -566,7 +668,7 @@ class _FileScanPage(TablePage):
         pass
 
     def open_location(self):
-        item = self.table.focused_payload()
+        item = self.target_or_warn()
         path = self._path_of(item) if item is not None else None
         if path:
             open_in_explorer(path)
@@ -603,17 +705,17 @@ class BigFilesPage(_FileScanPage):
         except ValueError:
             min_mb = 100
         self.app.cfg["large_file_min_mb"] = min_mb
-        self._root, self._min_bytes = root, min_mb * 1024 * 1024
+        self._scan_dir, self._min_bytes = root, min_mb * 1024 * 1024
         self.app.run_task(self._scan_task, page=self, status_key="busy")
 
     def _scan_task(self, ctx):
         ctx.begin(1)
-        ctx.log(f">> {self._root}  (>= {human_bytes(self._min_bytes)})")
+        ctx.log(f">> {self._scan_dir}  (>= {human_bytes(self._min_bytes)})")
 
         def progress(cur, found):
             ctx.check()
 
-        hits = scan.find_large_files(self._root, self._min_bytes, ctx.cancel,
+        hits = scan.find_large_files(self._scan_dir, self._min_bytes, ctx.cancel,
                                      limit=800, progress=progress)
         ctx.progress(1.0)
         ctx.app.ui(self._apply, hits)
@@ -656,19 +758,19 @@ class DuplicatesPage(_FileScanPage):
             min_mb = max(1, int(float(self.size_var.get())))
         except ValueError:
             min_mb = 1
-        self._root, self._min_bytes = root, min_mb * 1024 * 1024
+        self._scan_dir, self._min_bytes = root, min_mb * 1024 * 1024
         self.app.run_task(self._scan_task, page=self, status_key="busy")
 
     def _scan_task(self, ctx):
         ctx.begin(1)
-        ctx.log(f">> {self._root}  (>= {human_bytes(self._min_bytes)})")
+        ctx.log(f">> {self._scan_dir}  (>= {human_bytes(self._min_bytes)})")
 
         def progress(stage, done, total):
             ctx.check()
             if total:
                 ctx.progress(min(0.95, done / total))
 
-        groups = scan.find_duplicates(self._root, self._min_bytes, ctx.cancel, progress)
+        groups = scan.find_duplicates(self._scan_dir, self._min_bytes, ctx.cancel, progress)
         ctx.progress(1.0)
         ctx.app.ui(self._apply, groups)
 
@@ -719,6 +821,7 @@ class DiskPage(TablePage):
         self.table.grid_configure(row=3)
         self.status.grid_configure(row=4)
         self._cards = []
+        self._last = None
 
     def make_columns(self):
         return [("letter", self.t("col_name"), 80, "center"),
@@ -739,6 +842,11 @@ class DiskPage(TablePage):
     def reload(self):
         self.app.run_task(self._task, page=self, status_key="busy")
 
+    def rerender(self):
+        # 언어만 바꿨는데 디스크를 다시 조회하면, 다른 작업 중일 때 '진행 중' 경고가 뜬다
+        if self._last is not None:
+            self._apply(*self._last)
+
     def _task(self, ctx):
         ctx.begin(2)
         ctx.step("Disks")
@@ -748,6 +856,7 @@ class DiskPage(TablePage):
         ctx.app.ui(self._apply, disks, vols)
 
     def _apply(self, disks, vols):
+        self._last = (disks, vols)
         for card in self._cards:
             card.destroy()
         self._cards = []
@@ -781,7 +890,5 @@ class DiskPage(TablePage):
 
         note = ""
         if not is_admin() and disks and all(d.temperature is None for d in disks):
-            note = ("S.M.A.R.T. 상세 값(온도·마모도)은 관리자 권한이 필요합니다."
-                    if self.lang == "KO"
-                    else "Detailed S.M.A.R.T. values need administrator rights.")
+            note = self.t("disk_smart_admin")
         self.set_status(note, WARN if note else TXT_DIM)

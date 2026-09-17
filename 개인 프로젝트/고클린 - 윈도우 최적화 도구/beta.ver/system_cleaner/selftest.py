@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import sys
 import tempfile
 import time
@@ -191,7 +192,37 @@ def _scenario(app, r: _Result):
     def rows(key):
         return len(app.pages[key].table.all_payloads())
 
+    dash = app.pages["dashboard"]
+    hangul = re.compile(r"[\uac00-\ud7a3]")
+
+    # 하트비트로 화면 멈춤을 잰다 (0.8초 넘게 이벤트 루프가 못 돌면 멈춘 것)
+    beat = {"last": time.time(), "worst": 0.0, "where": "", "label": "시작"}
+
+    def heartbeat():
+        now = time.time()
+        gap = now - beat["last"]
+        if gap > beat["worst"]:
+            beat["worst"], beat["where"] = gap, beat["label"]
+        beat["last"] = now
+        app.after(50, heartbeat)
+
+    app.after(50, heartbeat)
+
+    def stall_since(label):
+        beat["worst"], beat["where"], beat["label"] = 0.0, "", label
+
     yield 0.5
+
+    r.say("== 실행 직후 ==")
+    # 회귀: 켜자마자 대시보드 자동 점검이 작업 칸을 차지해서, 그 사이 '내 PC 정보'를
+    # 열면 조용히 거절되고 빈 화면으로 남았다.
+    r.check(dash._auto_scanned and app.worker is None,
+            "대시보드 자동 점검이 공용 작업 칸을 차지하지 않음")
+    app.show_page("info")
+    yield Wait(lambda: "CPU" in app.pages["info"].terminal.text(), 120, "실행 직후 내 PC 정보")
+    r.check("CPU" in app.pages["info"].terminal.text(),
+            "켜자마자 연 '내 PC 정보'가 빈 화면으로 남지 않음")
+    yield Wait(lambda: idle() and not dash.is_scanning(), 180, "자동 점검 종료")
 
     r.say("== 오류 기록 장치 ==")
     # 일부러 콜백에서 예외를 내서, exe 에서도 파일로 남는지 본다.
@@ -221,13 +252,15 @@ def _scenario(app, r: _Result):
     baseline_errors = len(core.ERROR_RECORDS)
 
     r.say("== 화면 생성 ==")
-    # 대시보드는 처음 열릴 때 자동 검사를 돌린다. 끝날 때까지 기다린다.
-    yield Wait(idle, 180, "대시보드 자동 검사")
     for key in PAGE_CLASSES:
         app.show_page(key)
         yield 0.25
         page = app.pages.get(key)
         r.check(page is not None and page.winfo_exists(), f"{key} 화면")
+
+    # 회귀: 시작 프로그램 화면만 on_show 에서 목록을 불러오지 않아 처음 열면 표가 비어 있었다
+    yield Wait(lambda: rows("startup") > 0, 60, "시작 프로그램 처음 열기")
+    r.check(rows("startup") > 0, "시작 프로그램을 처음 열면 목록이 채워짐")
 
     r.say("== 목록 불러오기 ==")
     for key, label in (("startup", "시작 프로그램"), ("service", "서비스"),
@@ -260,13 +293,78 @@ def _scenario(app, r: _Result):
     yield 0.2
     r.check(t2.checked_count() == 0, "전체 해제")
 
+    r.say("== 선택한 줄로 동작 ==")
+    # 회귀: 파일 검사 화면의 '삭제'가 체크만 보고 선택한 줄은 무시했다
+    big = app.pages["bigfiles"]
+    from .scan import FileHit
+    big.table.set_rows([(FileHit("C:/sc_selftest_dummy.bin", 1, 0.0), ("x", "1 B", "-"))])
+    big.table.tree.selection_set(big.table.tree.get_children()[0])
+    asked = []
+    real_confirm = app.confirm
+    app.confirm = lambda title, *a, **k: (asked.append(title), None)[1]   # 확인 창은 취소
+    try:
+        big.delete_checked()
+    finally:
+        app.confirm = real_confirm
+    r.check(asked, "선택한 줄(체크 안 함)로 '삭제'를 누르면 확인 창이 뜸")
+    big.table.clear()
+    big.set_status("")
+
+    # 회귀: 시작 프로그램에서 작업 스케줄러 항목(예: KMS_Activation)만 선택하고 '삭제'를
+    # 누르면, 삭제 대상에서 조용히 빠져서 '선택한 항목이 없습니다'가 떴다
+    from .startup import StartupEntry
+    sp = app.pages["startup"]
+    saved = list(sp._entries)
+    task = StartupEntry(name="KMS_Activation", command="dummy.exe", location="Task",
+                        kind="task", task_path=chr(92))
+    sp.table.set_rows([(task, (task.name, "-", task.location, task.command))])
+    sp.table.tree.selection_set(sp.table.tree.get_children()[0])
+    asked.clear()
+    real_admin = app.admin
+    app.admin = True                  # 관리자 확인만 통과시키고, 확인 창은 취소로 응답
+    app.confirm = lambda title, *a, **k: (asked.append(title), None)[1]
+    try:
+        sp.delete()
+    finally:
+        app.confirm = real_confirm
+        app.admin = real_admin
+    r.check(asked and sp.status.cget("text") != sp.t("nothing_sel"),
+            "작업 스케줄러 항목을 선택하고 '삭제'를 누르면 확인 창이 뜸 (KMS_Activation 사례)")
+    if saved:
+        sp._apply(saved)
+    else:
+        sp.table.clear()
+
     r.say("== 언어 전환 ==")
     lang0 = app.lang
+    app.show_page("dashboard")         # 첫 화면에서 누르는 경우가 가장 흔하다
+    yield 0.5
+    stall_since("언어 전환")
     app.toggle_language()
     yield 1.5
     nav = app.nav_buttons["startup"].cget("text")
     r.check(app.lang != lang0 and ("Startup Apps" in nav or "시작 프로그램" in nav),
             f"{lang0} -> {app.lang}  ({nav.strip()})")
+    r.check(beat["worst"] < 1.0, f"언어 전환 중 화면 멈춤 {beat['worst']:.2f}초 (1초 미만)")
+    if app.lang == "EN":
+        # 회귀: 표 머리글·대시보드 점검 결과·파일 검사 버튼이 한글로 남았다
+        # (안 보이는 화면은 열 때 번역하므로, 사용자처럼 하나씩 열어서 본다)
+        heads = []
+        for key in ("startup", "process", "service", "programs", "bigfiles", "dupes", "disk"):
+            app.show_page(key)
+            tree = app.pages[key].table.tree
+            heads += [tree.heading(c)["text"] for c in tree["columns"]]
+        app.show_page("dashboard")
+        yield 0.3
+        left = sorted({h for h in heads if hangul.search(h)})
+        r.check(not left, "영문 모드에서 표 머리글이 모두 영어" + (f": {left}" if left else ""))
+        advice = [w.winfo_children()[0].cget("text") for w in dash._advice_rows
+                  if w.winfo_children()]
+        left = [a for a in advice if hangul.search(a)]
+        r.check(not left, "영문 모드에서 대시보드 점검 결과가 영어"
+                + (f": {left[:1]}" if left else ""))
+        r.check(not hangul.search(app.pages["bigfiles"].btn_browse.cget("text")),
+                "영문 모드에서 '폴더 선택' 버튼이 영어")
     app.toggle_language()
     yield 1.5
     r.check(app.lang == lang0, f"원래 언어로 복귀 ({app.lang})")
@@ -285,10 +383,10 @@ def _scenario(app, r: _Result):
 
     app.show_page("dashboard")
     yield Wait(idle, 60, "대기")
-    app.pages["dashboard"].deep_scan()
-    yield 0.5
-    yield Wait(idle, 240, "대시보드 정밀 검사")
-    h = app.pages["dashboard"]._health
+    dash.deep_scan()
+    yield 0.3
+    yield Wait(lambda: not dash.is_scanning(), 240, "대시보드 정밀 검사")
+    h = dash._health
     r.check(h is not None, "대시보드 정밀 검사"
             + (f"  ·  점수 {h.score}, 정리 가능 {core.human_bytes(h.junk_bytes)}" if h else ""))
 
@@ -303,10 +401,18 @@ def _scenario(app, r: _Result):
     yield Wait(lambda: rows("disk") > 0 and idle(), 120, "디스크")
     r.check(rows("disk") > 0, f"디스크 볼륨 {rows('disk')}개")
 
+    stall_since("윈도우 설정 열기")
     app.show_page("tweaks")
     yield 1.2
     r.check(len(app.pages["tweaks"]._switches) > 0,
             f"윈도우 설정 스위치 {len(app.pages['tweaks']._switches)}개")
+    app.show_page("dashboard")
+    yield 0.3
+    stall_since("윈도우 설정 다시 열기")
+    app.show_page("tweaks")
+    yield 1.0
+    r.check(beat["worst"] < 1.0,
+            f"윈도우 설정을 다시 열 때 화면 멈춤 {beat['worst']:.2f}초 (1초 미만)")
 
     r.say("== 취소 ==")
 

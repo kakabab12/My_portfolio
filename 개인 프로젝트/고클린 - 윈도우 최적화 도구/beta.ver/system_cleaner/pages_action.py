@@ -7,7 +7,8 @@ import customtkinter as ctk
 
 from . import procs, sysinfo, tasks
 from .core import create_restore_point, human_bytes, is_admin
-from .ui import (ACCENT, BORDER, CARD, DANGER, OK, TXT, TXT_DIM, WARN,
+from .core import LOG_DIR
+from .ui import (ACCENT, BORDER, CARD, DANGER, OK, TXT, WARN,
                  Page, StatCard, Terminal, toolbar_button)
 
 
@@ -64,6 +65,7 @@ class DashboardPage(Page):
         self._timer = None
         self._health = None
         self._auto_scanned = False
+        self._scanning = False
 
         self.header.grid(row=0, column=0, sticky="ew", pady=(0, 14))
 
@@ -127,7 +129,9 @@ class DashboardPage(Page):
             label_text_color=ACCENT, label_fg_color="#1f1f1f")
         self.advice_box.grid(row=4, column=0, sticky="nsew", pady=(6, 0))
         self._advice_rows = []
-        self._set_advice([(None, self.t("dash_scanning"))])
+        self._advice_labels = []
+        self._advice_source = []
+        self._set_advice([(None, "dash_scanning", {})])
 
     # --- 주기적 갱신 ---
     def on_show(self):
@@ -179,11 +183,33 @@ class DashboardPage(Page):
 
     # --- 정밀 검사 ---
     def deep_scan(self):
-        self.app.run_task(self._scan_task, page=self, status_key="busy")
+        """읽기만 하는 점검이라 공용 작업 칸(run_task)을 쓰지 않는다.
 
-    def _scan_task(self, ctx: tasks.TaskContext):
-        health = tasks.collect_health(ctx, deep=True)
-        ctx.app.ui(self._apply_health, health)
+        예전에는 앱을 켜자마자 이 점검이 작업 칸을 차지해서, 그 사이 '내 PC 정보' 같은
+        다른 기능을 누르면 조용히 거절되고 빈 화면만 남았다.
+        """
+        if self._scanning:
+            return
+        self._scanning = True
+        self.btn_scan.configure(state="disabled", text=self.t("working"))
+        if self._health is None:
+            self._set_advice([(None, "dash_scanning", {})])
+
+        def work():
+            return tasks.collect_health(tasks.QuietContext(self.app), deep=True)
+
+        self.app.run_bg(work, self._scan_done)
+
+    def is_scanning(self) -> bool:
+        return self._scanning
+
+    def _scan_done(self, result):
+        self._scanning = False
+        self.btn_scan.configure(state="normal", text=self.t("btn_scan"))
+        if isinstance(result, Exception):
+            self._set_advice([("error", "err_logged", {"path": str(LOG_DIR)})])
+            return
+        self._apply_health(result)
 
     def _apply_health(self, health: tasks.Health):
         self._health = health
@@ -199,24 +225,39 @@ class DashboardPage(Page):
         self.card_bin.update_values(value=human_bytes(health.bin_bytes),
                                     sub=f"{health.bin_items:,} items")
         if health.advice:
-            self._set_advice([(kind, text) for kind, text in health.advice])
+            self._set_advice(health.advice)
         else:
-            self._set_advice([(None, self.t("dash_allgood"))])
+            self._set_advice([(None, "dash_allgood", {})])
 
     def _set_advice(self, rows):
+        """rows: [(분류, 문자열 키, 값)] - 그릴 때 현재 언어로 번역한다."""
+        same_shape = (len(rows) == len(self._advice_labels)
+                      and [(k, key) for k, key, _ in rows]
+                      == [(k, key) for k, key, _ in self._advice_source])
+        self._advice_source = rows
+        if same_shape and rows:
+            # 줄 구성이 같으면 글자만 바꾼다. CTk 위젯은 지우고 새로 만드는 데 줄당
+            # 0.1초 가까이 걸려서, 언어를 바꿀 때 대시보드가 눈에 띄게 멈췄다.
+            for label, (kind, key, values) in zip(self._advice_labels, rows):
+                bullet = "•" if kind is None else "!"
+                label.configure(text=f" {bullet}  {self.t(key, **values)}")
+            return
+        self._advice_labels = []
         for widget in self._advice_rows:
             widget.destroy()
         self._advice_rows = []
         nav = {"clean": "clean", "startup": "startup", "memory": "memory",
                "disk": "disk", "system": None}
-        for kind, text in rows:
+        for kind, key, values in rows:
+            text = self.t(key, **values)
             row = ctk.CTkFrame(self.advice_box, fg_color="transparent")
             row.pack(fill="x", pady=3, padx=4)
             bullet = "•" if kind is None else "!"
-            ctk.CTkLabel(row, text=f" {bullet}  {text}", font=ctk.CTkFont(size=12),
-                         text_color=TXT if kind is None else WARN,
-                         anchor="w", justify="left", wraplength=680
-                         ).pack(side="left", fill="x", expand=True)
+            label = ctk.CTkLabel(row, text=f" {bullet}  {text}", font=ctk.CTkFont(size=12),
+                                 text_color=TXT if kind is None else WARN,
+                                 anchor="w", justify="left", wraplength=680)
+            label.pack(side="left", fill="x", expand=True)
+            self._advice_labels.append(label)
             target = nav.get(kind)
             if target:
                 toolbar_button(row, "→", lambda tgt=target: self.app.show_page(tgt),
@@ -248,13 +289,16 @@ class DashboardPage(Page):
         self.card_startup.set_title(self.t("dash_startup"))
         self.card_procs.set_title(self.t("dash_procs"))
         self.card_bin.set_title(self.t("dash_bin"))
-        self.btn_scan.configure(text=self.t("btn_scan"))
+        self.btn_scan.configure(text=self.t("working" if self._scanning else "btn_scan"))
         self.btn_rp.configure(text=self.t("btn_restore"))
         for btn, key in self.quick_buttons:
             btn.configure(text=self.t(key))
         self.advice_box.configure(label_text=self.t("dash_advice"))
         if self._health:
             self._apply_health(self._health)
+        else:
+            self._set_advice(self._advice_source)
+        self._refresh_live()
 
 
 def _level_color(value: float, warn: float = 70, danger: float = 88) -> str:
@@ -316,6 +360,9 @@ class GamePage(TaskPage):
         self.btn_power.pack(side="left", padx=(8, 0))
 
     def restore_power(self):
+        # 권한 없이 실행하면 '실패'만 찍혀서 이유를 알 수 없었다
+        if not self.app.require_admin():
+            return
         self.app.run_task(tasks.task_restore_power, page=self, status_key="busy")
 
     def retranslate(self):
@@ -384,19 +431,24 @@ class NetworkPage(TaskPage):
             ctx.fail("DNS", detail)
 
     def reset_dns(self):
-        adapter = self._adapter()
-        if adapter is None:
-            adapters = sysinfo.active_adapters(self.app.shared_runner)
-            adapter = adapters[0] if adapters else None
-        if adapter is None or not self.app.require_admin():
+        # 권한 확인보다 어댑터 조회(PowerShell)를 먼저 해서, 권한이 없을 때도
+        # 화면이 1~2초 멈춘 뒤에야 안내가 나왔다
+        if not self.app.require_admin():
             return
-        self._pending_adapter = adapter
         self.app.run_task(self._reset_task, page=self, status_key="busy")
 
     def _reset_task(self, ctx):
-        ctx.begin(1)
+        ctx.begin(2)
+        ctx.step("Adapter")
+        adapter = self._adapter()
+        if adapter is None:
+            adapters = sysinfo.active_adapters(ctx.runner)
+            adapter = adapters[0] if adapters else None
+        if adapter is None:
+            ctx.fail("DNS", ctx.t("v_notfound"))
+            return
         ctx.step("DNS")
-        ok, detail = sysinfo.reset_dns(ctx.runner, self._pending_adapter.name)
+        ok, detail = sysinfo.reset_dns(ctx.runner, adapter.name)
         if ok:
             ctx.log("\n" + ctx.t("net_dns_rev"), "ok")
         else:
@@ -420,4 +472,13 @@ class InfoPage(TaskPage):
 
     def on_show(self):
         if not self.terminal.text().strip():
-            self.run()
+            self._run_when_free(attempts=150)
+
+    def _run_when_free(self, attempts: int):
+        if self.app.current_key != self.key or self.terminal.text().strip():
+            return
+        if self.app.worker and self.app.worker.is_alive():
+            if attempts > 0:
+                self.after(400, lambda: self._run_when_free(attempts - 1))
+            return
+        self.run()

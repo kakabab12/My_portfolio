@@ -330,6 +330,12 @@ class DataTable(ctk.CTkFrame):
         mark = CHECK_ON if (total and len(self._checked) == total) else CHECK_OFF
         self.tree.heading("__chk__", text=mark)
 
+    def set_headings(self, columns):
+        """언어를 바꿀 때 머리글도 바꾼다. (처음 만들 때만 정하면 영문 모드에 한글이 남는다)"""
+        self.columns = columns
+        for key, title, _width, _anchor in columns:
+            self.tree.heading(key, text=title)
+
     def checked_payloads(self) -> list:
         return [self._payloads[i] for i in self.tree.get_children() if i in self._checked]
 
@@ -339,6 +345,14 @@ class DataTable(ctk.CTkFrame):
     def focused_payload(self):
         sel = self.tree.selection()
         return self._payloads.get(sel[0]) if sel else None
+
+    def target_payload(self):
+        """'위치 열기'처럼 한 항목만 쓰는 동작의 대상. 선택한 줄이 없으면 체크한 첫 줄."""
+        focused = self.focused_payload()
+        if focused is not None:
+            return focused
+        checked = self.checked_payloads()
+        return checked[0] if checked else None
 
     def selected_payloads(self) -> list:
         return [self._payloads[i] for i in self.tree.selection() if i in self._payloads]

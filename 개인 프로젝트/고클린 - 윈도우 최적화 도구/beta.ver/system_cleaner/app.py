@@ -15,9 +15,9 @@ import customtkinter as ctk
 
 from . import (APP_NAME, APP_VERSION, pages_action, pages_manage, pages_tweaks,
                tasks)
-from .core import (CONFIG_PATH, ICON_PATH, LOG_DIR, Config, Runner, is_admin, log_error)
+from .core import CONFIG_PATH, ICON_PATH, LOG_DIR, Config, Runner, log_error
 from .i18n import t
-from .ui import (ACCENT, ACCENT_DIM, BG, BORDER, DANGER, OK, SIDEBAR, TXT, TXT_DIM, WARN,
+from .ui import (ACCENT, BG, BORDER, DANGER, OK, SIDEBAR, TXT, TXT_DIM, WARN,
                  ConfirmDialog, apply_table_style)
 
 ctk.set_appearance_mode("Dark")
@@ -60,8 +60,10 @@ PAGE_CLASSES = {
     "tweaks":      pages_tweaks.TweaksPage,
 }
 
-# 관리자 권한이 없으면 막는 화면
-ADMIN_PAGES = {"clean", "service"}
+# 관리자 권한이 없을 때 화면을 열면 보여줄 안내.
+# 예전엔 둘 다 '이 기능은 관리자 권한이 필요합니다' 였는데, 청소는 권한 없이도
+# 사용자 임시 파일은 정리하고 서비스는 목록을 볼 수 있어서 안내가 사실과 달랐다.
+LIMITED_NOTICE = {"clean": "clean_limited", "service": "svc_limited"}
 
 
 class SystemCleanerApp(ctk.CTk):
@@ -78,6 +80,7 @@ class SystemCleanerApp(ctk.CTk):
         self.active_page = None
         self.current_key = ""
         self._started_at = 0.0
+        self._elapsed_sec: float | None = None
         self._timer_job = None
         self._toast_job = None
 
@@ -241,10 +244,12 @@ class SystemCleanerApp(ctk.CTk):
         page.grid(row=0, column=0, sticky="nsew")
         self.current_key = key
         self._highlight_nav(key)
+        if getattr(page, "_stale_lang", False):
+            self._retranslate_page(key, page)
         page.on_show()
 
-        if key in ADMIN_PAGES and not self.admin:
-            self.toast(t("need_admin", self.lang), "warn")
+        if key in LIMITED_NOTICE and not self.admin:
+            self.toast(t(LIMITED_NOTICE[key], self.lang), "warn", 7000)
 
     def _highlight_nav(self, key: str):
         for page_key, btn in self.nav_buttons.items():
@@ -338,7 +343,8 @@ class SystemCleanerApp(ctk.CTk):
     # =================================================================
     def run_task(self, fn, page=None, status_key: str = "busy"):
         if self.worker and self.worker.is_alive():
-            self.toast(t("busy", self.lang), "warn")
+            # 예전엔 '[작업 중] 처리하는 중...' 이라고만 떠서, 누른 버튼이 실행 중인 줄 알았다
+            self.toast(t("busy_reject", self.lang), "warn")
             return
 
         self.active_page = page or self.pages.get(self.current_key)
@@ -380,8 +386,8 @@ class SystemCleanerApp(ctk.CTk):
         if self._timer_job:
             self.after_cancel(self._timer_job)
             self._timer_job = None
-        self.elapsed_label.configure(
-            text=t("elapsed", self.lang, sec=time.time() - self._started_at))
+        self._elapsed_sec = time.time() - self._started_at
+        self.elapsed_label.configure(text=t("elapsed", self.lang, sec=self._elapsed_sec))
         if ctx.errors:
             self.log("", "info")
             for err in ctx.errors:
@@ -448,13 +454,26 @@ class SystemCleanerApp(ctk.CTk):
         for page_key, btn in self.nav_buttons.items():
             text_key, icon = self.nav_keys[page_key]
             btn.configure(text=f"  {icon}   {t(text_key, self.lang)}")
-        for page in self.pages.values():
-            try:
-                page.retranslate()
-            except Exception:
-                pass
+        # 보이는 화면만 지금 번역하고 나머지는 열 때 번역한다.
+        # 15개 화면을 한꺼번에 다시 그리면 언어 버튼을 누를 때마다 2~3초씩 멈췄다.
+        for key, page in self.pages.items():
+            if key == self.current_key:
+                self._retranslate_page(key, page)
+            else:
+                page._stale_lang = True
         if not (self.worker and self.worker.is_alive()):
             self.set_status(t("ready", self.lang), TXT)
+            if self._elapsed_sec is not None:
+                self.elapsed_label.configure(
+                    text=t("elapsed", self.lang, sec=self._elapsed_sec))
+
+    def _retranslate_page(self, key, page):
+        page._stale_lang = False
+        try:
+            page.retranslate()
+        except Exception as e:  # noqa: BLE001
+            # 조용히 넘기면 '일부만 번역 안 됨' 같은 증상의 원인을 찾을 수 없다
+            log_error(f"retranslate:{key}", e)
 
     # =================================================================
     # 설정 / 정보
