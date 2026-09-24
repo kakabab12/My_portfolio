@@ -105,6 +105,7 @@ from src.inference.preprocessor import Preprocessor
 from src.postprocess.hand_shape import HAND_FINGERS, SHAPE_FIST, classify_hand_shape, finger_states
 from src.postprocess.point_filter import PointFilter
 from src.utils.config_loader import load_config
+from src.utils.console import enable_utf8_output
 from src.utils.logger import get_logger, init_logging
 
 DEFAULT_CONFIG_PATH = os.path.join(ROOT_DIR, "configs", "config.yaml")
@@ -445,6 +446,7 @@ def build_zone_functions():
 
 
 def main():
+    enable_utf8_output()   # cp949 콘솔·파이프에서 줄표(—) 등으로 죽는 것 방지 — --help도 (2026-09-25)
     parser = argparse.ArgumentParser(
         description="카메라 화면 위 가상 D-pad — 손끝으로 방향 존을 눌러 함수를 실행하는 데모")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)

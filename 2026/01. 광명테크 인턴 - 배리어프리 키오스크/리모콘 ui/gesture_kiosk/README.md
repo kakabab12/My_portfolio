@@ -86,7 +86,7 @@ gesture_kiosk/
 │   └─ pipeline/event_sender.py      # ★ 회사 프로그램 연동 접점 (stdio/console)
 ├─ scripts/                 # calibrate(임계 자동 보정) · pipe_listen · download_weights
 │                           #   · benchmark · smoke_test · eval_accuracy
-├─ tests/                   # 단위 테스트 953건 + 세 트래커 스모크 실행기 (카메라·모델 없이 실행 가능)
+├─ tests/                   # 단위 테스트 961건 + 세 트래커 스모크 실행기 (카메라·모델 없이 실행 가능)
 ├─ docs/코드설명서.md       # 코드 지도 — 어디서 무엇을 하는지 (2026-08-03)
 └─ docs/TODO.md             # 작업 분해 및 회사 확인 필요 항목
 ```
@@ -103,7 +103,7 @@ gesture_kiosk/
 | `py scripts\calibrate.py` | 임계값 자동 보정 — 실제 동작을 재서 config 반영 |
 | `py scripts\pipe_listen.py` | 델파이 대역 — 파이프 수신 규격 자가 검증 |
 | `py scripts\benchmark.py` | 추론 단독 FPS 측정 (기획서 6.1 — KPI 30 FPS) |
-| `py -m pytest tests -q` | 단위 테스트 953건 (unittest discover로는 매개변수 시험이 빠진다) |
+| `py -m pytest tests -q` | 단위 테스트 961건 (unittest discover로는 매개변수 시험이 빠진다) |
 | `py tests\tracker_smoke.py all` | **세 트래커를 처음부터 끝까지 돌려 본다** (2026-09-25 신설) — 아래 "출시 전 점검" |
 | `py scripts\diagnose_tracking.py` | **커서가 안 움직일 때 원인 진단** (2026-08-31 신설) — 카메라·검출·회전 추정 중 막힌 단계를 이름으로 알려준다 |
 | 실행 중 `tune` (+Enter) | **실시간 감도 조절 슬라이더** — "고개를 몇 도 돌리면 화면 끝인가"(가로·세로 각도). 창을 닫아도 값이 유지된다. 2026-09-24 효과 없던 감도·곡률 슬라이더 셋을 뺐다 |
@@ -249,9 +249,9 @@ py forehead.py                    # auto — 화면 해상도를 보고 결정
 
 | 명령 | 무엇을 보나 |
 |---|---|
-| `py -m pytest tests -q` | 판정·매핑 모듈 953건. 실행 스크립트 전부에서 정의 없이 쓰이는 이름과 import보다 먼저 쓰는 이름도 잡는다(`tests/test_script_names.py`) |
+| `py -m pytest tests -q` | 판정·매핑 모듈과 스모크 실행기 자체 961건. 실행 스크립트 전부에서 정의 없이 쓰이는 이름과 import보다 먼저 쓰는 이름(`tests/test_script_names.py`), 파이프·cp949에서 `--help`가 죽는 스크립트(`tests/test_entry_help.py`)도 잡는다 |
 | `py tests\tracker_smoke.py all` | 세 트래커 × 두 화면비의 `main()`을 가상 카메라·가상 사용자로 **처음부터 끝까지** 돌린다(약 45초). 안내대로 8초 대기 → 좌우 가리키기 → 클릭 3번 → 드래그 → 얼굴이 2초 사라짐 → 다시 나타나 클릭 → 옆에 다른 사람. 마우스·창·카메라만 가짜이고 나머지는 진짜 코드다 |
-| `py tests\tracker_smoke.py head --soak 60` | 같은 흐름을 60분 되풀이하며 메모리와 스레드 수가 늘지 않는지 본다 |
+| `py tests\tracker_smoke.py head --soak 60` | 같은 흐름을 60분 되풀이하며 메모리 추세와 스레드 수가 늘지 않는지, **오래 켠 뒤에도** 커서가 맞는지(위치 확인을 첫 회차와 마지막 회차에서 모두) 본다 |
 
 스모크 실행기는 시작 점검을 그대로 거치므로 얼굴 모델 파일이 있어야 한다
 (새로 받은 저장소라면 먼저 `py scripts\download_weights.py`).

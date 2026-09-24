@@ -14,6 +14,10 @@
 공용 함수(console.enable_utf8_output)로 옮기고, 그 함수가 제 일을 하는지와
 **새 스크립트가 그걸 부르고 있는지**를 여기서 검사한다.
 
+    2026-09-25  다섯 번째 — 도움말(--help). print가 아니라 argparse가 찍어서 이
+                검사 밖이었다. 스크립트 넷이 파이프에서 죽었다 -> tests/test_entry_help.py
+                가 실제로 돌려 본다. 이 검사도 루트 진입점(main.py 등)까지 넓혔다.
+
 실행 (프로젝트 루트에서):
     python -m unittest discover tests -v
 """
@@ -122,31 +126,35 @@ def _cp949_unsafe_chars(text):
 
 
 class ScriptsCallTheHelperTest(unittest.TestCase):
-    """★재발 방지 — cp949에 없는 글자를 print 하는 scripts/*.py 가 보호 장치를 부르는가.
+    """★재발 방지 — cp949에 없는 글자를 print 하는 실행 스크립트(scripts/*.py와 루트
+    진입점)가 보호 장치를 부르는가. 도움말(--help)은 tests/test_entry_help.py가 본다.
 
     이 프로젝트가 네 번이나 같은 버그에 걸린 이유는 "새 파일을 만들 때
     빠뜨려서"였다. 사람이 기억하는 대신 테스트가 기억하게 한다.
     """
 
-    EXEMPT = {
-        "camera_check.py",        # main() 안에서 같은 처리를 직접 한다(자식 프로세스 규약)
-    }
+    # camera_check.py는 예전엔 여기서 뺐지만(main() 안에서 같은 처리를 직접 한다),
+    # 그 처리에 "reconfigure"가 들어 있어 검사를 그대로 통과한다 — 뺄 이유가 없다
+    EXEMPT = set()
 
     def _risky_scripts(self):
-        """print 안에 cp949 불가 글자가 든 스크립트만 골라낸다."""
-        scripts_dir = os.path.join(ROOT_DIR, "scripts")
-        for name in sorted(os.listdir(scripts_dir)):
-            if not name.endswith(".py") or name in self.EXEMPT:
-                continue
-            if name.endswith("_launcher.py"):
-                continue   # 런처는 SetConsoleOutputCP로 따로 처리한다
-            src = open(os.path.join(scripts_dir, name), encoding="utf-8").read()
-            prints = re.findall(r"print\((.{0,600}?)\)", src, re.S)
-            unsafe = set()
-            for p in prints:
-                unsafe |= _cp949_unsafe_chars(p)
-            if unsafe:
-                yield name, src, unsafe
+        """print 안에 cp949 불가 글자가 든 스크립트만 골라낸다.
+
+        scripts/뿐 아니라 프로젝트 루트의 진입점(main.py, head.py 등)도 본다
+        (2026-09-25 — 그때까지 루트는 검사 밖이었다)."""
+        for folder in (os.path.join(ROOT_DIR, "scripts"), ROOT_DIR):
+            for name in sorted(os.listdir(folder)):
+                if not name.endswith(".py") or name in self.EXEMPT:
+                    continue
+                if name.endswith("_launcher.py"):
+                    continue   # 런처는 SetConsoleOutputCP로 따로 처리한다
+                src = open(os.path.join(folder, name), encoding="utf-8").read()
+                prints = re.findall(r"print\((.{0,600}?)\)", src, re.S)
+                unsafe = set()
+                for p in prints:
+                    unsafe |= _cp949_unsafe_chars(p)
+                if unsafe:
+                    yield name, src, unsafe
 
     def test_unsafe_printing_scripts_enable_utf8(self):
         missing = []

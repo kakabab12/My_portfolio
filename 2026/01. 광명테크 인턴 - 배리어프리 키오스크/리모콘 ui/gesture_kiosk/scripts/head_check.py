@@ -30,6 +30,7 @@ from src.capture.camera_stream import CameraStream
 from src.inference.head_detector import HeadDetector
 from src.inference.preprocessor import Preprocessor
 from src.utils.config_loader import load_config
+from src.utils.console import enable_utf8_output
 from src.utils.logger import get_logger, init_logging
 
 DEFAULT_CONFIG_PATH = os.path.join(ROOT_DIR, "configs", "config.yaml")
@@ -40,6 +41,7 @@ logger = get_logger("scripts")
 
 
 def main():
+    enable_utf8_output()   # cp949 콘솔·파이프에서 줄표(—) 등으로 죽는 것 방지 — --help도 (2026-09-25)
     parser = argparse.ArgumentParser(description="머리 앵커 강건성 점검 (마스크·안경 등)")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--min-conf", type=float, default=0.3,

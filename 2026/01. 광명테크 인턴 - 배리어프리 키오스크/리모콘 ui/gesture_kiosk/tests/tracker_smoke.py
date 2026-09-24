@@ -34,8 +34,12 @@
   · 얼굴이 사라졌다 돌아온 뒤에도 커서가 다시 따라오는가
   · 옆에 다른 사람이 들어와도 커서가 튀지 않는가
   · 끝난 뒤 남은 스레드가 없는가
+장시간 모드(--soak 분)에서는 같은 흐름을 되풀이하며 여기에 더해
+  · 메모리 추세(표본 전체에 맞춘 직선의 기울기)와 스레드 수
+  · 위의 위치 확인 셋을 **첫 회차와 마지막 회차 모두**에서 — 오래 켜 둔 뒤에도 맞는가
 """
 import argparse
+import bisect
 import importlib.util
 import io
 import logging
@@ -67,6 +71,9 @@ SHUT, WIDE = 0.05, 0.45
 # 다문 채 편한 자세로 있어주세요"라고 안내한다(SETTLE_DELAY_SEC, 사용자 요청으로 5->7->8초).
 # 그동안은 클릭도 받지 않는다. 사람은 이 안내를 따르므로 가상 사용자도 따른다.
 SETTLE_WAIT_SEC = 9.2
+# 장시간 모드에서 마우스 이동 기록을 이만큼 넘으면 MOVES_TRIM개를 지운다(첫 회차는 남김)
+MOVES_KEEP_MAX = 20000
+MOVES_TRIM = 10000
 
 
 def _click(yaw, pitch=0.0, label="클릭"):
@@ -172,7 +179,9 @@ class FakeMouse:
         self.screen_w_px, self.screen_h_px = FakeMouse.screen_px
         self.is_pressed = False
         self.moves = []          # (t, x_ratio, y_ratio)
+        self.move_count = 0      # 지운 것까지 센 이동 수
         self.log = []            # (t, 동작)
+        self._first_pass_len = None
         FakeMouse.instance = self
 
     def _t(self):
@@ -181,8 +190,17 @@ class FakeMouse:
 
     def move(self, x_ratio, y_ratio):
         self.moves.append((self._t(), float(x_ratio), float(y_ratio)))
-        if self.scenario.loop and len(self.moves) > 20000:
-            del self.moves[:10000]      # 장시간 모드 — 시험 도구가 메모리를 먹으면 안 된다
+        self.move_count += 1
+        if self.scenario.loop and len(self.moves) > MOVES_KEEP_MAX:
+            # 장시간 모드 — 시험 도구가 메모리를 먹으면 안 된다. 단 **첫 회차는 남기고**
+            # 그 뒤의 오래된 것부터 지운다. 위치 확인이 첫 회차와 마지막 회차를 본다.
+            # (2026-09-25: 맨 앞부터 지웠더니 커서를 자주 옮기는 forehead만 30분에
+            # 2만 번을 넘어 첫 회차 기록이 사라졌고, 위치 확인 셋이 값 없이 실패했다)
+            if self._first_pass_len is None:
+                self._first_pass_len = bisect.bisect_right(
+                    self.moves, (self.scenario.duration, math.inf, math.inf))
+            keep = self._first_pass_len
+            del self.moves[keep:keep + MOVES_TRIM]
 
     def click(self):
         self.log.append((self._t(), "click"))
@@ -314,20 +332,68 @@ def _pos_at(moves, t):
     return last
 
 
-def _window_times(scenario, labels, samples=12):
-    ts = [i / FPS for i, f in enumerate(scenario.frames) if f[4] in labels]
+def _window_times(scenario, labels, samples=12, offset=0.0):
+    """라벨 구간의 시각들. offset은 회차의 시작 시각(장시간 모드에서 n회차 = n x 한 바퀴)."""
+    ts = [offset + i / FPS for i, f in enumerate(scenario.frames) if f[4] in labels]
     if not ts:
         return []
     step = max(1, len(ts) // samples)
     return ts[::step]
 
 
-def _window_mean(moves, scenario, labels):
-    pts = [p for p in (_pos_at(moves, t) for t in _window_times(scenario, labels)) if p]
+def _window_mean(moves, scenario, labels, offset=0.0):
+    pts = [p for p in (_pos_at(moves, t) for t in _window_times(scenario, labels, offset=offset)) if p]
     if not pts:
         return None
     arr = np.array(pts)
     return float(arr[:, 0].mean()), float(arr[:, 1].mean())
+
+
+def _check_passes(scenario):
+    """위치를 확인할 회차들 — (이름, 시작 시각). 장시간 모드면 첫 회차와 **끝나기 전
+    마지막으로 온전히 돈 회차**를 함께 본다(오래 켜 둔 뒤에도 커서가 맞는가)."""
+    if not scenario.loop or not scenario.run_sec:
+        return [("", 0.0)]
+    last = int(scenario.run_sec // scenario.duration) - 1
+    if last < 1:
+        return [("", 0.0)]
+    start = last * scenario.duration
+    return [("첫 회차", 0.0), ("%.0f분 뒤 %d회차" % (start / 60.0, last + 1), start)]
+
+
+def _position_checks(moves, scenario, offset):
+    """한 회차의 위치 확인 셋 — (좌우, 복귀, 옆 사람) 각각 (통과, 보고 문구)."""
+    right = _window_mean(moves, scenario, ("오른쪽 머묾",), offset)
+    left = _window_mean(moves, scenario, ("왼쪽 머묾",), offset)
+    back = _window_mean(moves, scenario, ("돌아와 머묾",), offset)
+    side = (bool(right and left and abs(right[0] - left[0]) > 0.15),
+            "좌우를 가리키면 커서가 반대쪽 (오른쪽 %s · 왼쪽 %s)" % (
+                "%.2f" % right[0] if right else "-", "%.2f" % left[0] if left else "-"))
+    ret = (bool(right and back and back[0] and (back[0] - 0.5) * (right[0] - 0.5) > 0),
+           "얼굴이 돌아온 뒤에도 커서가 따라옴 (%s)" % ("%.2f" % back[0] if back else "-"))
+    times = _window_times(scenario, ("옆에 다른 사람",), samples=40, offset=offset)
+    before = _pos_at(moves, times[0] - 1.0 / FPS) if times else None
+    during = [p for p in (_pos_at(moves, t) for t in times) if p]
+    jump = (max(math.hypot(x - before[0], y - before[1]) for x, y in during)
+            if (before and during) else None)
+    other = (jump is not None and jump < 0.10,
+             "옆에 다른 사람이 와도 커서가 안 튐 (최대 %s)" % ("%.3f" % jump if jump is not None else "-"))
+    return side, ret, other
+
+
+def _memory_trend(samples, soak_min):
+    """(시작 MB, 끝 MB, 최소, 최대, 시간당 추세 MB). 첫 1분과 quit 뒤 표본은 뺀다.
+
+    추세는 **표본 전체에 맞춘 직선의 기울기**다. 처음엔 두 끝점의 차로 셌는데,
+    RSS는 30초 간격 표본 사이에서도 ±10MB씩 오르내려 끝점 하나에 크게 흔들렸다
+    (2026-09-25 forehead 30분: 시작 109 -> 끝 110MB인데 "시간당 +23.4MB")."""
+    warm = [s for s in samples if 1.0 <= s[0] < soak_min - 0.05] or samples
+    mb = [s[1] for s in warm]
+    if len(warm) >= 3:
+        per_hour = float(np.polyfit([s[0] for s in warm], mb, 1)[0]) * 60.0
+    else:
+        per_hour = (mb[-1] - mb[0]) / max(1e-6, warm[-1][0] - warm[0][0]) * 60.0
+    return samples[0][1], samples[-1][1], min(mb), max(mb), per_hour, warm
 
 
 def _rss_mb():
@@ -441,22 +507,12 @@ def run_one(name, aspect, soak_min=0.0):
     check(presses == ups and not (mouse and mouse.is_pressed),
           "누름 %d번 = 뗌 %d번, 끝에 눌린 채 아님" % (presses, ups))
     bad = [m for m in moves if not all(math.isfinite(v) for v in m[1:])]
-    check(len(moves) > 200 and not bad, "커서 이동 %d번, 숫자 아닌 값 %d개" % (len(moves), len(bad)))
-    right = _window_mean(moves, scenario, ("오른쪽 머묾",))
-    left = _window_mean(moves, scenario, ("왼쪽 머묾",))
-    back = _window_mean(moves, scenario, ("돌아와 머묾",))
-    check(right and left and abs(right[0] - left[0]) > 0.15,
-          "좌우를 가리키면 커서가 반대쪽 (오른쪽 %s · 왼쪽 %s)" % (
-              "%.2f" % right[0] if right else "-", "%.2f" % left[0] if left else "-"))
-    check(right and back and back[0] and (back[0] - 0.5) * (right[0] - 0.5) > 0,
-          "얼굴이 돌아온 뒤에도 커서가 따라옴 (%s)" % ("%.2f" % back[0] if back else "-"))
-    times = _window_times(scenario, ("옆에 다른 사람",), samples=40)
-    before = _pos_at(moves, times[0] - 1.0 / FPS) if times else None
-    during = [p for p in (_pos_at(moves, t) for t in times) if p]
-    jump = (max(math.hypot(x - before[0], y - before[1]) for x, y in during)
-            if (before and during) else None)
-    check(jump is not None and jump < 0.10,
-          "옆에 다른 사람이 와도 커서가 안 튐 (최대 %s)" % ("%.3f" % jump if jump is not None else "-"))
+    move_count = mouse.move_count if mouse else 0
+    check(move_count > 200 and not bad, "커서 이동 %d번, 숫자 아닌 값 %d개" % (move_count, len(bad))
+          + ("" if len(moves) == move_count else " (기록은 첫 회차와 최근 %d개만 보관)" % len(moves)))
+    for pass_name, offset in _check_passes(scenario):
+        for ok_, text in _position_checks(moves, scenario, offset):
+            check(ok_, text + (" — " + pass_name if pass_name else ""))
     leftover = [t for t in threading.enumerate()
                 if t not in threads_before and t.is_alive() and not t.daemon]
     check(not leftover, "남은 스레드 없음" + ("" if not leftover else ": %s" % [t.name for t in leftover]))
@@ -466,12 +522,10 @@ def run_one(name, aspect, soak_min=0.0):
         # 첫 1분은 모델·캐시가 자리 잡는 시간이라 빼고, 그 뒤 증가량을 본다.
         # quit 뒤의 표본도 뺀다 — 종료하며 스레드가 정리된 뒤라 수가 줄어 보인다
         # (처음 돌렸을 때 이것 때문에 "2~6개"로 잘못 걸렸다)
-        warm = [s for s in samples if 1.0 <= s[0] < soak_min - 0.05] or samples
-        growth = warm[-1][1] - warm[0][1]
-        per_hour = growth / max(1e-6, warm[-1][0] - warm[0][0]) * 60.0
+        first_mb, last_mb, low_mb, high_mb, per_hour, warm = _memory_trend(samples, soak_min)
         check(per_hour < 50.0,
-              "메모리 %.0f -> %.0f MB (1분 뒤부터 시간당 %+.1f MB로 늘어남)"
-              % (samples[0][1], samples[-1][1], per_hour))
+              "메모리 %.0f -> %.0f MB, 1분 뒤부터 %.0f~%.0f MB (추세 시간당 %+.1f MB)"
+              % (first_mb, last_mb, low_mb, high_mb, per_hour))
         check(max(s[2] for s in warm) - min(s[2] for s in warm) <= 1,
               "스레드 수 %d~%d개로 고정" % (min(s[2] for s in warm), max(s[2] for s in warm)))
     ok = all(c[0] for c in checks)

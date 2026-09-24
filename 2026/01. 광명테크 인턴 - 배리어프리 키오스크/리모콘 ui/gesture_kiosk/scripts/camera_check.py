@@ -308,6 +308,19 @@ def diagnose_device(config_path, device_id):
 
 
 def main():
+    # 인코딩 보호는 parse_args보다 먼저 — 도움말(--help)에도 줄표가 있다(2026-09-25: 뒤에 있어 --help가 파이프에서 죽었다)
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                if stream.isatty():
+                    reconfigure(errors="replace")
+                else:
+                    reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
     parser = argparse.ArgumentParser(
         description="이 PC에 어떤 카메라가 몇 번으로 잡히는지 확인한다")
     parser.add_argument("--devices", type=int, default=DEFAULT_DEVICE_COUNT,
@@ -325,18 +338,6 @@ def main():
     parser.add_argument("--width", type=int, default=None, help="(내부용)")
     parser.add_argument("--height", type=int, default=None, help="(내부용)")
     args = parser.parse_args()
-
-    for stream_name in ("stdout", "stderr"):
-        stream = getattr(sys, stream_name, None)
-        reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure is not None:
-            try:
-                if stream.isatty():
-                    reconfigure(errors="replace")
-                else:
-                    reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
 
     config = load_config(args.config)
     current_id = config["camera"]["device_id"]

@@ -124,6 +124,7 @@ from src.postprocess.head_shake import HeadShakeDetector
 from src.postprocess.head_tracker import HeadTracker
 from src.postprocess.point_filter import PointFilter
 from src.utils.config_loader import load_config
+from src.utils.console import enable_utf8_output
 from src.utils.logger import get_logger, init_logging
 from src.utils.visualize import draw_cursor, draw_head_debug_panel, draw_mode_banner
 
@@ -545,6 +546,7 @@ def _face_nose_signal(face):
 
 
 def main():
+    enable_utf8_output()   # cp949 콘솔·파이프에서 줄표(—) 등으로 죽는 것 방지 — --help도 (2026-09-25)
     parser = argparse.ArgumentParser(
         description="gesture_kiosk 공식 D-pad UI — 손끝/고개로 방향 존을 향해 함수를 실행한다")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
