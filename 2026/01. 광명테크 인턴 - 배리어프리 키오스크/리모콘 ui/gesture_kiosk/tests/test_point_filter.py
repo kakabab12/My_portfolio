@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.postprocess.point_filter import OneEuroFilter, PointFilter
 
-DT_SEC = 1.0 / 30  # 실기와 같은 30 FPS 간격
+DT_SEC = 1.0 / 30  # 테스트와 같은 30 FPS 간격
 
 
 def _feed(filter_, values, dt_sec=DT_SEC):

@@ -10,15 +10,23 @@
 # 2026-07-31 버전 정합(사용자 결정): 연구소 시선추적 환경(mediapipe 0.10.14 +
 #   numpy 1.26.4)과 일치 — 같은 PC/환경 통합 대비. 1.0.0→0.10.14 하향에 맞춰
 #   opencv도 numpy 1.x 호환 4.10대로 연쇄 하향 (Tasks API는 동일 — 코드 무변경)
+# 2026-09-25 numpy·OpenCV는 되올림(사용자 결정) — 위 07-31 결정 중 numpy 1.26.4 +
+#   OpenCV 4.10 부분을 대신한다. mediapipe 0.10.14는 그대로다.
+#   헤드트래커의 렌즈 자가 보정(cv2.calibrateCamera, 얼굴 22점 x 60뷰) 한 번이
+#   OpenCV 4.10에서 수십 초, 5.0에서 0.1초대였다 — 결과(초점거리·k1·오차)는 같다.
+#   4.10이면 켠 뒤 보정이 한참 늦게 적용되고 그동안 CPU를 붙잡는다.
+#   측정: 데이터 수치/lens_speed.py → 렌즈보정_속도.csv
+#   OpenCV 5.0 휠은 numpy 2 이상을 요구한다(파이썬 3.9+). 시선추적은 exe(파이썬
+#   내장)라 환경을 공유하지 않는다 — 설치가이드.md B-1
 mediapipe==0.10.14                 # 손 랜드마크 HandLandmarker — 유일한 추론 의존
                                    #   (모델 파일은 download_weights.py가 받는다)
-opencv-contrib-python==4.10.0.84   # 카메라 캡처·디버그 창·평가 지시 창 (numpy 1.x 호환)
+opencv-contrib-python==5.0.0.93    # 카메라 캡처·디버그 창·평가 지시 창
                                    #   ★contrib인 이유(2026-07-31): mediapipe 0.10.14가
                                    #   opencv-contrib-python을 의존으로 요구 — opencv-python을
-                                   #   고정하면 contrib 최신(4.11)이 따라 들어와 같은 cv2
+                                   #   고정하면 contrib 최신이 따라 들어와 같은 cv2
                                    #   폴더를 덮어쓴다(실측: cv2가 4.11로 둔갑). contrib
-                                   #   단일 고정이면 의존 충족 + 4.10 고정이 함께 성립
-numpy==1.26.4
+                                   #   단일 고정이면 의존 충족 + 버전 고정이 함께 성립
+numpy==2.2.6
 pyyaml==6.0.3
 psutil==7.2.2                      # scripts/resource_report.py 자원 실측용
 pillow==12.3.0                     # 2026-08-27 명시 추가 — head.py/eyebrow.py/forehead.py의

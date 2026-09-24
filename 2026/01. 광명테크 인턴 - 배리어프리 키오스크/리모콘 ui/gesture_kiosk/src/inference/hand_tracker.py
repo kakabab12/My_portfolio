@@ -1,6 +1,6 @@
 """inference 모듈 — 손 랜드마크 추적 (MediaPipe HandLandmarker, Apache-2.0).
 
-2026-07-28 도입 (wholebody 손 21점 교체 — 노트북 실기에서 확인된 구조적 문제 2건):
+2026-07-28 도입 (wholebody 손 21점 교체 — 노트북 테스트에서 확인된 구조적 문제 2건):
 1. 톱다운 포즈(wholebody)는 안 보이는 손도 133점을 강제로 찍는다 — 가려진 손의
    21점이 보이는 손 위에 얹혀 **한 팔에 좌/우 손이 겹치고** 궤적·다수결이 오염됐다.
 2. 2D 투영 길이만으로는 카메라를 가리키는 손가락(원근 단축)과 굽힘을 구분하지
@@ -28,14 +28,14 @@ logger = get_logger("inference")
 HAND_KPT_COUNT = 21
 DUPLICATE_CENTER_SPAN_RATIO = 0.5   # 중복 검출 판정 — 두 검출의 중심 거리가 손 크기의
                                     # 이 비율 이내면 같은 물리적 손 (서로 다른 두 손은
-                                    # 물리적으로 겹칠 수 없다 — 2026-07-29 실기)
+                                    # 물리적으로 겹칠 수 없다 — 2026-07-29 테스트)
 
 
 def suppress_duplicate_hands(hands):
-    """같은 물리적 손의 중복 검출 억제 (2026-07-29 실기 — 유령 라벨 재발 대응).
+    """같은 물리적 손의 중복 검출 억제 (2026-07-29 테스트 — 유령 라벨 재발 대응).
 
     MediaPipe가 드물게 한 손을 좌/우 라벨로 **두 번** 보고한다 — 한 손에 L·R이
-    겹쳐 붙어 활성 팔 선택·궤적·래치가 오염된다(실기: 오른손에 왼손 라벨 동반).
+    겹쳐 붙어 활성 팔 선택·궤적·래치가 오염된다(테스트: 오른손에 왼손 라벨 동반).
     중심 거리가 손 크기(랜드마크 폭)의 절반 이내면 같은 손으로 보고 handedness
     신뢰도가 높은 검출만 남긴다. 순수 함수 — tests/test_hand_tracker.py.
     """
@@ -64,7 +64,7 @@ class HandDetection:
     """손 1개의 추적 결과 (기획서 4.6 공통 데이터 구조 스타일).
 
     user_side: **사용자 기준** "left"/"right" — HandLandmarker(Tasks API)의
-    handedness는 반전 없는 원본 영상 기준이라(2026-07-28 실기 확인), 거울 모드
+    handedness는 반전 없는 원본 영상 기준이라(2026-07-28 테스트 확인), 거울 모드
     (camera.mirror=true — 배포 기본)의 프레임에서는 이 모듈이 라벨을 뒤집어
     사용자 기준으로 맞춘다 (person_lock의 좌/우 스왑 대상이 아니다).
     """
@@ -73,7 +73,7 @@ class HandDetection:
     landmarks: np.ndarray        # shape (21, 3) — (x_px, y_px, z_px). 화면 좌표 —
                                  #   손 중심 궤적·사용자 귀속(어깨 거리)용
     world_landmarks: np.ndarray  # shape (21, 3) — 미터 단위 월드 좌표(손 중심 원점).
-                                 #   손 모양 판별용 (2026-07-28 실기: 화면 z는 노이즈가
+                                 #   손 모양 판별용 (2026-07-28 테스트: 화면 z는 노이즈가
                                  #   커서 한 손가락이 주먹으로 오판 — 시점 불변인
                                  #   월드 기하로 판별해야 한다, hand_shape.py)
     conf: float                  # handedness 신뢰도
@@ -92,7 +92,7 @@ class HandTracker:
         from mediapipe.tasks.python import vision
 
         self._mp = mp
-        # 2026-07-31 실기 — 한글 경로 대응: mediapipe 0.10.14가 model_asset_path의
+        # 2026-07-31 테스트 — 한글 경로 대응: mediapipe 0.10.14가 model_asset_path의
         # 한글 경로를 못 연다(RuntimeError: Unable to open file, errno=-1). 파일을
         # 직접 읽어 바이트로 넘기면 우회된다
         with open(self._model_path, "rb") as model_file:
@@ -131,7 +131,7 @@ class HandTracker:
         for hand_landmarks, world_landmarks, handedness in zip(
                 result.hand_landmarks, result.hand_world_landmarks, result.handedness):
             category = handedness[0]
-            # 실기 정정(2026-07-28 노트북): HandLandmarker(Tasks API)의 handedness는
+            # 테스트 정정(2026-07-28 노트북): HandLandmarker(Tasks API)의 handedness는
             # **반전 없는 원본 영상 기준**으로 관찰됐다 — 거울 프레임에서는 라벨을
             # 뒤집어야 사용자 기준과 일치한다 (구 Solutions 문서의 "셀피 기준" 각주와
             # 반대 동작 — 문서보다 실측을 따른다)

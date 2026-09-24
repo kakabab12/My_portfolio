@@ -2,7 +2,7 @@
 
 왜 만들었나
 -----------
-2026-09-09에 실기 보고가 두 번 들어왔다.
+2026-09-09에 테스트 보고가 두 번 들어왔다.
 
     "입 벌리면 커서 움직이고 아이콘에 커서 가져다 댈려고 하면 뭔가 흔들려.
      커서가 파란색이 아닌데 드래그가 되는 현상이 있네."
@@ -67,7 +67,7 @@ def rest(seconds, yaw_deg=0.0, pitch_deg=0.0, jaw_open=0.05, label="가만히"):
     return Action(seconds, yaw_deg, pitch_deg, jaw_open, label)
 
 
-def aim(seconds, yaw_deg, pitch_deg=0.0, jaw_open=0.05, label="겨냥"):
+def aim(seconds, yaw_deg, pitch_deg=0.0, jaw_open=0.05, label="겨누기"):
     """고개를 돌려 겨눈다(끝 자세를 준다 — 사이는 부드럽게 이어진다)."""
     return Action(seconds, yaw_deg, pitch_deg, jaw_open, label)
 

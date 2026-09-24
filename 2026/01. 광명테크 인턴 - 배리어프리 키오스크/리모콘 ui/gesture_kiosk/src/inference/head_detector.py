@@ -52,7 +52,7 @@ class HeadDetector:
         from mediapipe.tasks.python import vision
 
         self._mp = mp
-        # 2026-07-31 실기 — 한글 경로 대응: mediapipe 0.10.14가 model_asset_path의
+        # 2026-07-31 테스트 — 한글 경로 대응: mediapipe 0.10.14가 model_asset_path의
         # 한글 경로를 못 연다(RuntimeError: Unable to open file, errno=-1). 파일을
         # 직접 읽어 바이트로 넘기면 우회된다 (hand_tracker.py와 동일 처방)
         with open(self._model_path, "rb") as model_file:

@@ -8,11 +8,11 @@ goto/label 없이도 재현됨, install_helper.py 독스트링의 사례보다 �
 PyInstaller는 시스템 파이썬에 깔지 않는다(경량화 방향 유지) — 빌드 전용 임시
 venv에만 설치하고 끝나면 지운다. 결과물(run.exe)만 프로젝트 루트에 남는다.
 """
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import os
 import shutil
 import subprocess
 import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.utils.console import enable_utf8_output
 
 

@@ -18,7 +18,7 @@
 - MediaPipe는 보이는 손만 보고하고 21점을 항상 채워 주므로 v2의 점별 신뢰도
   필터·"미관측" 처리가 필요 없다 (손 존재 신뢰도는 hand_tracker 옵션이 거른다).
 - 3단계 판정(폄 / 굽힘 확인 / 기권)과 손 판정 규칙은 v2 그대로 유지 —
-  실기에서 검증된 보수적 구조(기권이 있으면 주먹을 단정하지 않는다)를 계승.
+  테스트에서 검증된 보수적 구조(기권이 있으면 주먹을 단정하지 않는다)를 계승.
 
 손가락(검지~새끼) 3단계:
 - **폄**: 손끝-손목뿌리 3D 거리가 둘째 관절(PIP)-뿌리 3D 거리의 extend_ratio배 이상
@@ -62,7 +62,7 @@ def finger_states(landmarks, extend_ratio, curl_confirm_ratio):
     """손가락(검지~새끼)별 (3D 비율, 판정 상태) 목록 — 판별 근거 계측(2026-07-28).
 
     classify_hand_shape가 이 계산을 그대로 쓰고, person_lock이 DEBUG 레벨에서
-    이 값을 로그로 남긴다 — 실기에서 주먹/한 손가락의 비율 분포를 측정해
+    이 값을 로그로 남긴다 — 테스트에서 주먹/한 손가락의 비율 분포를 측정해
     extend_ratio·curl_confirm_ratio를 감이 아니라 데이터로 정하기 위한 계측이다.
     """
     if landmarks is None or len(landmarks) < HAND_KPT_COUNT:
@@ -94,7 +94,7 @@ def classify_hand_shape(landmarks, extend_ratio, min_valid_fingers, curl_confirm
     """손 모양 판별 v3 -> "fist" | "finger" | None (모양 불명).
 
     landmarks: HandDetection.**world_landmarks** — shape (21, 3), 미터 단위 월드
-    좌표를 권장한다 (2026-07-28 실기 정정: 화면 좌표의 z는 노이즈가 커서 가리키기
+    좌표를 권장한다 (2026-07-28 테스트 정정: 화면 좌표의 z는 노이즈가 커서 가리키기
     자세의 방향 반전 판정이 튀어 주먹 오판 재발 — 시점 불변 월드 기하로 판별).
     판별은 비율·방향만 쓰므로 스케일 무관 — 화면 좌표를 넣어도 동작은 한다.
     손가락별 3단계(폄/굽힘 확인/기권 — 모듈 주석)를 3D 거리로 세고,

@@ -21,6 +21,13 @@ logger = get_logger("capture")
 
 FIRST_FRAME_TIMEOUT_SEC = 5.0
 NEW_FRAME_TIMEOUT_SEC = 1.0   # 새 프레임 대기 한도 — 카메라 멈칫 시 기존 프레임으로 진행(파이프라인 생존)
+# ★2026-09-24 첫 프레임은 따로 더 오래 기다린다. 카메라는 열린 뒤 첫 프레임을
+# 내기까지 1~2초 걸리는데(자동 노출 등), 첫 프레임도 1초만 기다리다 보니 켤 때마다
+# 네 번에 한 번꼴로 "ERROR 카메라에서 프레임을 받지 못했습니다 (연결/장치 번호 확인)"과
+# 오류 추적이 로그에 찍혔다(8/31~9/10 실행 48번 중 11번, 모두 시작 1초 안, 바로 다음
+# 프레임에 복구). 동작엔 해가 없지만 현장에서 로그를 보면 카메라 고장으로 읽힌다.
+# 정말 프레임이 안 오는 카메라는 이 시간이 지나면 지금처럼 오류를 낸다.
+FIRST_FRAME_TIMEOUT_SEC = 5.0
 # 같은 읽기 오류가 계속될 때 다시 기록하기까지의 간격(초) — _capture_loop 참고
 ERROR_REPEAT_LOG_SEC = 30.0
 
@@ -104,7 +111,7 @@ def init_camera(config, device_id=None, config_path=None):
 
 
 def _log_camera_negotiation(cap, config, device_id):
-    """어떤 카메라가 어떤 조건으로 열렸는지 기록 — 기기별 실기 로그의 증거용 (2026-07-16).
+    """어떤 카메라가 어떤 조건으로 열렸는지 기록 — 기기별 테스트 로그의 증거용 (2026-07-16).
 
     OpenCV는 장치 이름을 못 주므로 기종은 config(camera.model — 사람이 기록)를 싣고,
     협상 결과(실제 해상도·FPS·픽셀포맷·백엔드)는 장치에서 읽어 함께 남긴다 —
@@ -280,8 +287,11 @@ class CameraStream:
         프레임을 그대로 돌려줘 파이프라인이 죽지 않게 한다 — 이때 seq가
         그대로라 호출자는 다음 호출에서 다시 새 프레임을 기다린다.
         """
-        deadline_sec = time.monotonic() + NEW_FRAME_TIMEOUT_SEC
         with self._new_frame_condition:
+            # 아직 한 장도 못 받았으면 카메라가 깨어나는 중이다 — 더 기다린다
+            wait_sec = (NEW_FRAME_TIMEOUT_SEC if self._frame is not None
+                        else FIRST_FRAME_TIMEOUT_SEC)
+            deadline_sec = time.monotonic() + wait_sec
             while self._frame_seq <= last_seq or self._frame is None:
                 remaining_sec = deadline_sec - time.monotonic()
                 if remaining_sec <= 0:

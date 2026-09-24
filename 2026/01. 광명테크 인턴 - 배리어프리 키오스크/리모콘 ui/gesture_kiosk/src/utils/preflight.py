@@ -30,7 +30,7 @@ REQUIRED_KEYS = [
     ("camera.height_px", "카메라 세로 해상도"),
     ("face_tracker.model_path", "얼굴 인식 모델 파일 경로"),
     ("face_tracker.max_num_faces", "동시에 찾을 얼굴 수"),
-    ("head_tracker.calibration_window_sec", "처음 자세를 재는 시간"),
+    ("head_tracker.calibration_window_sec", "처음 자세를 측정하는 시간"),
     ("head_tracker.pointer.sensitivity_x", "커서 좌우 감도"),
     ("head_tracker.pointer.sensitivity_y", "커서 상하 감도"),
     ("head_tracker.pointer.smoothing_alpha", "커서 부드러움 정도"),
@@ -80,7 +80,7 @@ def check_config(config):
         ("head_tracker.pointer.sensitivity_y", 0.05, 10.0, "커서 상하 감도"),
         ("head_tracker.pointer.smoothing_alpha", 0.01, 1.0, "커서 부드러움 정도"),
         ("head_tracker.pointer.max_offset_ratio", 0.05, 1.0, "커서 최대 범위"),
-        ("head_tracker.calibration_window_sec", 0.05, 30.0, "자세 재는 시간"),
+        ("head_tracker.calibration_window_sec", 0.05, 30.0, "자세 측정하는 시간"),
         ("face_tracker.max_num_faces", 1, 10, "동시에 찾을 얼굴 수"),
     ]
     for dotted, lo, hi, meaning in checks:

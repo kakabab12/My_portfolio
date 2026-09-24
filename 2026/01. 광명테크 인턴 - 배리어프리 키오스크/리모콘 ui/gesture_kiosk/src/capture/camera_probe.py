@@ -22,7 +22,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger("capture")
 
-DEFAULT_OPEN_TIMEOUT_SEC = 15.0   # 장치 오픈 한도 — 키오스크 실기(2026-07-31): 정상
+DEFAULT_OPEN_TIMEOUT_SEC = 15.0   # 장치 오픈 한도 — 키오스크 테스트(2026-07-31): 정상
                                   #   장치(Brio)도 MSMF 오픈에 ~11초 걸리는 PC가 있어
                                   #   그보다 여유 있게. config probe_open_timeout_sec
 
@@ -30,7 +30,7 @@ DEFAULT_OPEN_TIMEOUT_SEC = 15.0   # 장치 오픈 한도 — 키오스크 실기
 def _open_with_timeout(config, device_id, timeout_sec):
     """장치 열기를 시간 한도로 감싼다 -> cap | None(실패·시간 초과).
 
-    2026-07-31 키오스크 실기(엔진 먹통): MSMF는 VideoCapture **오픈 자체**가
+    2026-07-31 키오스크 테스트(엔진 먹통): MSMF는 VideoCapture **오픈 자체**가
     장치에 따라 무한 대기한다 — 읽기(probe_timeout_sec)에는 한도가 있었지만
     오픈에는 없어서, 존재하지 않는/IR 계열 장치 1번을 여는 시도에서 프로브가
     통째로 멈췄다(로그: 장치 0 채점 후 무소식). 오픈을 데몬 스레드로 보내고
@@ -94,7 +94,7 @@ def _hand_quality(hands, frame_width_px, good_span_ratio):
 def rank_cameras(config, hand_tracker, preprocessor):
     """장치 0..N-1을 프로브 -> ([(device_id, 점수)] 내림차순, {device_id: 열린 cap}).
 
-    cap을 닫지 않고 함께 돌려주는 이유(2026-07-28 실기): MSMF는 release 직후
+    cap을 닫지 않고 함께 돌려주는 이유(2026-07-28 테스트): MSMF는 release 직후
     같은 장치를 다시 열면 프레임을 주지 않는다(오픈은 성공, read 무응답 —
     첫 프레임 타임아웃 크래시). 선택된 장치는 프로브가 연 핸들을 그대로
     재사용해야 한다 — 호출자는 select_camera를 쓰면 나머지가 정리된다.
@@ -143,9 +143,9 @@ def _probe_device(config, device_id, probe_cfg, hand_tracker, preprocessor):
     """장치 1개를 열어 채점 -> (점수, 열린 cap) | None(열기 실패 — 장치 없음).
 
     시간 한도(probe_timeout_sec) 기반으로 읽는다 — MSMF는 오픈 직후 read 실패가
-    흔해서(2026-07-28 실기: 시도 횟수 기반은 실패로만 소진돼 0점) 성공 프레임
+    흔해서(2026-07-28 테스트: 시도 횟수 기반은 실패로만 소진돼 0점) 성공 프레임
     기준으로 워밍업·채점을 센다. 오픈 자체도 한도로 감싼다(2026-07-31 키오스크
-    실기 — _open_with_timeout 독스트링).
+    테스트 — _open_with_timeout 독스트링).
     """
     cap = _open_with_timeout(
         config, device_id,

@@ -48,7 +48,7 @@ EVENT_BY_SHAPE = {
 TAP_DIP_MAX_SEC = 0.35   # 탭 까딱 1회의 길이 상한 — 이보다 길면 의도적 모양
                          #   전환(주먹 명령 진입)이지 탭이 아니다 (tap_click).
                          #   실측(2026-08-03): 실제 까딱은 0.06초 — 여유 충분
-TAP_BASELINE_WINDOW_SEC = 1.0   # 기준선(폄 상태 비율)을 재는 최근 구간 — 창의 최대값.
+TAP_BASELINE_WINDOW_SEC = 1.0   # 기준선(폄 상태 비율)을 측정하는 최근 구간 — 창의 최대값.
                          #   고정 최대(종전)는 스파이크가 기준선을 밀어올려 시간이
                          #   갈수록 과민해졌다 (2026-08-03 정정)
 TAP_MIN_GAP_SEC = 0.06   # 까딱 사이 최소 간격 — 한 번의 까딱이 되튀며 두 번으로
@@ -90,7 +90,7 @@ class _SwipeTracker:
         # 최근 짧은 구간에서 flick_min_dist 이상 단호하게 움직였으면 인식한다. 손목만
         # 까딱하는 작은 동작을 살리고, 느린 배회는 어느 짧은 구간에서도 미달이라 걸러진다.
         # 키(flick_window_sec) 없으면 플릭 경로 없음 = 종전(이동량 단독) 동작
-        self._flick_window_sec = flick_window_sec          # 최근 이동을 재는 구간(초)
+        self._flick_window_sec = flick_window_sec          # 최근 이동을 측정하는 구간(초)
         self._flick_min_dist = flick_min_dist_shoulder     # 그 구간의 최소 이동(어깨너비)
         # 첫 선 방향 고정(2026-07-28 사용자 제안): 방향을 창 전체 이동량의 주축이
         # 아니라 **원점(정지 지점)을 떠나는 첫 이동 벡터**로 확정한다 — 사람마다
@@ -100,7 +100,7 @@ class _SwipeTracker:
         first_line_cfg = first_line_cfg or {}
         self._first_line_lock_dist = first_line_cfg.get("lock_dist_shoulder")
         self._first_line_still_speed = first_line_cfg.get("still_speed_shoulder", 0.5)
-        # 꺾임 재고정(2026-07-29 실기): 예비 동작(살짝 들기·당기기)이 먼저 방향을
+        # 꺾임 재고정(2026-07-29 테스트): 예비 동작(살짝 들기·당기기)이 먼저 방향을
         # 선점하면 진짜 쓸기가 축 불일치로 전부 무시됐다(해제 조건인 정지·원점
         # 복귀가 올 때까지 죽은 상태 — "크게 움직였는데 무반응" 체감의 원인).
         # 고정 방향 진행이 멈춘 극점에서 이 거리 이상 다른 우세 축으로 꺾이면
@@ -112,7 +112,7 @@ class _SwipeTracker:
         self.went_still = False          # 이번 update에서 정지(재장전)가 확인됐는가 —
                                          #   들어올리기 게이트 해제 신호 (2026-07-31 근거리)
         self._track = deque()   # (ts_sec, x_ratio, y_ratio)
-        # 계기판 노출용(2026-07-16 실기 튜닝) — 부호 있는 진행도: ±1.0 도달 시 확정
+        # 계기판 노출용(2026-07-16 테스트 튜닝) — 부호 있는 진행도: ±1.0 도달 시 확정
         self.progress_x = 0.0
         self.progress_y = 0.0
         # 속도 실측(어깨너비/초) — 계기판 노출로 플릭 임계 튜닝 근거 (2026-07-22)
@@ -157,7 +157,7 @@ class _SwipeTracker:
 
         # 경로 B(플릭): 임계에 못 미쳐도 **최근 짧은 구간에서 단호하게** 움직였으면 확정 —
         # 손목만 까딱하는 작은 동작 구제. 이동량을 전체 창이 아니라 최근 flick_window_sec로
-        # 재는 게 핵심: 전체 창은 앞의 정지 시간에 희석돼 정작 플릭을 놓치고, 느린 배회는
+        # 측정하는 게 핵심: 전체 창은 앞의 정지 시간에 희석돼 정작 플릭을 놓치고, 느린 배회는
         # 어느 짧은 구간에서도 flick_min_dist를 못 넘어 안 터진다(오발 억제).
         if recent_dx is not None:
             abs_rx, abs_ry = abs(recent_dx), abs(recent_dy)
@@ -229,7 +229,7 @@ class _SwipeTracker:
             self._first_line_far_point = (x_ratio, y_ratio)
 
     def _relock_on_turn(self, x_ratio, y_ratio, body_scale):
-        """꺾임 재고정(2026-07-29 실기) — 예비 동작의 방향 선점을 구제한다.
+        """꺾임 재고정(2026-07-29 테스트) — 예비 동작의 방향 선점을 구제한다.
 
         고정 방향으로 나아가는 동안은 극점(far_point)만 따라간다 — 전진 중엔
         수직 표류가 누적되지 않아 호(弧) 궤적이 오재고정되지 않는다. 전진이
@@ -363,7 +363,7 @@ class GestureFilter:
         self._tap_dip_count = 0
 
         # 손 모양 래치(2026-07-28 v3 — 다수결·모양 기억·주먹 우세 대체): 프레임별
-        # 판별의 출렁임이 창 다수결을 오염시켜 계층 오발이 났다(실기 — 특히 이동 중
+        # 판별의 출렁임이 창 다수결을 오염시켜 계층 오발이 났다(테스트 — 특히 이동 중
         # 모션 블러 프레임이 가장 부정확한데 그 표가 판정을 갈랐다). 대체 상태기:
         # ① 고정 — 저속에서 같은 판별 latch_frames 연속이면 모양 고정
         # ② 동결 — freeze_speed 이상 이동 중엔 판별을 아예 무시 (블러 표 차단,
@@ -396,7 +396,7 @@ class GestureFilter:
             if point_filter.get("enabled") else None
         )
 
-        # 팔 들어올리기(예비 동작) 게이트(2026-07-20 실기): 위 방향 이벤트(select·home)를
+        # 팔 들어올리기(예비 동작) 게이트(2026-07-20 테스트): 위 방향 이벤트(select·home)를
         # 하려면 먼저 팔을 올려야 하는데 그 동작 자체가 기하학적으로 위 쓸기와 같다.
         # 추적점이 **휴식 존**(어깨선 아래 어깨너비 raise_guard_below_shoulder배)에
         # 최근(raise_guard_grace_sec 안) 있었다면 위 방향을 이벤트로 치지 않는다 —
@@ -428,7 +428,7 @@ class GestureFilter:
         self._last_point_sec = None        # 추적점이 마지막으로 존재한 시각
 
         # 반대 방향 복귀 삼킴 — 동작 직후 같은 축의 반대 쓸기를 복귀로 무시.
-        # 2026-07-16 실기 보완: 시간만 보면 의도적 반대 쓸기(예: 우 다음 좌)까지
+        # 2026-07-16 테스트 보완: 시간만 보면 의도적 반대 쓸기(예: 우 다음 좌)까지
         # 먹으므로, **시작점이 직전 획의 끝 근처일 때만** 복귀로 인정한다
         self._return_suppress_sec = swipe["return_suppress_sec"]
         self._return_origin_shoulder = swipe["return_origin_shoulder"]
@@ -447,7 +447,7 @@ class GestureFilter:
         self._undefined_ignored_count = 0  # 계기판 — 정의 없는 조합(주먹+아래)으로 무시한 수
 
         self._last_event_ts_sec = None
-        self.debug = {}   # 실기 튜닝 계기판 — 디버그 창 오버레이로 노출 (판정에 미사용)
+        self.debug = {}   # 테스트 튜닝 계기판 — 디버그 창 오버레이로 노출 (판정에 미사용)
 
     def filter_signals(self, hand_signal, shoulder_width_ratio=None,
                        shoulder_line_y_ratio=None):
@@ -518,7 +518,7 @@ class GestureFilter:
                 prev_point, prev_point_sec = None, None   # 공백 후 — 속도 연속성 없음
                 if self._point_filter is not None:
                     self._point_filter.reset()   # 잔상으로 새 궤적 오염 금지
-                # 손의 "등장"도 휴식 존 이력로 취급(2026-07-21 실기 정정): 근거리에선
+                # 손의 "등장"도 휴식 존 이력로 취급(2026-07-21 테스트 정정): 근거리에선
                 # 내린 손이 화면 밖이라 어깨선 아래에서 새로 나타난 손은 들어올리기
                 # 도중일 가능성이 높다 — 등장 시각을 스탬프한다 (위 방향만 유예)
                 if (self._raise_guard_below_shoulder is not None
@@ -542,7 +542,7 @@ class GestureFilter:
             if (self._swipe_tracker.went_still
                     and self._raise_guard_below_shoulder is not None
                     and point[1] <= self._rest_zone_top_y(body_scale)):
-                # 존 밖 정지 = 들어올리기 종료(2026-07-31 키오스크 실기 — 근거리에서
+                # 존 밖 정지 = 들어올리기 종료(2026-07-31 키오스크 테스트 — 근거리에서
                 # 위 쓸기 무반응): 근거리에선 내린 손이 화면 밖이라 손의 "등장"마다
                 # 휴식 존이 스탬프되고, 유예(0.6초) 안의 위 플릭이 전부 들어올리기로
                 # 삼켜졌다. 존 밖 정지가 확인되면 들어올리기는 끝난 것 — 스탬프를
@@ -596,7 +596,7 @@ class GestureFilter:
 
         if direction == "up" and self._is_arm_raise(now_sec):
             # 팔 들어올리기(예비 동작) — 휴식 존(팔 처진 위치)에서 방금 올라온 위
-            # 방향은 select/home이 아니라 다음 동작 준비다 (2026-07-20 실기: 아래 쓸기
+            # 방향은 select/home이 아니라 다음 동작 준비다 (2026-07-20 테스트: 아래 쓸기
             # 전 들어올리기가 확인으로 오발). 무시하고 궤적을 비워, 이어지는
             # 동작(아래 쓸기 등)이 올라간 위치 기준으로 새로 판정되게 한다
             self._raise_ignored_count += 1
@@ -723,7 +723,7 @@ class GestureFilter:
         """이 프레임 판별을 래치 관측으로 쓸 수 있나 — 빠른 이동 중이면 False(동결).
 
         이동 중 판별은 모션 블러로 가장 부정확한데, 다수결 시절 그 표가 판정을
-        오염시켰다 (래치 도입 배경 — 2026-07-28 실기). 속도 미상(첫 관측·직전
+        오염시켰다 (래치 도입 배경 — 2026-07-28 테스트). 속도 미상(첫 관측·직전
         점 없음)은 관측 허용 — 손이 새로 나타난 정지 프레임을 놓치지 않는다.
         """
         if self._latch_freeze_speed is None:
@@ -779,7 +779,7 @@ class GestureFilter:
     def _rest_zone_top_y(self, body_scale):
         """휴식 존 상단 y — 어깨선 아래 N배, 폴백은 화면 하단 띠.
 
-        2026-07-31 정정(키오스크 실기 — run.bat은 화면이 없어 사용자가 프레임 안
+        2026-07-31 정정(키오스크 테스트 — run.bat은 화면이 없어 사용자가 프레임 안
         위치를 모른다): 어깨선이 있으면 **몸 기준 존만** 쓴다 — 구 min() 결합은
         화면 하단 띠(절대 좌표)가 항상 함께 적용돼, 카메라 각도에 따라 가슴
         높이 손이 띠에 걸리면 위 쓸기가 계속 삼켜졌다(위치 의존). 하단 띠는
@@ -866,7 +866,7 @@ class GestureFilter:
         return False
 
     def _update_debug(self, body_scale, shoulder_width_ratio):
-        """판정 내부값 스냅샷 — 실기에서 임계가 왜 안/잘 넘는지 숫자로 보기 위한 계기판."""
+        """판정 내부값 스냅샷 — 테스트에서 임계가 왜 안/잘 넘는지 숫자로 보기 위한 계기판."""
         tracker = self._swipe_tracker
         self.debug = {
             "body_scale": round(body_scale, 3),               # 어깨너비/프레임폭 (평활 후)

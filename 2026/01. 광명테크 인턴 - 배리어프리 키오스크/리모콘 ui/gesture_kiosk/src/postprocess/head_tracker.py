@@ -16,7 +16,7 @@
 - calibration : 커서가 반경 안에 일정 시간(config recenter_dwell.dwell_sec) 머무르는
                 응시(dwell) — 커서 중심을 지금 고개 위치로 다시 잡는다. 입 오므리기
                 (mouthPucker) 판정은 오탐이 너무 잦아 2026-07-30 사용자 결정으로
-                기본 비활성(recenter_gesture.enabled: false)
+                껐고, 2026-09-24 삭제했다
 
 ⚠ 아이트래커(시선) 모드는 이번 이식에서 **제외**했다(사용자 결정 2026-07-30) —
 프로토타입의 _GazeCursorMapper·홍채 랜드마크·cursor_mode 전환 경로 전부 미이식.
@@ -41,7 +41,6 @@ from src.inference.face_estimator import (
     LMK_LEFT_EYE_OUTER, LMK_NOSE_TIP, LMK_RIGHT_EYE_OUTER,
 )
 from src.postprocess.gesture_filter import GestureEvent
-from src.postprocess.auto_arc import OnlineArcCompensator
 from src.postprocess.head_orientation import HeadOrientation
 from src.postprocess.lens_calibration import LensSelfCalibrator
 from src.utils.display_size import detect_screen_size_mm
@@ -69,12 +68,6 @@ MIN_INTEROCULAR_DIST_PX = 10.0  # 이보다 좁으면(검출 불량) 정규화 �
 ONE_EURO_ADAPT_MIN_SCALE = 0.5
 ONE_EURO_ADAPT_MAX_SCALE = 1.0
 
-# 각도 기반 매핑에서 회전각을 자르는 한도 (도).
-# tan(θ)는 90°에서 발산한다 — 키오스크에서 고개를 그만큼 돌릴 일은 없지만,
-# 한 프레임이라도 튀면 커서가 화면 밖으로 순간이동한다. 사람이 화면을 보며
-# 조작하는 범위를 넉넉히 감싸는 값으로 자른다
-HEAD_POSE_MAX_ANGLE_DEG = 60.0
-
 EVENT_SELECT = "select"            # 입 벌리기 / 1.5초 응시 — 선택·확인 (구 ok, 2026-07-30 개명)
 EVENT_HOME = "home"               # 양 눈 감고 버티기 — 처음으로
 EVENT_CALIBRATION = "calibration" # 응시(또는 입 오므리기, 기본 비활성) — 커서 중심 재정렬
@@ -89,7 +82,7 @@ def _median(samples):
 
     평균 대신 중앙값인 이유: 캘리브레이션 구간 중 순간적인 과도기 프레임(눈 깜빡임·
     고개 숙임 등) 1~2장이 섞여도 평균처럼 기준 전체가 끌려가지 않는다
-    (프로토타입 2026-07-18 실기 — 커서가 화면 상단에 눌러붙던 문제의 원인이었다).
+    (프로토타입 2026-07-18 테스트 — 커서가 화면 상단에 눌러붙던 문제의 원인이었다).
     """
     if isinstance(samples[0], tuple):
         return tuple(_median(list(dim_samples)) for dim_samples in zip(*samples))
@@ -175,7 +168,7 @@ class OneEuroFilter:
     min_cutoff: 정지 시 얼마나 부드러운가(작을수록 떨림이 덜 보이지만 느려짐).
     beta: 속도가 오를 때 얼마나 빨리 평활을 풀어주는가(클수록 빠른 움직임을
     더 지연 없이 따라간다). 논문 권장 시작값(min_cutoff=1.0, beta=0.0)을
-    기본으로 둔다 — 실기로 두 값을 조정해 정지 시 떨림과 빠른 반응 사이의
+    기본으로 둔다 — 테스트로 두 값을 조정해 정지 시 떨림과 빠른 반응 사이의
     균형을 잡을 것.
     """
 
@@ -257,7 +250,7 @@ class _CursorMapper:
     재정렬이라는 반창고가 필요했던 이유다.
 
     [어떻게 고쳤나]
-    기준점을 화면이 아니라 **얼굴 자신을 기준으로** 잰다. 양쪽 눈 바깥쪽 끝
+    기준점을 화면이 아니라 **얼굴 자신을 기준으로** 측정한다. 양쪽 눈 바깥쪽 끝
     두 점으로 얼굴의 좌표계를 만들고(원점 = 두 눈의 중점, 가로축 = 두 눈을 잇는
     방향, 길이 단위 = 두 눈 사이 거리), 그 안에서 기준점이 어디 있는지를 본다.
 
@@ -265,7 +258,7 @@ class _CursorMapper:
       · 몸이 움직이면 눈과 코가 **함께** 움직이므로 얼굴 좌표계 안의 값은 그대로
         -> 커서가 안 움직인다 (밀려감이 원리적으로 사라진다)
       · 카메라에 가까워지거나 멀어지면 두 눈 사이 거리로 나누므로 상쇄된다
-      · 고개를 갸웃하면(roll) 얼굴 가로축도 같이 기울므로 그만큼 되돌려 잰다
+      · 고개를 갸웃하면(roll) 얼굴 가로축도 같이 기울므로 그만큼 되돌려 측정한다
 
     남는 건 순수한 고개 회전뿐이다 — 즉 "얼굴이 향한 방향" 하나만 커서를
     움직인다. 이게 곧 "바라보는 지점에 커서가 간다"의 의미다.
@@ -286,12 +279,11 @@ class _CursorMapper:
                  face_local=True, face_local_gain=2.0,
                  one_euro_enabled=False, one_euro_min_cutoff=1.0, one_euro_beta=0.0,
                  one_euro_distance_adaptive=False, one_euro_reference_dist_px=60.0,
-                 arc_compensation=0.0, head_pose_mapping=False,
+                 arc_compensation=0.0,
                  orientation_mapping=False,
                  orientation_half_span_x_deg=15.0, orientation_half_span_y_deg=10.0,
-                 orientation_rotation_source="auto", orientation_auto_arc=True,
+                 orientation_rotation_source="auto",
                  orientation_lens_calibration=True,
-                 orientation_lens_distortion=False,
                  orientation_distance_scaling=True,
                  orientation_reach_gain=1.0,
                  orientation_invert_x=False,
@@ -332,7 +324,7 @@ class _CursorMapper:
         # ★가로 이동 시 세로가 휘는 것(활 모양) 보정 계수 — 2026-08-27 신설.
         #
         # 증상: 고개를 좌우로만 돌렸는데 커서가 수평이 아니라 뒤집힌 U(∩) 모양
-        # 포물선을 그린다. 실기 보고로 확인됐다.
+        # 포물선을 그린다. 테스트 보고로 확인됐다.
         #
         # 원인: 커서 기준점에 섞인 **코**는 얼굴 밖으로 튀어나온 3차원 점이다.
         # 고개를 좌우로 돌리면 코끝은 화면상에서 단순히 옆으로만 가는 게 아니라
@@ -348,31 +340,23 @@ class _CursorMapper:
         # 계수는 커서 좌표계 기준이라 감각적으로 읽힌다 — 예를 들어 0.2면
         # 화면 좌우 끝(가로offset 0.5)에서 화면 높이의 0.2 x 0.25 = 5%만큼
         # 내려준다는 뜻이다. 실측으로 맞추는 게 정확하다:
-        # (measure_arc.py는 2026-08-31 정리로 삭제 — auto_arc.py가 자동 대체)
+        # (measure_arc.py는 2026-08-31 정리로 삭제. 그 자동판이던 auto_arc.py도
+        #  2026-09-24 삭제 — 실사용 움직임에서 없는 곡률을 배워 휨을 키웠다)
         self._arc_compensation = arc_compensation
-        # ★각도 기반 매핑 — HEAD_POSE_MAPPING 설명 참고. 기본 False라
-        # 이 값을 안 넘기는 기존 호출부는 동작이 전혀 바뀌지 않는다
-        self._head_pose_mapping = head_pose_mapping
         # ★상대 회전 매핑 (2026-08-31) — head_orientation.py 참고.
-        # 카메라를 어떻게 달아도 잴 것이 없다. 감도는 배율이 아니라
+        # 카메라를 어떻게 달아도 측정할 것이 없다. 감도는 배율이 아니라
         # "고개를 몇 도 돌리면 화면 끝인가"라는 사람 기준 각도로 준다
         self._orientation_mapping = orientation_mapping
         # 회전 재료(auto=변환행렬 우선) — head_orientation.py "회전의 재료 두 가지" 참고
         self._orientation = (HeadOrientation(rotation_source=orientation_rotation_source)
                              if orientation_mapping else None)
-        # 잔여 곡률 자동 소거 — auto_arc.py 참고. 어떤 카메라 배치에서 어떤
-        # 곡률이 남든, 쓰는 동안 스스로 2차항을 추정해 빼 준다.
-        # 사람이 재서 넣던 ARC_COMPENSATION의 자동판이다
-        self._auto_arc = (OnlineArcCompensator()
-                          if (orientation_mapping and orientation_auto_arc) else None)
         # ★렌즈 자가 보정 (lens_calibration.py) — 광각 렌즈의 배럴 왜곡과
         # 원근 단축을 되돌린다. 사용자의 얼굴이 곧 보정판이라 현장에서
-        # 아무것도 재지 않는다. 첫 얼굴을 볼 때 화면 크기를 알고 만든다
+        # 아무것도 측정하지 않는다. 첫 얼굴을 볼 때 화면 크기를 알고 만든다
         self._lens_calibration_enabled = bool(
             orientation_mapping and orientation_lens_calibration)
         # 왜곡 되돌리기는 기본 끔 (lens_calibration.py 독스트링 참고) —
         # 얼굴이 정규 모형과 다르면 해로운데 가려낼 방법을 못 찾았다
-        self._lens_distortion_enabled = bool(orientation_lens_distortion)
         self._lens_calibrator = None
         self._lens_applied = False
         # tan으로 미리 바꿔 둔다 — 매 프레임 삼각함수를 다시 부르지 않게
@@ -396,7 +380,7 @@ class _CursorMapper:
         # ★거리를 카메라로 추정해 보려다 접었다. Z = f x 얼굴크기 / 화면크기로
         # 구할 수 있는데, f가 얼굴 생김새에 따라 중앙값 15.7%, 최악 69.3%까지
         # 틀린다. 그 추정을 섞어 봤더니 **오히려 나빠졌다** — 실제로 생기는
-        # 거리 편차(기준 대비 +-20%) 안에서 재 보면:
+        # 거리 편차(기준 대비 +-20%) 안에서 측정해 보면:
         #
         #     방식                    평균   중앙값  90분위   최악
         #     15도 고정               6.4%   5.0%   15.5%  20.0%
@@ -445,9 +429,9 @@ class _CursorMapper:
         # 목이 멀쩡한 사람은 아무 이득 없이 떨림만 배율만큼 커진다.
         #
         # 그래서 **재서 정한다.** scripts/measure_reach.py가 그 사람의 실제
-        # 가동범위를 재고 권장값을 알려 준다. 기본 1.0은 손대지 않음이다.
+        # 가동범위를 측정하고 권장값을 알려 준다. 기본 1.0은 손대지 않음이다.
         self._reach_gain = max(0.5, min(3.0, float(orientation_reach_gain or 1.0)))
-        # ★머리 커서 가로 뒤집기 (2026-09-05 신설, 실기 보고 "모든 헤드트래커
+        # ★머리 커서 가로 뒤집기 (2026-09-05 신설, 테스트 보고 "모든 헤드트래커
         # 커서가 좌우 반대로 돌아간다. 손으로 dpad 하는 건 정상").
         #
         # 손 쓸기가 정상이라는 것이 중요하다 — 그러면 영상은 config대로 제대로
@@ -455,8 +439,8 @@ class _CursorMapper:
         # 곳은 **머리 커서의 가로 부호 하나**다.
         #
         # 가상 카메라로는 이 경우가 "맞음"으로 나온다. 즉 시뮬레이션의 거울
-        # 모델이 실기와 어긋나 있고, 그것을 기준 삼은 시험들이 반대쪽을
-        # 통과시켜 왔다. 어느 쪽이 어긋났는지는 실기에서 재야 한다 —
+        # 모델이 테스트와 어긋나 있고, 그것을 기준 삼은 시험들이 반대쪽을
+        # 통과시켜 왔다. 어느 쪽이 어긋났는지는 테스트에서 측정해야 한다 —
         # scripts/check_direction.py 가 그 측정 도구다.
         #
         # 이 값은 그때까지의 **임시 조치**다. 기본은 False라 거동이 안 바뀐다.
@@ -492,8 +476,6 @@ class _CursorMapper:
         # 달라져 이전 중립에 맞춘 회전이 통째로 틀어진다
         if self._orientation is not None:
             self._orientation.reset()
-        if self._auto_arc is not None:
-            self._auto_arc.reset()      # 사람이 바뀌면 곡률도 그 사람 것이 아니다
         if self._lens_calibrator is not None:
             # 렌즈는 사람이 바뀌어도 그대로다 — 모아 둔 뷰만 비운다
             self._lens_calibrator.reset()
@@ -588,46 +570,13 @@ class _CursorMapper:
         self._one_euro_y.prime(0.5, now_sec)
         return True
 
-    def _measure_head_pose(self, head_pose):
-        """머리 회전각을 커서 좌표 재료로 바꾼다 (head_pose_mapping 전용).
-
-        ★2026-08-28 신설 — HEAD_POSE_MAPPING 설명 참고.
-
-        각도를 그대로 쓰지 않고 **탄젠트**를 쓴다. 고개를 각도 θ만큼 돌렸을 때
-        사용자가 바라보는 화면 위의 지점은 tan(θ)에 비례해 움직이지 θ에 비례하지
-        않는다 — 눈에서 화면까지가 직선 거리이기 때문이다. θ를 그대로 쓰면 화면
-        가장자리로 갈수록 커서가 실제 시선보다 뒤처진다.
-
-        _measure()가 돌려주는 값과 단위를 맞춰 둔다 — 뒤쪽 계산(중앙값
-        캘리브레이션 -> 차이 -> 민감도 -> 클램프)이 두 방식에서 완전히 같게
-        흘러가야 하기 때문이다. 그래서 여기서도 부호 없는 무차원 값을 낸다.
-        """
-        if head_pose is None:
-            return None
-        yaw = math.radians(head_pose.yaw_deg)
-        pitch = math.radians(head_pose.pitch_deg)
-        # 고개를 90°에 가깝게 돌리면 tan이 발산한다 — 키오스크에서 그럴 일은
-        # 없지만, 한 프레임이라도 튀면 커서가 화면 밖으로 순간이동한다
-        limit = math.radians(HEAD_POSE_MAX_ANGLE_DEG)
-        yaw = max(-limit, min(limit, yaw))
-        pitch = max(-limit, min(limit, pitch))
-        # pitch 부호를 뒤집는다 — 위를 보면 pitch가 양수인데, 화면 좌표는
-        # 위쪽이 0이라 커서도 위(작은 값)로 가야 한다
-        return (math.tan(yaw), -math.tan(pitch))
-
-    def update(self, cursor_px, eye_left_px, eye_right_px, now_sec, head_pose=None,
-               face=None):
+    def update(self, cursor_px, eye_left_px, eye_right_px, now_sec, face=None):
         # ★상대 회전 매핑 (2026-08-31) — 켜져 있고 3차원 랜드마크가 실제로 올 때만
         # 이 경로를 탄다. 안 오면 조용히 기존 방식으로 되돌아간다
         if self._orientation_mapping and face is not None:
             result = self._update_from_orientation(face, now_sec)
             if result is not None:
                 return result
-        # ★각도 기반 매핑 (HEAD_POSE_MAPPING) — 켜져 있고 자세 정보가 실제로
-        # 올 때만 이 경로를 탄다. 자세가 안 오면(옵션 꺼짐·모델 미지원) 조용히
-        # 기존 랜드마크 방식으로 되돌아간다 — 갑자기 커서가 멈추면 안 된다
-        if self._head_pose_mapping and head_pose is not None:
-            return self._update_from_head_pose(head_pose, now_sec)
 
         interocular_dist_px = _dist(eye_left_px, eye_right_px)
         if interocular_dist_px < MIN_INTEROCULAR_DIST_PX:
@@ -666,7 +615,7 @@ class _CursorMapper:
             dx = (measured[0] - center[0]) / self._smoothed_dist_px
             dy = (measured[1] - center[1]) / self._smoothed_dist_px
         # y는 x보다 낮은 민감도를 쓴다 — 고개는 좌우 회전 범위가 상하보다 훨씬 넓어
-        # 같은 민감도면 상하가 쉽게 끝까지 튄다 (프로토타입 실기: 상단에 눌러붙는 현상)
+        # 같은 민감도면 상하가 쉽게 끝까지 튄다 (프로토타입 테스트: 상단에 눌러붙는 현상)
         offset_x = dx * self._sensitivity_x
         offset_y = dy * self._sensitivity_y
         # ★가로 이동 시 세로가 활처럼 휘는 것을 상쇄한다 (_arc_compensation 설명 참고).
@@ -678,7 +627,7 @@ class _CursorMapper:
         # offset_y가 이 보정만으로 자기 클램프(max_offset_ratio)에 부딪혀
         # "화면 양쪽 끝에서 커서가 위로 확 올라가는" 현상, 그리고 중간 구간의
         # 잔여 곡률과 겹쳐 "누운 S자"로 보이는 현상이 실사용에서 나왔다
-        # (2026-08-28 사용자 실기 보고로 발견).
+        # (2026-08-28 사용자 테스트 보고로 발견).
         #
         # 화면에서 가장 많이 휘는 지점은 정확히 커서가 가장자리에 닿는
         # 지점(offset_x가 클램프에 닿는 지점)이다 — 그 이상 고개를 돌려도 커서
@@ -705,7 +654,7 @@ class _CursorMapper:
     def _update_from_orientation(self, face, now_sec):
         """중립 대비 상대 회전으로 커서를 정한다 (orientation_mapping 전용).
 
-        이 경로가 다른 두 경로와 근본적으로 다른 점은 **잴 것이 없다**는 것이다.
+        이 경로가 다른 두 경로와 근본적으로 다른 점은 **측정할 것이 없다**는 것이다.
 
           · 카메라 배치 — 중립과 현재를 같은 카메라로 본 것끼리 비교하므로
             상대 회전에서 소거된다 (head_orientation.py 참고)
@@ -741,11 +690,6 @@ class _CursorMapper:
             return (self.cursor_x_ratio, self.cursor_y_ratio)
 
         raw_tan_x, raw_tan_y = offset
-        # 잔여 곡률 자동 소거 (auto_arc.py) — 탄젠트 단계에서 뺀다.
-        # 화면 비율로 바꾼 뒤에 빼면 half_span을 조절할 때마다 계수의 의미가
-        # 달라지지만, 탄젠트끼리는 감도와 무관한 순수 기하 관계라 그대로 남는다
-        if self._auto_arc is not None:
-            raw_tan_y = self._auto_arc.update(raw_tan_x, raw_tan_y)
 
         # ★거리 보정 (2026-09-05) — head_orientation.py의 DISTANCE_* 설명 참고.
         #
@@ -803,7 +747,7 @@ class _CursorMapper:
             if not size or len(size) != 2 or not all(size):
                 return                      # 화면 크기를 모르면 중심도 모른다
             self._lens_calibrator = LensSelfCalibrator(
-                size[0], size[1], distortion=self._lens_distortion_enabled)
+                size[0], size[1])
         self._lens_calibrator.add(landmarks)
         model = self._lens_calibrator.model
         if model is not None and self._orientation is not None:
@@ -814,51 +758,6 @@ class _CursorMapper:
                 # 중립을 다시 못 만들었다 — 렌즈를 물리고 예전 경로로 남는다
                 self._orientation.set_lens(None)
                 self._lens_applied = True
-
-    def _update_from_head_pose(self, head_pose, now_sec):
-        """머리 회전각으로 커서를 정한다 (HEAD_POSE_MAPPING 전용).
-
-        위 update()의 랜드마크 경로와 **뒤쪽 계산이 완전히 같다** — 중앙값
-        캘리브레이션 -> 중심 대비 차이 -> 민감도 -> 클램프 -> 평활. 재료를
-        "화면에 투영된 좌표"에서 "회전각의 탄젠트"로 바꿨을 뿐이다.
-
-        곡률 보정(_arc_compensation)이 여기엔 없다. 그 보정은 3차원 점이 2차원
-        화면에 투영될 때 생기는 왜곡을 2차식으로 되돌리는 장치인데, 회전각은
-        애초에 투영을 거치지 않아 왜곡될 것이 없다. **보정 상수를 카메라 배치마다
-        다시 재야 하는 문제 자체가 사라지는 것**이 이 방식의 핵심이다.
-        """
-        measured = self._measure_head_pose(head_pose)
-        if measured is None:
-            return self.cursor_x_ratio, self.cursor_y_ratio
-
-        center = self._center_calibrator.update(measured, now_sec)
-        if center is None:
-            return None, None   # 캘리브레이션 중 — 커서 미확정
-
-        if self.cursor_x_ratio is None:
-            logger.info("커서 중심 캘리브레이션 완료 (머리 회전각 기준)")
-            self.cursor_x_ratio, self.cursor_y_ratio = 0.5, 0.5
-            self._one_euro_x.prime(0.5, now_sec)
-            self._one_euro_y.prime(0.5, now_sec)
-            return self.cursor_x_ratio, self.cursor_y_ratio
-
-        offset_x = (measured[0] - center[0]) * self._sensitivity_x
-        offset_y = (measured[1] - center[1]) * self._sensitivity_y
-        offset_x = _clamp(offset_x, self._max_offset_ratio)
-        offset_y = _clamp(offset_y, self._max_offset_ratio)
-        raw_x, raw_y = 0.5 + offset_x, 0.5 + offset_y
-
-        if self._one_euro_enabled:
-            # 거리 적응 평활은 안구간거리를 쓰는데 이 경로에선 그 값을 갱신하지
-            # 않는다. 대신 자세의 tz(실제 거리)가 있으니 그걸 쓸 수 있지만,
-            # 단위가 달라 그대로 넣으면 배율이 어긋난다 — 먼저 실측한 뒤에
-            # 붙일 일이라 지금은 고정 평활만 쓴다
-            self.cursor_x_ratio = self._one_euro_x(raw_x, now_sec)
-            self.cursor_y_ratio = self._one_euro_y(raw_y, now_sec)
-        else:
-            self.cursor_x_ratio += self._smoothing_alpha * (raw_x - self.cursor_x_ratio)
-            self.cursor_y_ratio += self._smoothing_alpha * (raw_y - self.cursor_y_ratio)
-        return self.cursor_x_ratio, self.cursor_y_ratio
 
 
 class _ThresholdGate:
@@ -1016,9 +915,6 @@ class HeadTracker:
             one_euro_distance_adaptive=pointer.get("one_euro_distance_adaptive", False),
             one_euro_reference_dist_px=pointer.get("one_euro_reference_dist_px", 60.0),
             arc_compensation=pointer.get("arc_compensation", 0.0),
-            # ★각도 기반 매핑 — HEAD_POSE_MAPPING 설명 참고. 기본 False라
-            # 이 키가 없는 기존 설정은 동작이 그대로다
-            head_pose_mapping=pointer.get("head_pose_mapping", False),
             # ★상대 회전 매핑 (2026-08-31) — head_orientation.py 참고.
             # 기본 False라 이 키가 없는 기존 설정은 동작이 그대로다.
             # 켜면 감도(sensitivity_x/y)와 곡률 보정(arc_compensation)이 함께
@@ -1036,15 +932,12 @@ class HeadTracker:
             orientation_half_span_x_deg=pointer.get("orientation_half_span_x_deg", 15.0),
             orientation_half_span_y_deg=pointer.get("orientation_half_span_y_deg", 10.0),
             orientation_rotation_source=pointer.get("orientation_rotation_source", "auto"),
-            orientation_auto_arc=pointer.get("orientation_auto_arc", True),
             # 렌즈 자가 보정 (lens_calibration.py) — 광각 렌즈의 배럴 왜곡과
             # 원근 단축을 사용자의 얼굴만으로 되돌린다. 기본 켬이고,
             # 못 믿을 상황에서는 스스로 아무것도 하지 않는다
             orientation_lens_calibration=pointer.get(
                 "orientation_lens_calibration", True),
             # 왜곡 되돌리기는 기본 끔 — 카메라를 아는 배포처에서만 켠다
-            orientation_lens_distortion=pointer.get(
-                "orientation_lens_distortion", False),
         )
 
         mouth = ht["mouth_click"]
@@ -1059,13 +952,6 @@ class HeadTracker:
         self._eye_close_margin = eye_close["close_margin"]
         self._eye_baseline = _MedianCalibrator(calibration_window_sec)
         self._eye_close_gate = _HoldGate(eye_close["hold_sec"], clock)
-
-        recenter = ht["recenter_gesture"]
-        self._recenter_enabled = recenter["enabled"]
-        self._recenter_open_margin = recenter["open_margin"]
-        self._recenter_close_margin = recenter["close_margin"]
-        self._mouth_pucker_baseline = _MedianCalibrator(calibration_window_sec)
-        self._recenter_gate = _ThresholdGate(recenter["cooldown_sec"], clock)
 
         dwell = ht["dwell_click"]
         self._dwell_enabled = dwell["enabled"]
@@ -1089,7 +975,7 @@ class HeadTracker:
         # 안 그러면 **첫 프레임에 얼굴이 없을 때** 속성이 없어 죽는다
         # (2026-08-31: 실제로 그 경로를 밟아 AttributeError를 봤다)
         self._face_lost_since_sec = None
-        self.debug = {}   # 실기 튜닝 계기판 — 디버그 창에 노출 (판정에 미사용)
+        self.debug = {}   # 테스트 튜닝 계기판 — 디버그 창에 노출 (판정에 미사용)
 
     def update(self, face):
         """얼굴 신호 1프레임 -> HeadTrackerResult (기획서 4.6 계약).
@@ -1107,7 +993,7 @@ class HeadTracker:
             # 벗어남)에서는 이것이 **리셋 -> 재캘리브레이션 -> 또 리셋**의
             # 되풀이가 되어, 캘리브레이션이 끝나질 않고 커서가 영영 안 나온다.
             # 밖에서 보면 "커서가 아예 안 움직인다"로만 보인다 — 원인을 찾기
-            # 어려운 부류다(2026-08-31 실기 보고: "옆으로 살짝 기운 카메라는
+            # 어려운 부류다(2026-08-31 테스트 보고: "옆으로 살짝 기운 카메라는
             # 커서가 아예 안 움직인다").
             #
             # 한 프레임 빠진 것은 **사람이 바뀐 것이 아니다.** 이만큼 이어서
@@ -1128,7 +1014,6 @@ class HeadTracker:
         eye_close_score = min(
             face.blendshape("eyeBlinkLeft"), face.blendshape("eyeBlinkRight")
         )
-        mouth_pucker_score = face.blendshape("mouthPucker")
 
         cursor_source_px = self._cursor_point_fn(face)   # 기본: 코끝 — __init__ 참고
         # 양쪽 눈 바깥쪽 끝 두 점 = 얼굴 좌표계의 가로축이자 길이 자(尺).
@@ -1137,21 +1022,18 @@ class HeadTracker:
         eye_left_px = face.landmark_px(LMK_LEFT_EYE_OUTER)
         eye_right_px = face.landmark_px(LMK_RIGHT_EYE_OUTER)
         cursor_x, cursor_y = self._cursor_mapper.update(
-            cursor_source_px, eye_left_px, eye_right_px, now_sec,
-            head_pose=getattr(face, "head_pose", None), face=face)
-        # 코 캘리브레이션과 같은 구간에서 입/눈/오므림 평상시 기준선도 함께 잡는다
+            cursor_source_px, eye_left_px, eye_right_px, now_sec, face=face)
+        # 코 캘리브레이션과 같은 구간에서 입/눈 평상시 기준선도 함께 잡는다
         jaw_baseline = self._jaw_baseline.update(jaw_open_score, now_sec)
         eye_baseline = self._eye_baseline.update(eye_close_score, now_sec)
-        mouth_pucker_baseline = self._mouth_pucker_baseline.update(mouth_pucker_score, now_sec)
 
         events = self._detect_events(
             cursor_x, cursor_y, jaw_open_score, jaw_baseline, eye_close_score, eye_baseline,
-            mouth_pucker_score, mouth_pucker_baseline, now_sec,
+            now_sec,
         )
 
         self._update_debug(
             cursor_x, cursor_y, jaw_open_score, jaw_baseline, eye_close_score, eye_baseline,
-            mouth_pucker_score, mouth_pucker_baseline,
         )
         return HeadTrackerResult(
             cursor_x_ratio=cursor_x, cursor_y_ratio=cursor_y,
@@ -1159,8 +1041,7 @@ class HeadTracker:
         )
 
     def _detect_events(self, cursor_x, cursor_y, jaw_open_score, jaw_baseline,
-                       eye_close_score, eye_baseline, mouth_pucker_score,
-                       mouth_pucker_baseline, now_sec):
+                       eye_close_score, eye_baseline, now_sec):
         events = []
         # 기준선이 아직 안 잡혔으면(캘리브레이션 중) 입/눈 판정은 보류 — 커서와 동일한 전제
         if self._mouth_enabled and jaw_baseline is not None:
@@ -1182,19 +1063,6 @@ class HeadTracker:
                 events.append(GestureEvent(
                     class_name=EVENT_HOME, conf=eye_close_score, ts_sec=now_sec,
                     data={"trigger": "eye_close"},
-                ))
-        if self._recenter_enabled and mouth_pucker_baseline is not None:
-            if self._recenter_gate.update(mouth_pucker_score,
-                                          mouth_pucker_baseline + self._recenter_open_margin,
-                                          mouth_pucker_baseline + self._recenter_close_margin):
-                # 커서 중심만 다시 잡는다 — 입/눈 기준선까지 건드리면 재정렬 직후
-                # 잠깐 select/home이 먹통이 되는 불필요한 부작용이 생긴다
-                self._cursor_mapper.reset()
-                logger.info("gesture_event: %s (trigger=mouth_pucker, conf=%.2f)",
-                            EVENT_CALIBRATION, mouth_pucker_score)
-                events.append(GestureEvent(
-                    class_name=EVENT_CALIBRATION, conf=mouth_pucker_score, ts_sec=now_sec,
-                    data={"trigger": "mouth_pucker"},
                 ))
         if self._recenter_dwell_enabled and self._recenter_dwell_detector.update(cursor_x, cursor_y):
             self._cursor_mapper.reset()
@@ -1235,10 +1103,8 @@ class HeadTracker:
         self._cursor_mapper.reset()
         self._jaw_baseline.reset()
         self._eye_baseline.reset()
-        self._mouth_pucker_baseline.reset()
         self._mouth_gate.reset()
         self._eye_close_gate.reset()
-        self._recenter_gate.reset()
         self._dwell_detector.reset()
         self._recenter_dwell_detector.reset()
         self._last_click_sec = None
@@ -1259,7 +1125,6 @@ class HeadTracker:
         """
         self._mouth_gate.reset()
         self._eye_close_gate.reset()
-        self._recenter_gate.reset()
         self._dwell_detector.reset()
         self._recenter_dwell_detector.reset()
 
@@ -1314,8 +1179,7 @@ class HeadTracker:
             face=face)
 
     def _update_debug(self, cursor_x, cursor_y, jaw_open_score=0.0, jaw_baseline=None,
-                      eye_close_score=0.0, eye_baseline=None,
-                      mouth_pucker_score=0.0, mouth_pucker_baseline=None):
+                      eye_close_score=0.0, eye_baseline=None):
         self.debug = {
             "mode": "head",
             "cursor_x": None if cursor_x is None else round(cursor_x, 3),
@@ -1327,6 +1191,4 @@ class HeadTracker:
             "eye_progress": round(self._eye_close_gate.progress_ratio, 2),
             "dwell_progress": round(self._dwell_detector.progress_ratio, 2),
             "recenter_progress": round(self._recenter_dwell_detector.progress_ratio, 2),
-            "pucker": round(mouth_pucker_score, 2),
-            "pucker_base": None if mouth_pucker_baseline is None else round(mouth_pucker_baseline, 2),
         }

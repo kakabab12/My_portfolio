@@ -15,7 +15,7 @@ Euro 필터로 떨림을 줄인다 — 판정 로직만 이 파일 안에서 새
 다른 함수가 나온다(2026-08-04 사용자 요청) — 본 엔진의 "손 모양이 계층을,
 방향이 기능을 정한다"는 원칙과 같은 개념. 판별은 새로 만들지 않고 본 엔진의
 src/postprocess/hand_shape.py(classify_hand_shape)를 그대로 재사용하고,
-임계값도 config.yaml의 hand_select.hand_shape를 그대로 읽어 실기로 이미
+임계값도 config.yaml의 hand_select.hand_shape를 그대로 읽어 테스트로 이미
 보정된 값을 그대로 물려받는다. 커서 옆에 현재 판별된 모양(FINGER/FIST/
 OPEN)이 태그로 뜬다.
 
@@ -56,7 +56,7 @@ D-pad를 향해 손을 뻗을 필요 없음, 2026-08-04 사용자 요청).
 가정이 안 맞을 수 있다. 2026-08-04 사용자 결정으로 버튼(CALIB) 자체를 없애고
 **허공에서 손을 가만히 STILL_RECALIBRATE_SEC(2.5)초 이상 멈추면** 자동으로
 재정렬되게 바꿨다 — 손끝이 작은 반경(STILL_RADIUS_RATIO) 안에 머무는 시간을
-매 프레임 재는 것으로, 별도 조준이 필요 없다(어디를 보고 있든 손만 멈추면
+매 프레임 측정하는 것으로, 별도 조준이 필요 없다(어디를 보고 있든 손만 멈추면
 됨). 그 반경을 벗어나면(=움직이면) 시계가 그 자리에서 다시 시작한다. 정지
 중엔 커서 옆에 진행 링과 안내 문구가 뜨고, 문턱을 넘는 순간 그 위치가 새
 기준점이 된다 — 그 뒤로도 손이 계속 멈춰 있다고 매 프레임 재발화하지는
@@ -147,7 +147,7 @@ DEMO_EXTEND_RATIO = 0.80   # 본 엔진 config.yaml 기본값(1.0)보다 낮춤 
                            # 못 가른다 — 0.8로 절충(중지 대부분은 걸러지고 검지
                            # 일부는 여전히 샐 수 있음). --extend-ratio로 실행 중
                            # 값 바꿔가며 재조정 가능. config.yaml 원본은 안 건드림
-                           # (본 엔진 카메라 거리·자세 기준으로 이미 실기 보정된
+                           # (본 엔진 카메라 거리·자세 기준으로 이미 테스트 보정된
                            # 값이라 — 여기 값만 이 데모 전용)
 SHAPE_LATCH_FRAMES = 4     # 무래치 -> 고정: 같은 판별이 이 프레임 연속이면 그 모양으로 고정
 SHAPE_SWITCH_FRAMES = 5    # (8에서 하향, 2026-08-04) 고정 -> 다른 모양 전환: 다른
@@ -353,7 +353,7 @@ def draw_shape_debug(frame, w_px, h_px, raw_before_veto, latched_shape, finger_a
     한 줄씩 보여준다. 오판이 어느 단계(판별 자체 vs 관절 교차검증 vs 래치)에서
     나는지 화면 하나로 구분하기 위한 진단용(2026-08-04 사용자 요청 — 버그를
     직접 보면서 고치기). 밝은 벽 등 배경에서 흰 글자가 묻힐 수 있어 어두운
-    받침띠를 깔고 그 위에 쓴다(2026-08-04 실기 — 실제로 안 보여서 추가)."""
+    받침띠를 깔고 그 위에 쓴다(2026-08-04 테스트 — 실제로 안 보여서 추가)."""
     finger_names = ("idx", "mid", "ring", "pinky")
     angle_text = " ".join(
         f"{name}={angle:.0f}" if angle is not None else f"{name}=-"
@@ -477,7 +477,7 @@ def main():
     fingertip_filter = PointFilter(FILTER_MIN_CUTOFF_HZ, FILTER_BETA, FILTER_D_CUTOFF_HZ)
     last_shape_debug_print_sec = 0.0   # 화면 진단 계기판이 창 가림으로 안 보일 때도
                            # 콘솔 로그로 같은 정보를 볼 수 있게(2026-08-04 사용자 요청 —
-                           # 실기로 직접 보면서 고치기, 초당 다다다 찍히지 않게 간격 제한)
+                           # 테스트로 직접 보면서 고치기, 초당 다다다 찍히지 않게 간격 제한)
     last_direction = None  # 직전 확정 방향(대각선 애매구간 유지용) — 손 재등장 시 초기화
     latched_shape = None    # 래치된 손 모양 — update_shape_latch가 매 프레임 갱신,
                            # 표시·발화 모두 이 값을 쓴다(원시 판별 아님)

@@ -37,8 +37,8 @@ LMK_RIGHT_EYE_OUTER = 263
 
 # 코끝 주변 묶음 — 커서 기준점을 점 하나가 아니라 이 묶음의 평균으로 잡는다.
 #
-# ★2026-08-20 신설. 사용자 실기 보고 "코 기준은 커서가 많이 떨렸고 미간은 별로
-# 안 떨리더라"(특히 어두울 때). 실제 세션 녹화 4개에서 커서 궤적을 뽑아 재보니
+# ★2026-08-20 신설. 사용자 테스트 보고 "코 기준은 커서가 많이 떨렸고 미간은 별로
+# 안 떨리더라"(특히 어두울 때). 실제 세션 녹화 4개에서 커서 궤적을 뽑아 측정해 보니
 # 그대로였다 — 커서가 목적지까지 가는 데 실제로 움직인 거리 / 순수 이동 거리:
 #
 #     코 기준  어두울 때 1.83배   밝을 때 1.13배
@@ -121,7 +121,7 @@ class HeadPose:
     (ARC_COMPENSATION이 2차식으로 사후 보정하던 그 문제)의 근본 원인이다.
 
     머리의 **회전각 자체**를 쓰면 애초에 투영 왜곡이 없다. 보정 상수도,
-    그 상수를 카메라 배치마다 다시 재는 일도 필요 없어진다.
+    그 상수를 카메라 배치마다 다시 측정하는 일도 필요 없어진다.
 
     [무엇을 받는가]
     MediaPipe FaceLandmarker의 facial transformation matrix는 표준 얼굴
@@ -272,7 +272,7 @@ class FaceEstimator:
             FaceLandmarker, FaceLandmarkerOptions, RunningMode,
         )
 
-        # 2026-07-31 실기 — 한글 경로 대응 (hand_tracker.py와 동일 사유·동일 처방:
+        # 2026-07-31 테스트 — 한글 경로 대응 (hand_tracker.py와 동일 사유·동일 처방:
         # mediapipe 0.10.14가 model_asset_path의 한글 경로를 못 연다)
         with open(face_cfg["model_path"], "rb") as model_file:
             model_bytes = model_file.read()

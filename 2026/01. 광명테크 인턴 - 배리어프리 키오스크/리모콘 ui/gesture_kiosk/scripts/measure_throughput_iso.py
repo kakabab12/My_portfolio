@@ -2,7 +2,7 @@
 
 왜 이걸 따로 만드나
 -------------------
-measure_accuracy.py는 "성공률·걸린 시간·최소 버튼 크기"를 잰다. 실사용 설계에는
+measure_accuracy.py는 "성공률·걸린 시간·최소 버튼 크기"를 측정한다. 실사용 설계에는
 그게 맞지만, **다른 입력장치와 견줄 수 있는 공통 잣대**가 아니다. "우리 건
 성공률 90%"라고 해도 심사위원은 "마우스보다 나은가?"를 알 수 없다.
 
@@ -33,7 +33,7 @@ Fitts 법칙 자체는 Fitts(1954), 지금 쓰는 Shannon 형태는 MacKenzie(19
 -----------
 1) 평소처럼 트래커를 켠다 (forehead.py 권장 — head.py/eyebrow.py도 됨)
 2) 이 프로그램을 따로 켠다
-3) 원을 따라 배치된 과녁 중 **분홍색으로 강조된 것**을 고개로 겨냥해
+3) 원을 따라 배치된 과녁 중 **분홍색으로 강조된 것**을 고개로 겨눠
    입을 벌려 누른다. 강조가 원 반대편으로 건너뛰며 이어진다
 4) 끝나면 처리량과 Fitts 회귀 결과가 보고서용으로 정리돼 나온다
 
@@ -313,7 +313,7 @@ def main():
           % (top_px, bottom_px, usable_h_px, CURSOR_Y_SPAN * 100))
     print(" 과녁 %d개, 조합 %d가지" % (TARGET_COUNT, len(CONDITIONS)))
     print()
-    print(" 분홍색 과녁을 겨냥해 입을 벌려 누르세요. q/ESC로 중단.")
+    print(" 분홍색 과녁을 겨눠 입을 벌려 누르세요. q/ESC로 중단.")
     print()
 
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)

@@ -133,7 +133,7 @@ class FindWorkingComboTest(unittest.TestCase):
             self.assertIsNone(negotiate_module.find_working_combo("cfg.yaml", 0))
 
     def test_opened_but_no_frames_does_not_count_as_success(self):
-        """열리기만 하고 화면이 안 들어오면(실기에서 흔한 케이스) 실패로 본다."""
+        """열리기만 하고 화면이 안 들어오면(테스트에서 흔한 케이스) 실패로 본다."""
         with mock.patch.object(negotiate_module, "_try_combo_isolated",
                                return_value={"opened": True, "frames": 0}):
             self.assertIsNone(negotiate_module.find_working_combo("cfg.yaml", 0))

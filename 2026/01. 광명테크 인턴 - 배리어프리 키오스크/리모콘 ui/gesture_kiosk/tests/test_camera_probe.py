@@ -87,10 +87,10 @@ class HandQualityTest(unittest.TestCase):
 
 
 class OpenTimeoutTest(unittest.TestCase):
-    """장치 오픈 한도(2026-07-31 키오스크 실기) — 오픈이 무한 대기해도 엔진이 살아야 한다."""
+    """장치 오픈 한도(2026-07-31 키오스크 테스트) — 오픈이 무한 대기해도 엔진이 살아야 한다."""
 
     def test_hanging_open_is_skipped(self):
-        # 키오스크 실기: MSMF가 장치 1 오픈에서 무한 대기 — 한도(0.2초) 후
+        # 키오스크 테스트: MSMF가 장치 1 오픈에서 무한 대기 — 한도(0.2초) 후
         # None으로 포기하고 다음 장치로 넘어가야 한다 (구 로직: 엔진째 정지)
         with mock.patch.object(camera_probe, "init_camera",
                                side_effect=lambda *a, **k: time.sleep(5)):

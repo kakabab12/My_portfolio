@@ -33,15 +33,10 @@ class _FakeHeadTracker:
     def __init__(self):
         self.calls = []
 
-    def set_pointer_tuning(self, sensitivity_x=None, sensitivity_y=None,
-                           arc_compensation=None,
-                           half_span_x_deg=None, half_span_y_deg=None):
-        # ★2026-08-31 — 상대 회전 매핑에서는 앞의 세 값이 안 쓰이고 아래 두
-        # 각도가 감도 손잡이다. 조절 UI가 실제로 먹는지 이 가짜가 지켜본다
-        self.calls.append({"sensitivity_x": sensitivity_x,
-                           "sensitivity_y": sensitivity_y,
-                           "arc_compensation": arc_compensation,
-                           "half_span_x_deg": half_span_x_deg,
+    def set_pointer_tuning(self, half_span_x_deg=None, half_span_y_deg=None):
+        # ★2026-09-24 — 조절 UI가 화각 두 값만 다룬다. 감도·곡률을 다시 넘기면
+        # 이 가짜가 TypeError를 내서 시험이 깨진다(쓸모없는 손잡이 재발 방지)
+        self.calls.append({"half_span_x_deg": half_span_x_deg,
                            "half_span_y_deg": half_span_y_deg})
 
 
@@ -53,8 +48,8 @@ class LoadTuningOverridesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "t.json")
             with open(path, "w", encoding="utf-8") as f:
-                json.dump({"arc_compensation": -0.9}, f)
-            self.assertEqual(_load_tuning_overrides(path), {"arc_compensation": -0.9})
+                json.dump({"orientation_half_span_y_deg": 9.0}, f)
+            self.assertEqual(_load_tuning_overrides(path), {"orientation_half_span_y_deg": 9.0})
 
     def test_corrupted_file_returns_none_not_raises(self):
         with tempfile.TemporaryDirectory() as d:
@@ -73,7 +68,7 @@ class TuningReloaderTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "t.json")
             with open(path, "w", encoding="utf-8") as f:
-                json.dump({"sensitivity_x": 2.9}, f)
+                json.dump({"orientation_half_span_x_deg": 21.0}, f)
             clock = _FakeClock()
             reloader = _TuningReloader(path, poll_interval_sec=0.5, clock=clock)
             tracker = _FakeHeadTracker()
@@ -91,17 +86,18 @@ class TuningReloaderTest(unittest.TestCase):
             self.assertEqual(tracker.calls, [])
 
             with open(path, "w", encoding="utf-8") as f:
-                json.dump({"sensitivity_y": 4.4}, f)
+                json.dump({"orientation_half_span_y_deg": 8.5}, f)
             clock.advance(0.2)
             reloader.maybe_reload(tracker)
             self.assertEqual(len(tracker.calls), 1)
-            self.assertEqual(tracker.calls[0]["sensitivity_y"], 4.4)
+            self.assertEqual(tracker.calls[0]["half_span_y_deg"], 8.5)
+            self.assertIsNone(tracker.calls[0]["half_span_x_deg"])   # 파일에 없던 키
 
     def test_does_not_reload_within_poll_interval(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "t.json")
             with open(path, "w", encoding="utf-8") as f:
-                json.dump({"sensitivity_x": 1.0}, f)
+                json.dump({"orientation_half_span_x_deg": 20.0}, f)
             clock = _FakeClock()
             reloader = _TuningReloader(path, poll_interval_sec=0.5, clock=clock)
             tracker = _FakeHeadTracker()

@@ -103,7 +103,7 @@ def _use(actions, freeze_enabled=True, lookback=LOOKBACK):
             if event == PRESS:
                 freeze.begin(now)
                 button_down = True
-                # 버튼이 내려간 **뒤부터** 센다 — 그 전 움직임은 그냥 겨냥이다
+                # 버튼이 내려간 **뒤부터** 센다 — 그 전 움직임은 그냥 겨누기다
                 last_px = px
             elif event == CLICK:
                 freeze.end(now, False)

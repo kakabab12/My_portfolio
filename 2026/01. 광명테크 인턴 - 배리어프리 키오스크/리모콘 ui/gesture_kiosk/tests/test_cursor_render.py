@@ -152,7 +152,7 @@ def test_geometry_constants_are_consistent():
     assert cursor_reach_px(progress_ring=False) < cursor_reach_px(progress_ring=True)
 
 
-# ------------------------------- 투명색(마젠타) 오염 — 실기 보고 "커서 뒤 분홍색"
+# ------------------------------- 투명색(마젠타) 오염 — 테스트 보고 "커서 뒤 분홍색"
 
 KEY_COLOR = (255, 0, 255)   # 오버레이 투명색 (TRANSPARENT_KEY_COLOR와 같은 값)
 
@@ -179,7 +179,7 @@ def _blended_with_key(canvas):
     {"filled": True, "recenter_progress_ratio": 1.0},
 ])
 def test_no_pixels_blended_with_the_transparency_key(kwargs):
-    """★커서 둘레에 분홍 테두리가 남으면 안 된다 (2026-08-31 실기 보고).
+    """★커서 둘레에 분홍 테두리가 남으면 안 된다 (2026-08-31 테스트 보고).
 
     오버레이는 마젠타를 투명색으로 쓴다. 안티에일리어싱이 커서 색과 마젠타를
     섞으면 그 픽셀은 투명 처리가 안 돼 분홍으로 보인다. 바깥을 향한 요소는

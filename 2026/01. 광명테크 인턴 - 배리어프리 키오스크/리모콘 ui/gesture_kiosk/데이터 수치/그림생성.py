@@ -12,7 +12,7 @@
 - **막대에 값을 적는다.** 발표장에서 축을 눈으로 재게 하지 않는다.
 - **좋아진 쪽을 색으로 구분한다.** 회색=이전, 파랑=이후, 빨강=나빠진 것.
 - 흑백으로 인쇄해도 구분되게 밝기를 다르게 둔다(학회 논문집은 흑백이 많다).
-- 제목에 **무엇을 재는지와 단위**를 적는다.
+- 제목에 **무엇을 측정하는지와 단위**를 적는다.
 """
 import csv
 import io
@@ -173,13 +173,13 @@ def fig_gain_trap():
     """정규화 안 하면 왜 속는가 — 같은 기법이 좋아 보였다가 무효가 된다."""
     # 출처: 04_기법별_전후비교.md §⑤ 화면 기하 반폭
     raw_before = [1.0, 1.0]          # 고정 15도를 100%로 둔 상대값
-    raw_after = [0.71, 0.71]         # 원값만 보면 29% 좋아 보인다
+    raw_after = [0.71, 0.71]         # 원값만 보면 29% 개선으로 보인다
     norm_before = [1.0, 1.0]
     norm_after = [1.0, 1.0]          # 정규화하면 완전히 같다
     labels = ["고개를 돌린 만큼\n커서가 안 감", "가만히 있는데\n커서가 흔들림"]
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8.4, 3.8), sharey=True)
     for ax, before, after, title in (
-            (ax1, raw_before, raw_after, "잰 값 그대로 보면\n「29% 좋아졌다」"),
+            (ax1, raw_before, raw_after, "측정한 값 그대로 보면\n「29% 개선」"),
             (ax2, norm_before, norm_after, "커서가 움직인 거리로 나누면\n「달라진 것 없음」")):
         x = range(len(labels))
         w = 0.36
@@ -191,7 +191,7 @@ def fig_gain_trap():
         ax.set_title(title, fontsize=10)
     ax1.set_ylabel("고정 15도 = 1.0")
     ax1.legend(fontsize=8)
-    fig.suptitle("커서를 덜 움직이게만 해도 모든 값이 좋아 보인다 — 그래서 나눠서 본다",
+    fig.suptitle("커서를 덜 움직이게만 해도 모든 값이 개선으로 보인다 — 그래서 나눠서 본다",
                  fontsize=11)
     save(fig, "03_정규화의_필요.png", "정규화 전/후로 결론이 뒤집히는 예")
 
@@ -284,7 +284,7 @@ def fig_bow():
 
 
 def fig_rejected():
-    """재 보고 버린 것들 — 음성 결과."""
+    """측정해 보고 버린 것들 — 음성 결과."""
     # 출처: 06_떨림과_U자휨.md
     labels = ["지금 방식\n(고개가 돌아간 양)", "버린 방법\n(코가 향한 방향)"]
     v65 = [4.8, 9.3]
@@ -299,7 +299,7 @@ def fig_rejected():
     ax.set_xticks(list(x)); ax.set_xticklabels(labels)
     ax.set_ylabel("커서가 위아래로 휜 깊이 (px)")
     ax.set_ylim(0, max(v120) * 1.25)
-    ax.set_title("재 보고 버린 방법 — 「코가 향한 방향」을 쓰면 두 배 나빠진다\n"
+    ax.set_title("측정해 보고 버린 방법 — 「코가 향한 방향」을 쓰면 두 배 나빠진다\n"
                  "방향을 직접 쓰는 쪽이 렌즈 왜곡에 더 약하기 때문")
     ax.legend(fontsize=9)
     save(fig, "07_버린대안_방향분해.png", "방향 분해 대안의 음성 결과")
@@ -337,7 +337,7 @@ def fig_one_euro():
     ax2.set_xticks(list(x)); ax2.set_xticklabels(conds, fontsize=9)
     ax2.set_ylabel("빠르게 움직일 때 커서가\n뒤처지는 거리 (px)")
     ax2.set_title("뒤처짐 — 정면 말고는 전부 나빠진다 (빨강)", fontsize=10)
-    fig.suptitle("카메라 정면에서만 재 보면 잘못된 설정을 고르게 된다", fontsize=12)
+    fig.suptitle("카메라 정면에서만 측정해 보면 잘못된 설정을 고르게 된다", fontsize=12)
     save(fig, "08_1유로_조건별.png", "1유로 필터 조건별 역전")
 
 
@@ -385,29 +385,41 @@ def fig_camera_place():
     ax.set_title("카메라가 화면 중앙에서 옆으로 멀어질수록 커서가 부정확해진다\n"
                  "왼쪽 8.4, 오른쪽 8.4로 같다 — 어느 쪽이냐가 아니라 얼마나 멀어졌느냐의 문제")
     ax.legend(fontsize=9)
-    save(fig, "10_카메라위치.png", "카메라 위치별 겨냥 오차")
+    save(fig, "10_카메라위치.png", "카메라 위치별 얼굴이 향한 곳과 커서 사이 거리")
 
 
 def fig_mouth_cliff():
     """입을 완전히 안 다물면 버튼이 눌린 채 남던 절벽."""
-    # 출처: 개발일지 2026-09-10 §2
-    residual = [0.05, 0.07, 0.08, 0.09, 0.10, 0.11, 0.12, 0.15, 0.20]
-    fixed_ok = [1, 1, 1, 1, 1, 1, 1, 1, 1]
-    before_ok = [1, 1, 1, 1, 1, 0, 0, 0, 0]
+    # 출처: mouth_cliff.py가 실제 판정 코드로 낸 입다묾_절벽.csv (2026-09-11 재측정).
+    # 예전에는 규칙을 손으로 옮긴 값이었고 테스트 범위 밖(0.20)까지 그렸다
+    rows = read_csv("입다묾_절벽.csv")
+    residual = [float(r["잔여 벌림"]) for r in rows]
+    before_ok = [int(r["고치기 전 성공"]) for r in rows]
+    fixed_ok = [int(r["고친 뒤 성공"]) for r in rows]
+    first_bad = min(x for x, ok in zip(residual, before_ok) if not ok)
+    last_ok = max(x for x, ok in zip(residual, before_ok) if ok)
+    cliff = (first_bad + last_ok) / 2
+    fixed_label = ("고친 뒤 — 측정한 %d곳 모두 정상 클릭" % len(rows)
+                   if all(fixed_ok) else
+                   "고친 뒤 — %d/%d곳 정상 클릭" % (sum(fixed_ok), len(rows)))
+    newline = chr(10)
     fig, ax = plt.subplots(figsize=(7.4, 3.6))
     ax.step(residual, before_ok, where="mid", color=WORSE, linewidth=2.0,
-            label="고치기 전 — 0.11부터 마우스 버튼이 눌린 채 안 풀림")
+            label="고치기 전 — %.3f부터 마우스 버튼이 눌린 채 안 풀림" % first_bad)
     ax.step(residual, fixed_ok, where="mid", color=AFTER, linewidth=2.0,
-            linestyle="--", label="고친 뒤 — 전부 정상으로 클릭됨")
-    ax.axvline(0.105, color="black", linestyle=":", linewidth=1.0)
-    ax.text(0.107, 0.5, "절벽", fontsize=10)
+            linestyle="--", label=fixed_label)
+    ax.plot(residual, before_ok, "o", color=WORSE, markersize=3)
+    ax.plot(residual, fixed_ok, "o", color=AFTER, markersize=3)
+    ax.axvline(cliff, color="black", linestyle=":", linewidth=1.0)
+    ax.text(cliff + 0.002, 0.5, "절벽", fontsize=10)
     ax.set_ylim(-0.15, 1.35)
     ax.set_yticks([0, 1]); ax.set_yticklabels(["실패", "클릭 성공"])
-    ax.set_xlabel("클릭한 뒤 입에 남아 있는 벌림 정도\n(사람은 매번 입을 완전히 다물지 않는다)")
-    ax.set_title("입을 완전히 안 다물면 클릭이 아예 안 되던 문제\n"
-                 "「원래 얼마나 벌렸었나」와 견주도록 고쳐서 없앴다")
-    ax.legend(fontsize=9, loc="lower left")
-    save(fig, "11_입다묾_절벽.png", "잔여 턱 벌림에 따른 클릭 성공")
+    ax.set_xlabel("클릭한 뒤 입에 남아 있는 벌림 정도 (벌림 임계 0.17 아래까지 측정)"
+                  + newline + "(사람은 매번 입을 완전히 다물지 않는다)")
+    ax.set_title("입을 완전히 안 다물면 클릭이 아예 안 되던 문제" + newline
+                 + "「원래 얼마나 벌렸었나」와 견주도록 고쳐서 없앴다")
+    ax.legend(fontsize=9, loc="center right")
+    save(fig, "11_입다묾_절벽.png", "잔여 턱 벌림에 따른 클릭 성공 (측정값)")
 
 
 def fig_click_freeze():
@@ -415,7 +427,7 @@ def fig_click_freeze():
     # 출처: 개발일지 2026-09-10 §4
     labels = ["누른 그 자리에 고정\n(지금)", "0.04초 전 자리로",
               "0.08초 전 자리로", "고정 안 함"]
-    aim = [18.5, 0.0, 14.0, 144.5]        # 겨냥 오차 (범위 중앙값)
+    aim = [18.5, 0.0, 14.0, 144.5]        # 얼굴이 향한 곳과 커서 사이 거리 (범위 중앙값)
     drag = [0.0, 18.5, 31.0, 152.5]       # 눌린 채 끌린 거리
     x = range(len(labels)); w = 0.36
     fig, ax = plt.subplots(figsize=(7.6, 4.2))

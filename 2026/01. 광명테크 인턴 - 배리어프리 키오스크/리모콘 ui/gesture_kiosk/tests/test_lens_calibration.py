@@ -3,7 +3,7 @@
 무엇을 지키는 시험인가
 ----------------------
 광각 카메라의 배럴 왜곡은 커서를 크게 망가뜨린다(초광각에서 세로 오차 32%).
-그것을 **현장에서 아무것도 재지 않고** 사용자의 얼굴만으로 되돌리는 것이
+그것을 **현장에서 아무것도 측정하지 않고** 사용자의 얼굴만으로 되돌리는 것이
 src/postprocess/lens_calibration.py다.
 
 자가 보정은 잘못 쓰면 위험하다 — 증거가 부족할 때 나오는 값은 **부호까지
@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.postprocess.head_orientation import HeadOrientation   # noqa: E402
 from src.postprocess.lens_calibration import (                 # noqa: E402
-    CROSS_TOL, MAX_ABS_K1, MIN_RADIUS_SPAN_PX, LensModel, LensSelfCalibrator,
+    FOCAL_CROSS_TOL, MIN_RADIUS_SPAN_PX, LensModel, LensSelfCalibrator,
 )
 from tests.virtual_camera import (                             # noqa: E402
     FRAME_H_PX, FRAME_W_PX, LENS_PROFILES, MOUNTS, VirtualCamera, rotation,
@@ -54,9 +54,9 @@ def _settle(cal, timeout_sec=20.0):
         time.sleep(0.005)
 
 
-def _run(camera, distortion=False, **kwargs):
+def _run(camera, **kwargs):
     """보정이 끝날 때까지(또는 흐름이 끝날 때까지) 돌린 보정기."""
-    cal = LensSelfCalibrator(FRAME_W_PX, FRAME_H_PX, distortion=distortion)
+    cal = LensSelfCalibrator(FRAME_W_PX, FRAME_H_PX)
     for face in _stream(camera, **kwargs):
         cal.add(face.landmarks_3d)
         # ★시도가 시작되면 **끝날 때까지 기다린다.** 안 기다리면 그동안에도
@@ -87,8 +87,8 @@ def test_recovers_the_focal_length_from_the_users_face(lens):
     assert abs(model.focal_px - focal_true) / focal_true < 0.20, model
 
 
-def test_distortion_is_not_used_unless_asked():
-    """★왜곡 되돌리기는 기본으로 쓰지 않는다.
+def test_distortion_is_never_used():
+    """★왜곡 되돌리기는 쓰지 않는다(2026-09-24 선택지째 삭제).
 
     정규 얼굴이면 세로 휨을 절반으로 줄여 주지만, 얼굴이 다르면 다섯 배로
     악화시킨다(15.10% -> 83.89%). 그 둘을 가려낼 잡음-독립적 지표를 찾지
@@ -99,22 +99,6 @@ def test_distortion_is_not_used_unless_asked():
     assert cal.model.k1 == 0.0
     assert cal.k1_adopted is False
 
-
-@pytest.mark.parametrize("lens", ["광각 90도", "초광각 120도"])
-def test_recovers_distortion_when_explicitly_enabled(lens):
-    """켜 달라고 하면 왜곡 계수도 제대로 찾아낸다 (카메라를 아는 배포처용)."""
-    k1_true, _k2, _f = LENS_PROFILES[lens]
-    cal = _run(VirtualCamera(lens=lens, seed=3), distortion=True)
-    assert cal.model is not None, cal.reject_reason
-    assert cal.k1_adopted is True
-    assert abs(cal.model.k1 - k1_true) < 0.08, (cal.model, k1_true)
-
-
-def test_undistorted_camera_is_reported_as_undistorted():
-    """왜곡 없는 렌즈에 없는 왜곡을 지어내면 안 된다."""
-    cal = _run(VirtualCamera(lens="왜곡없음", seed=3), distortion=True)
-    assert cal.model is not None, cal.reject_reason
-    assert abs(cal.model.k1) < 0.05, cal.model
 
 
 # ------------------------------------------------------------------- 거부
@@ -150,7 +134,7 @@ def test_garbage_landmarks_do_not_crash_or_get_adopted():
            and time.time() < deadline):
         time.sleep(0.02)
     if cal.model is not None:                       # 우연히 통과했더라도
-        assert abs(cal.model.k1) <= MAX_ABS_K1      # 범위 밖 값은 절대 안 나온다
+        assert cal.model.k1 == 0.0                  # 왜곡 계수는 쓰지 않는다
 
 
 def test_gives_up_instead_of_burning_cpu_forever():
@@ -273,5 +257,5 @@ def test_rectify_leaves_the_input_untouched():
 
 def test_thresholds_are_ordered_sensibly():
     """상수가 서로 모순되면 게이트가 무의미해진다."""
-    assert 0.0 < CROSS_TOL < MAX_ABS_K1
+    assert 0.0 < FOCAL_CROSS_TOL < 1.0
     assert MIN_RADIUS_SPAN_PX > 0.0

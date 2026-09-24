@@ -112,7 +112,7 @@ class AcquireTest(unittest.TestCase):
         self.assertIsNone(feed(selector, clock, frames))
 
     def test_moving_hand_beats_resting_hand(self):
-        # 실기 보고 계승(2026-07-30·31 — 가만히 있는 손 독점·배구 토스): 쉬는 손이
+        # 테스트 보고 계승(2026-07-30·31 — 가만히 있는 손 독점·배구 토스): 쉬는 손이
         # 아무리 먼저·크게 보여도, 움직이는 손이 잡힌다
         selector, clock = make_selector()
         rest = make_hand("left", "finger", (200, 300))
@@ -178,7 +178,7 @@ class TrackContinuityTest(unittest.TestCase):
         self.assertIsNone(signal)   # 정지 재등장 — 획득 요건(이동) 미달
 
     def test_crossing_center_with_resting_hand_keeps_identity(self):
-        # 획 교차(2026-07-31 실기 계승): 획 손이 쉬는 손 쪽으로 관통해도 연속성이
+        # 획 교차(2026-07-31 테스트 계승): 획 손이 쉬는 손 쪽으로 관통해도 연속성이
         # 정체성을 지킨다 — 라벨 시절 같은 라벨 충돌로 씹히던 시나리오
         selector, clock = make_selector()
         rest = make_hand("left", "fist", (350, 550))
@@ -359,7 +359,7 @@ class HeadAnchorTest(unittest.TestCase):
 class AnchorHardeningTest(unittest.TestCase):
     """(재)획득 하드닝(2026-08-04) — 앵커가 없을 때만 적용되는 두 필터.
 
-    실기 보고: 뒷사람 머리·옆사람에게 앵커(→ 게이트)를 뺏김. 앵커가 살아있는
+    테스트 보고: 뒷사람 머리·옆사람에게 앵커(→ 게이트)를 뺏김. 앵커가 살아있는
     동안의 sticky·경성 게이트는 HeadAnchorTest가 이미 검증 — 여기는 취약
     지점이었던 (재)획득 순간만 다룬다. 둘 다 설정 키가 없으면 종전 동작.
     """

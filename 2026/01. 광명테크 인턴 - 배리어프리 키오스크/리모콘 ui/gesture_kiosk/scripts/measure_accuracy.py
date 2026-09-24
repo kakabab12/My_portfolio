@@ -17,7 +17,7 @@
 -----------
 1) 평소처럼 트래커를 켠다 (head.py 또는 eyebrow.py)
 2) 이 프로그램을 따로 켠다
-3) 화면에 뜨는 동그라미를 고개로 겨냥해 입을 벌려 누른다
+3) 화면에 뜨는 동그라미를 고개로 겨눠 입을 벌려 누른다
 4) 끝나면 결과가 보고서에 넣을 형태로 정리돼 나온다
 
 트래커 오버레이는 투명해서 이 창의 과녁이 그대로 비쳐 보인다. 그래서 이
@@ -117,7 +117,7 @@ def _draw(canvas, target_px, radius_px, headline, subline, flash=None):
         cv2.circle(canvas, target_px, radius_px + 14, flash, 4, cv2.LINE_AA)
     cv2.circle(canvas, target_px, radius_px, TARGET_COLOR, -1, cv2.LINE_AA)
     cv2.circle(canvas, target_px, radius_px, TARGET_RING, 2, cv2.LINE_AA)
-    # 한가운데 점 — 어디를 겨냥해야 하는지 분명하게
+    # 한가운데 점 — 어디를 겨눠야 하는지 분명하게
     cv2.circle(canvas, target_px, max(2, radius_px // 12), (255, 255, 255), -1, cv2.LINE_AA)
     w_px = canvas.shape[1]
     for text, y_px, size_px, color in ((headline, 60, 34, TITLE_COLOR),
@@ -144,7 +144,7 @@ def main():
         mm = _screen_width_mm()
         if mm is None:
             print("[중단] 화면 실제 크기를 알 수 없습니다. --screen-width-cm 으로 넣어주세요.")
-            print("       모니터 화면의 가로 길이를 자로 재면 됩니다. 예: --screen-width-cm 34.5")
+            print("       모니터 화면의 가로 길이를 자로 측정하면 됩니다. 예: --screen-width-cm 34.5")
             return 2
         width_cm, source = mm / 10.0, "자동 추정"
     px_per_cm = screen_w_px / width_cm
@@ -158,7 +158,7 @@ def main():
           (len(TARGET_SIZES_CM) * TRIALS_PER_SIZE, len(TARGET_SIZES_CM), TRIALS_PER_SIZE))
     print()
     print(" 트래커(head.py 또는 eyebrow.py)를 먼저 켜두세요.")
-    print(" 동그라미를 고개로 겨냥해 입을 벌려 누르면 됩니다. ESC = 중단")
+    print(" 동그라미를 고개로 겨눠 입을 벌려 누르면 됩니다. ESC = 중단")
     print("=" * 62)
 
     canvas = np.empty((screen_h_px, screen_w_px, 3), dtype=np.uint8)
@@ -264,7 +264,7 @@ def _report(label, results, out_path, aborted):
     # ★대표 성공률은 "권장 크기 이상"에서만 낸다.
     # 전체를 뭉뚱그리면 아무도 못 누르는 작은 과녁까지 섞여, **어떤 크기를
     # 시험했느냐에 따라 숫자가 달라진다** — 보고서에 넣기엔 의미가 없다.
-    # 실제 운영 조건은 "권장 크기 이상의 버튼을 쓴다"이므로 그 조건에서 잰다.
+    # 실제 운영 조건은 "권장 크기 이상의 버튼을 쓴다"이므로 그 조건에서 측정한다.
     usable = [r for r in results if smallest_ok and r["지름cm"] >= smallest_ok]
     scope = usable if usable else results
     hits = [r for r in scope if r["성공"]]

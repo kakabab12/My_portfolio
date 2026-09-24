@@ -8,11 +8,11 @@ PyInstaller는 시스템 파이썬에 깔지 않는다 — 빌드 전용 임시 
 빌드(build_dpad_exe_helper.py)와 별도 임시 venv 디렉터리를 쓴다 — 두 빌드가
 겹쳐 돌아도 서로 밟지 않게.
 """
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import os
 import shutil
 import subprocess
 import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.utils.console import enable_utf8_output
 
 

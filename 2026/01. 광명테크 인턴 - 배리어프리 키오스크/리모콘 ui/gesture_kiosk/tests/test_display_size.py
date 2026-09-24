@@ -140,7 +140,7 @@ def test_on_this_machine_it_either_works_or_says_it_cannot():
 #
 # EDID는 패널이 **원래 생긴 모양**을 말한다. 가로형 패널을 벽에 세로로 돌려
 # 달아도 EDID는 그대로 "597 x 336 mm"라고 답하는데, 사용자 앞의 화면은
-# 336mm 폭에 597mm 높이다. 그대로 쓰면 겨냥 반폭의 가로·세로가 통째로
+# 336mm 폭에 597mm 높이다. 그대로 쓰면 화면 끝을 보는 고개 각도의 가로·세로가 통째로
 # 뒤바뀌어 좌우는 너무 많이 가고 위아래는 모자란다. (2026-09-09 신설)
 
 @pytest.mark.parametrize("w_mm,h_mm,pixels,expected,why", [

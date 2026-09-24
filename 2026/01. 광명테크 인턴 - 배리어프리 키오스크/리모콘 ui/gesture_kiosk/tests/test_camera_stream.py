@@ -66,8 +66,26 @@ class CaptureNewFrameTest(unittest.TestCase):
 
     def test_no_frame_ever_raises(self):
         stream = _make_stream()
-        with self.assertRaises(RuntimeError):
-            stream.capture_new_frame(last_seq=0)
+        original = camera_stream_module.FIRST_FRAME_TIMEOUT_SEC
+        camera_stream_module.FIRST_FRAME_TIMEOUT_SEC = 0.05   # 시험을 빨리 끝내려고
+        try:
+            with self.assertRaises(RuntimeError):
+                stream.capture_new_frame(last_seq=0)
+        finally:
+            camera_stream_module.FIRST_FRAME_TIMEOUT_SEC = original
+
+    def test_slow_first_frame_is_not_an_error(self):
+        """카메라가 첫 프레임을 1초 넘게 걸려 내도 오류가 아니다 (2026-09-24)."""
+        stream = _make_stream()
+        slow = camera_stream_module.NEW_FRAME_TIMEOUT_SEC + 0.3
+        timer = threading.Timer(slow, lambda: stream._publish_frame(_frame(7)))
+        timer.start()
+        try:
+            frame, seq = stream.capture_new_frame(last_seq=0)
+        finally:
+            timer.cancel()
+        self.assertEqual(seq, 1)
+        self.assertEqual(frame[0, 0, 0], 7)
 
 
 class _FakeCap:

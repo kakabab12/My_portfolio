@@ -46,8 +46,12 @@ def _bound_names(tree):
     for node in ast.walk(tree):
         if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             bound.add(node.id)
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            bound.add(node.name)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
+                               ast.Lambda)):
+            # lambda는 이름이 없고 매개변수만 묶는다 (2026-09-24 — `lambda item: ...`의
+            # item을 정의 없는 이름으로 잘못 세던 빈틈. test_script_names.py 참고)
+            if not isinstance(node, ast.Lambda):
+                bound.add(node.name)
             args = getattr(node, "args", None)
             if args is not None:
                 for group in (args.posonlyargs, args.args, args.kwonlyargs):

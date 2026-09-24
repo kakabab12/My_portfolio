@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """기법별 적용 전/후 비교 (ablation) — 2026-09-09.
 
-논문에 "이 기법을 넣어서 좋아졌다"고 쓰려면 **끄고 재고 켜고 재야** 한다.
+논문에 "이 기법을 넣어서 좋아졌다"고 쓰려면 **끄고 측정하고 켜고 측정해야** 한다.
 각 기법을 하나씩만 바꿔서 같은 시나리오·같은 지표로 비교한다. 모든 값은
 **실제 HeadTracker를 통과한 커서 위치**에서 나온다.
 
@@ -93,6 +93,12 @@ def build(overrides, two_d=False):
     p["screen_width_mm"] = p["screen_height_mm"] = None
     p["reference_distance_mm"] = None
     p["arc_compensation"] = 0.0
+    if overrides.get("orientation_auto_arc"):
+        # auto_arc는 2026-09-24 코드에서 삭제했다. 켠 채 재던 측정(lens_ablation ⑩,
+        # arc_*.py)을 여기서 돌리면 설정이 조용히 무시돼 다른 값이 나온다 —
+        # 그럴 바엔 멈춘다. 그 측정은 삭제 전 판에서 다시 돌린다(00_README.md 참고).
+        raise SystemExit("auto_arc는 2026-09-24 삭제됐습니다. 이 측정은 삭제 전 판에서 "
+                         "돌려야 합니다 — 데이터 수치/00_README.md '삭제한 기법' 참고")
     p.update(overrides)
     clock = _Clock()
     fn = nose_point if two_d else None
@@ -120,9 +126,9 @@ def warm_up_lens(tracker, clock, cam, seconds=70.0, fps=30.0):
 
 def measure(overrides, lens="광각 90도", mount="정면", calib_distance=600.0,
             measure_distance=None, noise=None, do_warmup=False, swing=14.0):
-    """한 설정에서 네 지표를 잰다 -> dict. 측정이 성립 안 하면 None.
+    """한 설정에서 네 지표를 측정한다 -> dict. 측정이 성립 안 하면 None.
 
-    calib_distance 에서 중립을 잡고, measure_distance 로 옮겨서 잰다
+    calib_distance 에서 중립을 잡고, measure_distance 로 옮겨서 측정한다
     (다르게 주면 '사용자가 앞뒤로 움직인' 상황이 된다).
     """
     measure_distance = measure_distance or calib_distance

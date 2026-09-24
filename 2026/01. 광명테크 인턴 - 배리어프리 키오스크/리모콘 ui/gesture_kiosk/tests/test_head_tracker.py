@@ -70,7 +70,7 @@ def make_face(nose_px=(100.0, 100.0), eye_dist_px=40.0, jaw_open=0.0,
 
 
 def make_config(smoothing_alpha=1.0, distance_smoothing_alpha=1.0, dwell_enabled=True,
-               recenter_enabled=True, recenter_dwell_enabled=False, recenter_dwell_sec=0.3):
+               recenter_dwell_enabled=False, recenter_dwell_sec=0.3):
     return {
         "head_tracker": {
             "calibration_window_sec": 0.1,
@@ -84,10 +84,6 @@ def make_config(smoothing_alpha=1.0, distance_smoothing_alpha=1.0, dwell_enabled
             "click": {"min_interval_sec": 0.2},
             "mouth_click": {"enabled": True, "open_margin": 0.5, "close_margin": 0.3},
             "eye_close_home": {"close_margin": 0.5, "hold_sec": 0.3},
-            "recenter_gesture": {
-                "enabled": recenter_enabled, "open_margin": 0.5, "close_margin": 0.3,
-                "cooldown_sec": 0.2,
-            },
             "dwell_click": {
                 "enabled": dwell_enabled, "radius_ratio": 0.05, "dwell_sec": 0.3,
                 "require_release_to_rearm": True,
@@ -199,7 +195,7 @@ class CursorMappingTest(HeadTrackerTestBase):
 
         예전에는 face가 None인 즉시 전부 리셋했다. 얼굴이 잠깐씩 끊기는
         조건(기울여 단 카메라, 역광)에서는 그것이 리셋->재캘리브레이션의
-        되풀이가 되어 커서가 영영 안 나왔다 — 실기 보고 "옆으로 살짝 기운
+        되풀이가 되어 커서가 영영 안 나왔다 — 테스트 보고 "옆으로 살짝 기운
         카메라는 커서가 아예 안 움직인다".
         """
         self._settle_calibration(nose_px=(100.0, 100.0))
@@ -314,43 +310,17 @@ class EyeCloseHomeTest(HeadTrackerTestBase):
         self.assertEqual(len(result.events), 0)
 
 
-class RecenterGestureTest(HeadTrackerTestBase):
+class MouthPuckerDoesNothingTest(HeadTrackerTestBase):
+    """입 오므리기 재정렬은 2026-09-24 삭제했다 — 오므려도 아무 일도 없어야 한다."""
+
     def setUp(self):
-        super().setUp(dwell_enabled=False)   # 입 오므림 신호만 격리 (MouthClickTest와 같은 이유)
+        super().setUp(dwell_enabled=False)
 
-    def test_mouth_pucker_fires_calibration_and_hides_cursor(self):
-        self._settle_calibration()
-        result = self.tracker.update(make_face(mouth_pucker=0.9))
-        self.assertEqual(len(result.events), 1)
-        self.assertEqual(result.events[0].class_name, "calibration")
-        self.assertEqual(result.events[0].data["trigger"], "mouth_pucker")
-        # 리셋은 다음 프레임부터 반영된다(이번 프레임 커서는 리셋 전에 이미 계산됨) —
-        # 캘리브레이션이 다시 시작돼 다음 프레임은 커서가 미확정 상태다
-        result = self.tracker.update(make_face(mouth_pucker=0.1))
-        self.assertIsNone(result.cursor_x_ratio)
-
-    def test_recenter_does_not_reset_mouth_baseline(self):
-        self._settle_calibration()
-        self.tracker.update(make_face(mouth_pucker=0.9))   # 재정렬 발화
-        # jaw 기준선은 그대로라 재캘리브레이션 대기 없이 바로 입 벌리기가 먹힌다
-        result = self.tracker.update(make_face(jaw_open=0.8))
-        select_events = [e for e in result.events if e.class_name == "select"]
-        self.assertEqual(len(select_events), 1)
-
-    def test_recenter_respects_cooldown(self):
-        self._settle_calibration()
-        self.tracker.update(make_face(mouth_pucker=0.9))
-        self.tracker.update(make_face(mouth_pucker=0.1))   # 재장전(히스테리시스 close_margin 아래)
-        self.clock.tick(0.05)                                # cooldown_sec(0.2) 이내
-        result = self.tracker.update(make_face(mouth_pucker=0.9))
-        calib_events = [e for e in result.events if e.class_name == "calibration"]
-        self.assertEqual(len(calib_events), 0)
-
-    def test_disabled_recenter_never_fires(self):
-        super().setUp(dwell_enabled=False, recenter_enabled=False)
+    def test_mouth_pucker_fires_nothing(self):
         self._settle_calibration()
         result = self.tracker.update(make_face(mouth_pucker=0.9))
         self.assertEqual(result.events, [])
+        self.assertIsNotNone(result.cursor_x_ratio)   # 커서도 그대로 — 재정렬 안 됨
 
 
 class RecenterDwellTest(HeadTrackerTestBase):

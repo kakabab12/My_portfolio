@@ -21,7 +21,7 @@
 import os
 import sys
 
-VERSION = "2026-08-25"
+VERSION = "2026-09-25"
 PRODUCT = "제스처 키오스크 헤드트래커"
 
 

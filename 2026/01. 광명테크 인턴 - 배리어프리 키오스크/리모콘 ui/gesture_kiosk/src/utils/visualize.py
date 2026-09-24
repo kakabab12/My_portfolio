@@ -18,7 +18,7 @@ def draw_user_hands(frame, hand_selector):
 
     2026-07-31 단일 손 추적(라벨 제거): 좌/우 점 2개 대신 **추적 손 1점**(초록
     원 + 모양 태그)과 게이트 통과 후보(회색 점)를 표시 — 어떤 손이 잡혔고
-    누가 후보로 대기 중인지 실기에서 바로 확인. 앵커 머리 상자("USER HEAD" —
+    누가 후보로 대기 중인지 테스트에서 바로 확인. 앵커 머리 상자("USER HEAD" —
     몸통판: 포즈 기반, 마스크·모자 무관)는 유지.
     """
     if getattr(hand_selector, "anchor_head_box", None) is not None:
@@ -49,7 +49,7 @@ def draw_user_hands(frame, hand_selector):
 
 
 def draw_debug_panel(frame, debug):
-    """판정 계기판 — 좌하단에 내부값 표시 (실기 튜닝용, 2026-07-16).
+    """판정 계기판 — 좌하단에 내부값 표시 (테스트 튜닝용, 2026-07-16).
 
     SCALE=어깨 스케일 / ARM=활성 팔+손 모양(원시 판별) / RET=복귀 삼킴 예약 방향 /
     SWIPE=진행도(±1.0 판정) / LATCH=고정 모양(F=주먹, 1=한 손가락, -=없음)과
@@ -123,14 +123,12 @@ def draw_head_debug_panel(frame, debug):
     h_px = frame.shape[0]
     jaw_base = debug.get("jaw_base")
     eye_base = debug.get("eye_base")
-    pucker_base = debug.get("pucker_base")
     lines = [
         f"JAW {debug.get('jaw_open', 0):.2f}/{'-' if jaw_base is None else f'{jaw_base:.2f}'}"
         f"  EYE {debug.get('eye_close', 0):.2f}/{'-' if eye_base is None else f'{eye_base:.2f}'}"
         f" ({debug.get('eye_progress', 0):.0%})",
         f"DWELL {debug.get('dwell_progress', 0):.0%}"
-        f"  RECENTER {debug.get('recenter_progress', 0):.0%}"
-        f"  PUCKER {debug.get('pucker', 0):.2f}/{'-' if pucker_base is None else f'{pucker_base:.2f}'}",
+        f"  RECENTER {debug.get('recenter_progress', 0):.0%}",
     ]
     for line_idx, line in enumerate(lines):
         y_px = h_px - 14 - 24 * (len(lines) - 1 - line_idx)

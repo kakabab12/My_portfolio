@@ -9,11 +9,11 @@ stdout을 익명 파이프로 줄 단위 수신)을 그대로 흉내 내 받은 
     python scripts/pipe_listen.py --config configs/config.yaml
 종료: Ctrl+C (엔진도 함께 종료)
 """
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import os
 import subprocess
 import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.utils.console import enable_utf8_output
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

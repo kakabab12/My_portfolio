@@ -163,14 +163,14 @@ class ArcCompensationTest(unittest.TestCase):
     """가로 이동 시 세로가 활처럼 휘는 것(뒤집힌 U) 보정 — 원인은 코의 원근 왜곡."""
 
     # 훑는 폭(px) — 작게 잡는다. 크게 잡으면 커서가 화면 밖으로 포화(클램프)돼
-    # 곡률이 그 지점부터 평평해져서 보정 효과를 잴 수가 없다.
+    # 곡률이 그 지점부터 평평해져서 보정 효과를 측정할 수가 없다.
     # 안구간거리 60px·gain 2.0·감도 2.2 기준으로 ±4px면 커서가 화면 안에 머문다
     SWEEP_HALF_PX = 4.0
 
     @classmethod
     def _sweep(cls, mapper, curvature, steps=41):
         """고개를 좌우로만 훑는다. curvature>0이면 기준점 자체가 2차로 휘게 만든다
-        (실기에서 관측되는 원근 왜곡을 흉내 낸 것).
+        (테스트에서 관측되는 원근 왜곡을 흉내 낸 것).
 
         ★훑기 전에 중앙에서 충분히 머문다 — 안 그러면 캘리브레이션(중앙값)이
         훑는 도중의 좌표로 잡혀 중심이 한쪽으로 밀린다.
@@ -186,7 +186,7 @@ class ArcCompensationTest(unittest.TestCase):
         for i in range(steps):
             offset_px = -cls.SWEEP_HALF_PX + 2 * cls.SWEEP_HALF_PX * i / (steps - 1)
             bow_px = curvature * (offset_px / cls.SWEEP_HALF_PX) ** 2
-            # ★한 위치에서 EMA가 수렴할 때까지 머문다. 움직이면서 재면 커서가
+            # ★한 위치에서 EMA가 수렴할 때까지 머문다. 움직이면서 측정하면 커서가
             # 목표에 아직 못 미친 값이 잡혀(평활 지연), 그 값으로 계수를 유도하면
             # 분모가 작아져 보정이 과해진다 — 실제로 3.6배 과보정이 났었다
             for _ in range(20):
@@ -315,7 +315,7 @@ class LerpReferenceTest(unittest.TestCase):
     """★렌더 속도를 올려도 커서 손맛이 안 바뀌는지 — 60fps 상향의 안전장치.
 
     보간 계수의 시간 기준을 렌더 주기에 묶어 두면, 렌더를 30->60으로 올릴 때
-    같은 alpha가 두 배 자주 적용돼 커서가 두 배 빨리 붙는다. 실기로 맞춰 온
+    같은 alpha가 두 배 자주 적용돼 커서가 두 배 빨리 붙는다. 테스트로 맞춰 온
     감각이 통째로 어긋나므로 기준을 분리했다 — 그게 유지되는지 고정한다.
     """
 

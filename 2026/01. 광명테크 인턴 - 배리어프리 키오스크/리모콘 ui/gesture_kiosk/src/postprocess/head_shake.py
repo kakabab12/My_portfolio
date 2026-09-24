@@ -123,9 +123,9 @@ class HeadShakeDetector:
         self.progress_ratio = min(1.0, len(self._reversal_sec_list) / self._min_reversals)
         if len(self._reversal_sec_list) < self._min_reversals:
             return False
-        # 최근 min_reversals개만의 폭을 잰다(전체 목록이 아니라) — window_sec이
+        # 최근 min_reversals개만의 폭을 측정한다(전체 목록이 아니라) — window_sec이
         # 넉넉하면 오래 지속되는 빠른 까딱임도 목록이 계속 불어나 폭이 결국
-        # min_duration_sec을 넘겨버린다. 최근 N개로 재면 반전 속도가 그대로
+        # min_duration_sec을 넘겨버린다. 최근 N개로 측정하면 반전 속도가 그대로
         # 유지되는 한 폭도 일정해 아무리 오래 지속돼도 계속 걸러진다
         recent = self._reversal_sec_list[-self._min_reversals:]
         span_sec = recent[-1] - recent[0]

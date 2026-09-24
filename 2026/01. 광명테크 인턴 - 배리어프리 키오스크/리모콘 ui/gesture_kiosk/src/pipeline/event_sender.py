@@ -68,7 +68,7 @@ def _is_loggable(gesture_event):
     """cursor는 매 프레임 나가는 연속 신호라 로그에서 뺀다 (2026-07-30 헤드트래커 병합).
 
     초당 수십 줄이 쌓이면 로그 파일이 커서 좌표로 덮여 정작 확정 이벤트(select·home 등)를
-    실기 로그에서 찾을 수 없게 된다 — 커서는 디버그 창 계기판으로 본다.
+    테스트 로그에서 찾을 수 없게 된다 — 커서는 디버그 창 계기판으로 본다.
     """
     return gesture_event.class_name != CURSOR_CLASS_NAME
 

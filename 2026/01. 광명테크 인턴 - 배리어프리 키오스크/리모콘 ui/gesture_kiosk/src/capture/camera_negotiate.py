@@ -38,7 +38,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger("capture")
 
-# camera_check.py --diagnose와 완전히 같은 목록 — 그 도구가 이미 실기로
+# camera_check.py --diagnose와 완전히 같은 목록 — 그 도구가 이미 테스트로
 # 검증해 둔 순서다(가능성 높은 조합부터). 하나를 늘리거나 줄이면 여기와
 # camera_check.py 양쪽 다 손볼 것 — 지금은 의도적으로 중복시켜 뒀다(그
 # 스크립트를 건드리지 않기 위해). 둘이 벌어지면 진단 결과와 자동 협상

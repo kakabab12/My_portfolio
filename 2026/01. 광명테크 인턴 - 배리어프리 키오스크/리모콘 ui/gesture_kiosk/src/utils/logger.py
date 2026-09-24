@@ -3,7 +3,7 @@
 포맷 예: [2026-07-20 14:03:22] [INFO] [pipeline] gesture_event: right (conf=1.00)
 
 2026-07-31(사용자 요청 — cmd 창은 이벤트 한 줄만): 콘솔은 console_level
-(기본 WARNING)부터만 찍고, 파일은 level(INFO) 그대로 남긴다 — 실기 추적
+(기본 WARNING)부터만 찍고, 파일은 level(INFO) 그대로 남긴다 — 테스트 추적
 기록은 유지하면서 콘솔 소음(시작 리포트·전환 로그·이벤트 중복 줄)을 없앤다.
 """
 import logging

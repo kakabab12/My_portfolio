@@ -181,7 +181,7 @@ def _pump_window_events():
 # ★2026-08-27 사용자 요청 — "head.py·eyebrow.py 둘 다 밑에 화면 쓰게 바꿔줘".
 # 실제 키오스크는 사용자가 화면 아래쪽을 주로 조작한다(휠체어 사용자·키가
 # 작은 사용자에게도 아래쪽이 닿기 쉽다). **폭(0.5)은 그대로 두고 붙는 쪽만**
-# 위 -> 아래로 뒤집었다 — 지금까지 실기로 맞춰 온 조작 감각은 그대로다.
+# 위 -> 아래로 뒤집었다 — 지금까지 테스트로 맞춰 온 조작 감각은 그대로다.
 #
 #   CURSOR_Y_ANCHOR_BOTTOM = True   -> 화면 아래 절반 (세로 50%~100%)
 #   CURSOR_Y_ANCHOR_BOTTOM = False  -> 화면 위  절반 (세로  0%~ 50%, 예전 동작)
@@ -195,7 +195,7 @@ def _pump_window_events():
 # 있게 된 대신, 세로 떨림도 픽셀 기준으로 두 배가 된다. 공짜가 아니다.
 #
 # 세로가 너무 예민하면 SENSITIVITY_Y_OVERRIDE를 낮추면 되는데, 그러면 위아래
-# 끝에 다시 못 닿는다 — 도달 범위와 정밀도는 맞바꾸는 관계다. 실기에서
+# 끝에 다시 못 닿는다 — 도달 범위와 정밀도는 맞바꾸는 관계다. 테스트에서
 # 어느 쪽이 나은지 확인할 것.
 #
 # SPAN이 1.0이면 CURSOR_Y_ANCHOR_BOTTOM은 의미가 없어진다(OFFSET이 0이라
@@ -247,8 +247,8 @@ def _dt_adjusted_alpha(alpha, dt_sec, ref_dt_sec):
 # 별도로 두 차례 재상향(1.4→1.6→2.0) — "eyebrow 커서 수직 민감도만 더 키워줘"
 # 요청으로 head.py(1.6)보다 eyebrow만 더 높다. 감도가 높을수록 잡음도 더
 # 증폭되니 아래 RENDER_DEAD_ZONE_RATIO/RESUME_GAP_RATIO도 head.py보다 더 크게 잡았다
-SENSITIVITY_X_OVERRIDE = 2.05   # 2026-08-28 연구실 키오스크 실기로 확정(팀장님 확인) — 1.124 -> 2배(2.248) 시도 후 추가 조정
-SENSITIVITY_Y_OVERRIDE = 6.0    # 2026-08-28 연구실 키오스크 실기로 확정(팀장님 확인) — 1.80 -> 2배(3.60) 시도 후 추가 조정. 감도가 커서 아래 눈 깜빡임 흔들림(GLABELLA_JITTER_MEDIAN_WINDOW 설명 참고)·좌우 이동 시 곡률(ARC_COMPENSATION 설명 참고)이 더 크게 드러난다
+SENSITIVITY_X_OVERRIDE = 2.05   # 2026-08-28 연구실 키오스크 테스트로 확정(팀장님 확인) — 1.124 -> 2배(2.248) 시도 후 추가 조정
+SENSITIVITY_Y_OVERRIDE = 6.0    # 2026-08-28 연구실 키오스크 테스트로 확정(팀장님 확인) — 1.80 -> 2배(3.60) 시도 후 추가 조정. 감도가 커서 아래 눈 깜빡임 흔들림(GLABELLA_JITTER_MEDIAN_WINDOW 설명 참고)·좌우 이동 시 곡률(ARC_COMPENSATION 설명 참고)이 더 크게 드러난다
 
 # 가로 이동 시 세로가 활처럼 휘는 것(U자) 보정 — 원리·계산식은
 # forehead.py의 동명 상수 설명과 head_tracker.py `_arc_compensation` 설명
@@ -264,12 +264,13 @@ SENSITIVITY_Y_OVERRIDE = 6.0    # 2026-08-28 연구실 키오스크 실기로 �
 # 밀리는 것)이 카메라가 어디서 얼굴을 보고 있느냐에 따라 달라지기 때문이다.
 # 카메라가 정면에 있을 때와 아래에서 올려다볼 때는 같은 고개 회전도 이미지에
 # 다르게 투영된다 — 사용자가 직접 짚은 것과 같은 이유다. 그래서 "장소마다
-# 다시 잰다"가 유일하게 정직한 답이다:
+# 다시 측정한다"가 유일하게 정직한 답이다:
 #
 #     py eyebrow.py                   (트래커 실행, 캘리브레이션 끝날 때까지 대기)
-#     (측정 도구 measure_arc.py는 2026-08-31 정리로 삭제 — 이제 잴 필요가
-#      없다: 상대 회전 매핑 + 자동 곡률 소거(auto_arc.py)가 실행 중에 스스로
-#      맞춘다. 아래 기록은 그 이전 방식의 이력이다)
+#     (측정 도구 measure_arc.py는 2026-08-31 정리로 삭제 — 이제 측정할 필요가
+#      없다: 상대 회전 매핑이 카메라 배치를 상쇄한다. 아래 기록은 그 이전 방식의
+#      이력이다. 자동 곡률 소거(auto_arc.py)는 2026-09-24 삭제 — 실사용 움직임에서
+#      없는 곡률을 배워 휨을 키웠다. configs/config.yaml 참고)
 #
 # measure_arc.py는 화면에 실제로 나타나는 커서 궤적만 재므로 카메라 각도가
 # 무엇이든 그 배치에서 실제로 필요한 값을 그대로 알려준다 — 공식을 새로
@@ -278,7 +279,7 @@ SENSITIVITY_Y_OVERRIDE = 6.0    # 2026-08-28 연구실 키오스크 실기로 �
 # 카메라 각도·위치가 바뀌면(예: 이 키오스크를 다른 카메라 배치로 옮기면)
 # 다시 측정할 것.
 #
-# ★2026-08-28 연구실 실기로 확정 — -0.7 → -0.75로 미세조정. measure_arc.py의
+# ★2026-08-28 연구실 테스트로 확정 — -0.7 → -0.75로 미세조정. measure_arc.py의
 # 정확한 출력값이 아니라 실사용 중 직접 시험해 나온 값이다 — forehead.py
 # 때처럼 정밀한 R² 측정을 거치진 않았지만, 실제 사용 중 확인이 가장 확실한
 # 검증이라 이 값을 그대로 쓴다. (measure_arc.py는 삭제 — 위 참고) 다듬으려면
@@ -292,7 +293,7 @@ MOUTH_CLOSE_MARGIN_OVERRIDE = 0.05   # config 기본 0.15
 # 입 제스처 확장(단일 클릭 즉시/꾹 누르기) — head.py와 동일 이유·동일 값(그
 # 파일 상수 설명 참고 — 더블클릭은 이제 별도 판정 없이 Windows의 기본
 # 더블클릭 인식에 맡긴다)
-# 2026-08-20: 드래그가 잘 안 걸린다는 실기 보고로 2.0→1.2 하향 + 닫힘 확인
+# 2026-08-20: 드래그가 잘 안 걸린다는 테스트 보고로 2.0→1.2 하향 + 닫힘 확인
 # 시간 신설 — head.py와 동일 이유·동일 값(그 파일 상수 설명 참고)
 # ─ 클릭하는 동안 커서 붙잡기 ────────────────────────────────────────────
 # 판정과 붙잡기 자체는 src/postprocess/mouth_gesture.py에 있다(세 트래커 공용).
@@ -306,7 +307,7 @@ CLICK_FREEZE_ENABLED = True
 #
 # 처음엔 되짚어 잡았다 — 입이 벌어졌다고 판정될 무렵엔 이미 턱이 내려가
 # 랜드마크가 밀린 뒤라, 그 직전이 진짜 겨눈 곳이라고 봤다. 그런데 가상
-# 사용자로 재 보니 **되짚어 얻은 정확도가 고스란히 드래그로 나갔다.**
+# 사용자로 측정해 보니 **되짚어 얻은 정확도가 고스란히 드래그로 나갔다.**
 # 보정이 버튼이 내려간 **뒤에** 일어나서, OS는 "누른 자리에서 겨눈 자리로
 # 끌었다"로 받는다. 렌더 루프가 목표를 향해 이어 주므로 실제로 그렇게 끌린다.
 #
@@ -379,9 +380,9 @@ POINTER_DISTANCE_SMOOTHING_ALPHA_OVERRIDE = 0.08   # config 기본 0.15
 #
 # forehead.py에 이미 적용해 검증한 1€ 필터(ONE_EURO_ENABLED, OneEuroFilter
 # 설명 참고)를 그대로 가져온다 — 속도를 같이 봐서 가만히 있을 땐 세게
-# 누르고 빠르게 움직일 땐 풀어준다. 값은 forehead.py에서 실기로 맞춘 값을
+# 누르고 빠르게 움직일 땐 풀어준다. 값은 forehead.py에서 테스트로 맞춘 값을
 # 그대로 시작점으로 쓴다 — 완전히 다른 감도(forehead X=2.8·Y=3.8 vs
-# eyebrow X=2.05·Y=6.0)라 최적값은 다를 수 있으니 실기로 다시 다듬을 것.
+# eyebrow X=2.05·Y=6.0)라 최적값은 다를 수 있으니 테스트로 다시 다듬을 것.
 ONE_EURO_ENABLED = True
 # ★2026-09-10 0.25 -> 0.10 (사용자 보고 "가만히 있으려고 하면 커서가 떨린다").
 # 가상 사용자로 배치·렌즈·거리·조도를 바꿔 가며 훑어서 정했다.
@@ -410,7 +411,7 @@ ONE_EURO_REFERENCE_DIST_PX = 60.0
 # 같은 랜드마크 잡음도 더 크게 증폭되기 때문
 # ★2026-08-20 재하향 — head.py와 동일 이유(그 파일 상수 설명 참고, "작은
 # 아이콘도 정확하게 클릭"): 이 두 값이 곧 커서의 최소 이동 단위라 굵으면
-# 작은 아이콘을 겨냥할 수 없다. 떨림은 이제 지속시간 확인이 걸러낸다
+# 작은 아이콘을 겨눌 수 없다. 떨림은 이제 지속시간 확인이 걸러낸다
 RENDER_DEAD_ZONE_RATIO = 0.004
 RESUME_GAP_RATIO = 0.007
 RESUME_CONFIRM_SEC = 0.07   # head.py와 동일 이유(그 파일 상수 설명 참고, "1cm 정도 이동하려고 하면 뚝뚝 끊긴다" 대응)
@@ -428,7 +429,7 @@ SETTLING_LABEL_LINE1 = "커서 재정렬 중입니다"
 # 말하거나 하품하면서 서 있으면 실사용에서도 그대로 생기는 문제라 안내에 넣는다.
 SETTLING_LABEL_LINE2 = "커서 중앙을 봐주시고 입은 다문 채 편한자세로 있어주세요"
 
-# 정지 유예 안내 두 줄 사이 여백(px) — 1줄이 **실제로 칠한 범위** 아래에서부터 잰다.
+# 정지 유예 안내 두 줄 사이 여백(px) — 1줄이 **실제로 칠한 범위** 아래에서부터 측정한다.
 # 두 줄이 31px 겹쳐 1줄 아래가 지워지던 것을 고치며 신설(2026-09-09, 그리는 곳 주석 참고)
 SETTLING_LINE_GAP_PX = 6
 
@@ -438,7 +439,7 @@ SETTLING_LINE_GAP_PX = 6
 # 가장 느린 alpha를 쓰고 있었다)
 DRAG_LERP_ALPHA_SCALE = 0.5
 DRAG_DEAD_ZONE_SCALE = 2.0
-# ★드래그(꾹 누르기) 중에만 커서를 더 무디게 한다 (2026-08-26 사용자 실기 —
+# ★드래그(꾹 누르기) 중에만 커서를 더 무디게 한다 (2026-08-26 사용자 테스트 —
 # "드래그할때 커서가 좀 많이 떨린다").
 #
 # 왜 드래그 때만 더 떨려 보이나 — 실측으로 계산한 결과:
@@ -499,7 +500,7 @@ FACE_LOCAL_MAPPING = False
 #   밑에서 올려보는 연구실 배치든 정면인 키오스크 배치든 그대로 동작한다.
 #   ARC_COMPENSATION도 이 경로에서는 무시된다 - 투영을 안 거치니 휠 것이 없다.
 #
-# [실측 2026-08-31] 같은 프레임에서 기존 2D 방식과 동시에 재 비교한 신호 대 잡음:
+# [실측 2026-08-31] 같은 프레임에서 기존 2D 방식과 동시에 측정해 비교한 신호 대 잡음:
 #     가로 19.1 -> 24.2 (+27%)      세로 10.8 -> 14.9 (+38%)
 #   강체 랜드마크 22개를 한꺼번에 정합해 개별 점 떨림이 평균되기 때문이다.
 #   비용은 프레임당 0.7ms로 사실상 무시할 수 있다.
@@ -582,7 +583,7 @@ TRACKING_POINT_LABEL = "미간"
 TRACKING_POINT_COLOR = (0, 255, 255)   # 노랑(BGR) — 커서(초록)와 뚜렷이 구분
 
 
-# 얼굴 변형 전환 순간 좌표 보류(2026-08-14 사용자 실기 보고 — 처음엔
+# 얼굴 변형 전환 순간 좌표 보류(2026-08-14 사용자 테스트 보고 — 처음엔
 # "눈감을때마다 커서가 움직이는데", 이어서 "입벌리면 커서가 움직여";
 # 2026-08-18 재설계 — "더블클릭 하는게 입 두번 움직이는 거잖아 그럼 커서가
 # 위아래로 흔들리는 현상이 있어"): 미간은 양쪽 눈 바깥쪽 끝(LMK_LEFT/RIGHT_EYE_OUTER)의
@@ -620,7 +621,7 @@ _glabella_deform_state = {
 }
 
 # ★2026-08-28 신설 — 눈 깜빡일 때 커서가 아래로 튀는 문제 대응(연구실 키오스크
-# 실기 보고, 수직 감도를 6.0까지 올린 뒤 두드러짐 — 위 SENSITIVITY_Y_OVERRIDE
+# 테스트 보고, 수직 감도를 6.0까지 올린 뒤 두드러짐 — 위 SENSITIVITY_Y_OVERRIDE
 # 이력 참고).
 #
 # 미간 기준점이 정확히 "두 눈 바깥쪽 끝의 중점"이라(_glabella_point 독스트링
@@ -636,7 +637,7 @@ _glabella_deform_state = {
 # 창을 5프레임(30fps 기준 약 0.17초)으로 잡은 근거 — 일반적인 눈 깜빡임은
 # 보통 0.1~0.4초라 이 창 안에 거의 다 들어오면서도, 창이 너무 길면 실제 고개
 # 이동에 그만큼 반응이 늦어진다(체감 지연). 정확한 값이 아니라 근사치다 —
-# 실기에서 여전히 흔들리면 창을 늘리고, 반응이 둔하면 줄일 것.
+# 테스트에서 여전히 흔들리면 창을 늘리고, 반응이 둔하면 줄일 것.
 GLABELLA_JITTER_MEDIAN_WINDOW = 5
 
 
@@ -661,7 +662,7 @@ class _RollingMedianPoint:
 _glabella_jitter_filter = _RollingMedianPoint(GLABELLA_JITTER_MEDIAN_WINDOW)
 
 # ★2026-08-28 추가, 같은 날 재설계 — 중앙값 필터만으로는 부족했다(사용자
-# 실기 재보고: "여전히 눈감을때 커서가 내려가더라"). 이유 — 중앙값은 "창의
+# 테스트 재보고: "여전히 눈감을때 커서가 내려가더라"). 이유 — 중앙값은 "창의
 # 절반 이상이 정상값"일 때만 이상치를 걸러내는데, 눈을 **감고 있는 동안
 # 내내**(수백 ms, 창의 절반을 넘길 수 있다) 미간 랜드마크가 계속 낮게
 # 잡히면 중앙값 입장에선 그게 "이상치"가 아니라 "다수"가 돼버려서 못 거른다.
@@ -690,7 +691,7 @@ _glabella_jitter_filter = _RollingMedianPoint(GLABELLA_JITTER_MEDIAN_WINDOW)
 # 그보다 마진 이상 튀었을 때만 "지금 감았다"고 본다(아래 _BlinkGate).
 #
 # EYE_BLINK_FREEZE_MARGIN=0.15는 MOUTH_OPEN_MARGIN_OVERRIDE(0.12)와 같은
-# 자릿수로 잡은 시작값이다 — 실측 도구가 없어 정확한 값은 아니다. 실기에서
+# 자릿수로 잡은 시작값이다 — 실측 도구가 없어 정확한 값은 아니다. 테스트에서
 # 눈 깜빡임이 여전히 새면(고정이 안 걸림) 낮추고, 고개를 자연스럽게 움직이는
 # 중에도 커서가 자꾸 멈칫하면(오탐) 높일 것.
 EYE_BLINK_FREEZE_MARGIN = 0.15
@@ -699,7 +700,7 @@ EYE_BLINK_FREEZE_MARGIN = 0.15
 # 흔들림이 남았다(_BlinkGate 독스트링 참고). 해제는 진입보다 낮은 문턱까지
 # 내려와야 하고(EYE_BLINK_RELEASE_MARGIN), 한 번 얼면 최소 이 시간은
 # 유지한다(EYE_BLINK_MIN_HOLD_SEC) — 둘 다 실측 도구가 없는 시작값이라
-# 실기로 조정할 것. 최소 유지 시간은 일반적인 깜빡임 길이(0.1~0.4초)보다
+# 테스트로 조정할 것. 최소 유지 시간은 일반적인 깜빡임 길이(0.1~0.4초)보다
 # 짧게 잡아 진짜 응시·클릭 동작을 방해하지 않게 했다.
 EYE_BLINK_RELEASE_MARGIN = 0.05
 EYE_BLINK_MIN_HOLD_SEC = 0.08
@@ -783,13 +784,13 @@ def _glabella_point(face):
     움직여"가 그것이다.
 
     이제 얼리는 대신 **턱 벌린 정도에 비례해 변형량을 뺀다**. "턱 벌림 1당 미간이
-    몇 px 밀리는가" 계수를 벌림 직후 한 번 재고, 그 뒤로는 그 계수 x 지금 턱
+    몇 px 밀리는가" 계수를 벌림 직후 한 번 측정하고, 그 뒤로는 그 계수 x 지금 턱
     벌림을 뺀다. 고개를 돌려도 턱 벌림은 그대로라 보정량이 안 변하므로, 입을
     벌린 채 고개를 돌리는 **드래그 동작이 그대로 통과한다**.
 
     ★head.py와 다른 점: 저쪽은 코가 기준점이라 "두 눈 중점 대비 상대 위치"로
     다룰 수 있지만, 여기서는 기준점이 두 눈 중점 그 자체다. 그래서 상대 좌표를
-    쓸 수 없고 화면 좌표로 잰다. 계수를 재는 0.12초 사이에 고개가 크게 움직이면
+    쓸 수 없고 화면 좌표로 측정한다. 계수를 측정하는 0.12초 사이에 고개가 크게 움직이면
     그만큼 계수가 오염되는데, 아래 상한(NOSE_DEFORM_MAX_PX)으로 막는다.
     """
     now_sec = time.monotonic()
@@ -830,7 +831,7 @@ def _glabella_point(face):
             st["k"] = (shift[0] / jaw_delta, shift[1] / jaw_delta)
 
     if st["k"] is None:
-        # 계수를 아직 못 잰 구간은 변형된 좌표를 내보내면 안 된다 — 그 짧은
+        # 계수를 아직 못 측정한 구간은 변형된 좌표를 내보내면 안 된다 — 그 짧은
         # 사이에만 커서가 크게 튄다(head.py 실측: 화면 세로의 16%)
         return st["neutral"] if st["neutral"] is not None else point
     return (point[0] - st["k"][0] * jaw_delta, point[1] - st["k"][1] * jaw_delta)
@@ -932,7 +933,7 @@ def put_korean_text(canvas_bgr, text, org, font_size_px, color_bgr, panel_color=
 
     ROI만 PIL 왕복 변환하는 최적화 — head.py와 동일 이유(그 파일 독스트링 참고).
     돌려주는 범위는 더티 사각형(지울 목록)에 그대로 넣으면 된다 — 아래 설명 참고.
-    ★panel_color (2026-08-31 밤, 실기 보고 "글씨 주변에 핑크색 테두리"):
+    ★panel_color (2026-08-31 밤, 테스트 보고 "글씨 주변에 핑크색 테두리"):
     투명색(마젠타) 캔버스에 글자를 그리면 PIL의 안티에일리어싱이 글자색과
     마젠타를 섞은 가장자리 픽셀을 만들고, 그 픽셀은 색이 정확히 일치하지
     않아 투명 처리를 못 받아 분홍 테두리로 보인다 — 커서에서 겪은 것과
@@ -958,7 +959,7 @@ def put_korean_text(canvas_bgr, text, org, font_size_px, color_bgr, panel_color=
     pil_image = Image.fromarray(cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2RGB))
     ImageDraw.Draw(pil_image).text((x_px - x0, y_px - y0), text, font=font, fill=(r, g, b))
     canvas_bgr[y0:y1, x0:x1] = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-    # ★2026-08-31 — 실제로 칠한 범위를 돌려준다 (사용자 실기 보고:
+    # ★2026-08-31 — 실제로 칠한 범위를 돌려준다 (사용자 테스트 보고:
     # "처음에 커서 뜨면 한글이 안 지워진다").
     #
     # 예전에는 부르는 쪽이 글자 범위를 **따로 계산해서** 지울 목록에 넣었는데,
@@ -1065,7 +1066,7 @@ class _Win32Mouse:
 
         왜 이렇게 하나 (실측):
         예전엔 "빠르게 두 번 벌리면 클릭이 두 번 나가고 윈도우가 알아서 묶는다"에
-        맡겼다. 그런데 재보니 사람의 입 벌림 주기가 조금만 느려도 간격이 윈도우
+        맡겼다. 그런데 측정해 보니 사람의 입 벌림 주기가 조금만 느려도 간격이 윈도우
         한계(GetDoubleClickTime, 보통 500ms)에 걸린다:
 
             입 열기 0.12 + 닫기 0.10초 -> 클릭 간격 313ms  (묶임)
@@ -1108,7 +1109,7 @@ class _Win32Mouse:
         press(벌림) + 이 release(다묾) 가 한 번의 클릭이다. click()에 있던
         더블클릭 합성(2026-08-26, 실측 근거는 click 독스트링 참고)을 그대로
         이어받는다 — press/release 방식으로 바꾸면서 click()을 우회하게 되어
-        합성이 빠졌고, 실기 보고 "더블클릭이 안 되네"로 드러났다(2026-08-31).
+        합성이 빠졌고, 테스트 보고 "더블클릭이 안 되네"로 드러났다(2026-08-31).
 
         두 번째 클릭이면 다운-업 한 쌍을 바로 붙여 보낸다 — 이 쌍의 다운과
         직전 업의 간격이 사실상 0이라 윈도우가 무조건 더블클릭으로 처리한다.
@@ -1318,12 +1319,9 @@ class _TuningReloader:
         tuning = _load_tuning_overrides(self._path)
         if tuning is None:
             return
+        # 2026-09-24 화각 두 값만 넘긴다 — 감도·곡률은 상대 회전 매핑에서
+        # 쓰이지 않아 조절 UI에서 뺐다(scripts/tuning_ui.py 설명 참고)
         head_tracker.set_pointer_tuning(
-            sensitivity_x=tuning.get("sensitivity_x"),
-            sensitivity_y=tuning.get("sensitivity_y"),
-            arc_compensation=tuning.get("arc_compensation"),
-            # ★2026-08-31 — 상대 회전 매핑에서는 위 세 값이 안 쓰인다.
-            # 이 두 각도를 함께 넘겨야 조절 UI가 실제로 먹는다
             half_span_x_deg=tuning.get("orientation_half_span_x_deg"),
             half_span_y_deg=tuning.get("orientation_half_span_y_deg"))
 
@@ -1386,8 +1384,8 @@ def main():
     # 실행 진입점은 launchers/ 의 배치 파일 6개가 대신한다.
     #
     # 화면비에 따라 실제로 달라지는 것은 **카메라 프레임 크롭 하나뿐**이다.
-    #   - 커서 캔버스는 GetSystemMetrics로 잰 실제 해상도를 그대로 쓴다.
-    #   - 겨냥 반폭은 EDID로 읽은 화면 실치수(mm)에서 계산한다.
+    #   - 커서 캔버스는 GetSystemMetrics로 측정한 실제 해상도를 그대로 쓴다.
+    #   - 화면 끝을 보는 고개 각도은 EDID로 읽은 화면 실치수(mm)에서 계산한다.
     #   둘 다 이미 모니터를 직접 보고 정하므로 손댈 것이 없다.
     #
     # 크롭은 세로 키오스크용이다 — 가로 프레임 중앙만 남겨 9:16을 만든다
@@ -1436,13 +1434,11 @@ def main():
         config["face_tracker"]["min_tracking_conf"] = ACCURACY_CONF
     config["face_tracker"]["infer_scale_ratio"] = INFER_SCALE_RATIO_OVERRIDE
 
-    # 실시간 조절 UI가 저장해 둔 값이 있으면 그걸로 시작한다 — 위
-    # TUNING_FILE_PATH 설명 참고. UI를 한 번도 안 켰으면 파일 자체가 없어
-    # 아래 하드코딩된 값 그대로 시작한다(기존과 동일)
-    tuning = _load_tuning_overrides(TUNING_FILE_PATH) or {}
-    sensitivity_x = tuning.get("sensitivity_x", SENSITIVITY_X_OVERRIDE)
-    sensitivity_y = tuning.get("sensitivity_y", SENSITIVITY_Y_OVERRIDE)
-    arc_compensation = tuning.get("arc_compensation", ARC_COMPENSATION)
+    # 조절 UI가 저장한 화각은 _TuningReloader가 첫 확인 때 반영한다. 감도·곡률은
+    # 2026-09-24부터 파일에서 읽지 않는다 — 상대 회전 매핑이 쓰지 않는 값이다
+    sensitivity_x = SENSITIVITY_X_OVERRIDE
+    sensitivity_y = SENSITIVITY_Y_OVERRIDE
+    arc_compensation = ARC_COMPENSATION
 
     config["head_tracker"]["pointer"]["sensitivity_x"] = sensitivity_x
     config["head_tracker"]["pointer"]["sensitivity_y"] = sensitivity_y
@@ -2026,7 +2022,7 @@ def main():
                                 line2_font_px, CURSOR_COLOR, panel_color=(28, 28, 28))
                             # ★2026-08-31 — 글자가 실제로 칠한 범위를 그리는 쪽에서 받아 지울 목록에
                             # 넣는다. 예전엔 여기서 따로 계산했는데 put_korean_text의 실제 범위와
-                            # 어긋나(아래 36px·좌우 11px) 문구가 안 지워졌다 — 사용자 실기 보고
+                            # 어긋나(아래 36px·좌우 11px) 문구가 안 지워졌다 — 사용자 테스트 보고
                             for _text_rect in (rect1, rect2):
                                 drawn_rect = _union_rect(drawn_rect, _clip_rect(
                                     _text_rect, overlay_w_px, overlay_h_px))

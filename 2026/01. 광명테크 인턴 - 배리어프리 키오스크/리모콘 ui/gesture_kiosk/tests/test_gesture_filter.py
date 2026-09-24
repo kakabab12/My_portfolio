@@ -332,7 +332,7 @@ class HandShapeLatchTest(GestureFilterTestBase):
     def test_noisy_fist_frames_do_not_hijack_finger_navigation(self):
         # 래치 핵심: 항법(한 손가락 고정) 중 주먹 오판별 4프레임 연속이 끼어도 —
         # 전환 문턱(6) 미달이라 래치가 안 풀린다: right(안전한 탐색)가 나간다.
-        # 다수결 시절 이런 노이즈가 표를 갈라 confirm(실행!) 오발이 났다 (2026-07-28 실기)
+        # 다수결 시절 이런 노이즈가 표를 갈라 confirm(실행!) 오발이 났다 (2026-07-28 테스트)
         self._use_latch(latch_frames=2, switch_frames=6)
         shapes = ["finger"] * 3 + ["fist"] * 4 + ["finger"] * 2
         event = self._feed_swipe(path(0.2, 0.55, 8, y_ratio=0.4), shapes=shapes)
@@ -556,7 +556,7 @@ class ReturnSwallowTest(GestureFilterTestBase):
 
 
 class DebugPanelTest(GestureFilterTestBase):
-    """계기판(debug) — 판정 내부값 노출 (실기 튜닝용, 판정에는 미사용)."""
+    """계기판(debug) — 판정 내부값 노출 (테스트 튜닝용, 판정에는 미사용)."""
 
     def test_progress_and_scale_are_exposed(self):
         self._feed_swipe(path(0.2, 0.35, 4, y_ratio=0.3))   # 임계 미달 진행

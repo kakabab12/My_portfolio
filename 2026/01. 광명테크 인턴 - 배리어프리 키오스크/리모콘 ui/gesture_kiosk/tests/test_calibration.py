@@ -32,7 +32,7 @@ class RecommendTest(unittest.TestCase):
         self.assertAlmostEqual(picks["min_dist_y_shoulder"][0], 0.27)
 
     def test_flick_stays_below_main_threshold(self):
-        # 플릭이 본 임계보다 크면 플릭 경로가 무의미해진다 (2026-08-03 실기 교훈)
+        # 플릭이 본 임계보다 크면 플릭 경로가 무의미해진다 (2026-08-03 테스트 교훈)
         picks = recommend_thresholds(
             {"swipe_x_small_min": 0.40, "swipe_y_small_min": 0.30}, CURRENT)
         self.assertLess(picks["flick_min_dist_shoulder"][0],

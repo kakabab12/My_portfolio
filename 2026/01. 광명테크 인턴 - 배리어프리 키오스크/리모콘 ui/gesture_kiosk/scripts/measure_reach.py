@@ -64,7 +64,7 @@ def main():
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--seconds", type=float, default=45.0)
     parser.add_argument("--tracker", choices=("eyebrow", "forehead", "head"),
-                        default="head", help="어느 트래커 설정으로 잴지")
+                        default="head", help="어느 트래커 설정으로 측정할지")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -74,7 +74,7 @@ def main():
     pointer["orientation_mapping"] = module.ORIENTATION_MAPPING
     pointer["orientation_half_span_x_deg"] = module.ORIENTATION_HALF_SPAN_X_DEG
     pointer["orientation_half_span_y_deg"] = module.ORIENTATION_HALF_SPAN_Y_DEG
-    # 배율은 1.0으로 두고 측정한다 — 이미 걸린 배율 위에서 재면 값이 곱해져 버린다
+    # 배율은 1.0으로 두고 측정한다 — 이미 걸린 배율 위에서 측정하면 값이 곱해져 버린다
     pointer["orientation_reach_gain"] = 1.0
 
     preprocessor = Preprocessor(config)
@@ -153,7 +153,7 @@ def main():
 
     report = measure.report()
     print("=" * 68)
-    print(" 잰 결과")
+    print(" 측정한 결과")
     print("=" * 68)
     for axis, label in (("x", "좌우"), ("y", "상하")):
         r = report[axis]

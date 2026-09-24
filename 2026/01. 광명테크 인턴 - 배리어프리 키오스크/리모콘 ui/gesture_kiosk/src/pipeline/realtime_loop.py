@@ -14,7 +14,7 @@ B안 유지: 상업 허용·카피레프트 없음).
 2026-07-23: 웹소켓·UDP·데모 웹 서버 제거(회사 결정 — 네트워크 철회, print 연동).
 디버그는 main.py --debug 로컬 창(cv2)이 담당한다.
 
-2026-07-31 머리 앵커 추론 스레드 분리(키오스크 실기 — FPS 저하·획 끊김): 포즈
+2026-07-31 머리 앵커 추론 스레드 분리(키오스크 테스트 — FPS 저하·획 끊김): 포즈
 lite는 BlazeFace(수 ms)와 달리 호출당 수십 ms라 손 루프 인라인이면 10Hz마다
 33ms 예산을 넘겨 프레임을 놓쳤다 — 빠른 쓸기(모션 블러 + 큰 이동폭)의 추적이
 바로 그 회차에 끊긴다. 앵커는 느리게 변하는 값이라 비동기 반영으로 충분하다.
@@ -27,7 +27,7 @@ FaceLandmarker(얼굴 랜드마크)가 다시 돈다. mode_switch.enabled가 fal
 face_estimator·head_tracker·head_shake는 생성조차 되지 않아 얼굴 관련 코드
 경로가 전혀 실행되지 않는다(기본값 — main의 얼굴 미처리 방침 유지).
 켜져 있는 동안엔 hand 모드 중에도 머리 흔들기 감지를 위해 얼굴 추론이 매
-프레임 인라인으로 돈다(코드 단순성 우선 — cam_a_verify 실기 검증 그대로).
+프레임 인라인으로 돈다(코드 단순성 우선 — cam_a_verify 테스트 검증 그대로).
 
 PipelineState가 디버그 창과 공유되는 유일한 상태 저장소다.
 """
@@ -80,7 +80,7 @@ def resolve_roi_box(prev_box, anchor_box, frame_width_px, frame_height_px, roi_c
                     reach_widths):
     """머리 앵커 기반 손 추론 크롭 창 -> (x1, y1, x2, y2) | None(전체 프레임).
 
-    원거리 디지털 줌(2026-07-31 키오스크 실기 — 거리별 인식 편차): MediaPipe
+    원거리 디지털 줌(2026-07-31 키오스크 테스트 — 거리별 인식 편차): MediaPipe
     손바닥 검출기는 프레임 전체를 고정 크기(~192px)로 줄여 보므로, 먼 사용자의
     손은 캡처 해상도와 무관하게 몇 픽셀로 뭉개져 검출이 끊기고 모양(주먹/한
     손가락) 판별이 무너진다. 앵커 주변 팔 도달 반경만 잘라 넣으면 손이 모델
@@ -145,7 +145,7 @@ class PipelineState:
         self.is_user_locked = False
         self.input_mode = MODE_HAND    # 2026-08-03 — head_shake로 토글되는 현재 입력 모드
                                        #   (mode_switch.enabled=false면 영원히 hand 그대로)
-        self.debug = {}                # 판정 계기판(활성 모드 트래커의 debug) — 실기 튜닝용
+        self.debug = {}                # 판정 계기판(활성 모드 트래커의 debug) — 테스트 튜닝용
         self._viewer_count = 0         # 디버그 창 시청자 수 — 0이면 오버레이 렌더링 생략
 
     def add_viewer(self):
@@ -388,7 +388,7 @@ def run_pipeline(config):
             # 실전(회사 UI는 이벤트만 수신)에서는 매 프레임 그리기·복사가 순수 낭비다
             # (2026-07-20 최적화. 판정·이벤트 경로는 위에서 이미 끝났으므로 무영향)
             if state.has_viewer:
-                # ★그리기 실패가 엔진을 죽이지 않게 격리(2026-08-03 키오스크 실기):
+                # ★그리기 실패가 엔진을 죽이지 않게 격리(2026-08-03 키오스크 테스트):
                 # 신호 형식이 바뀐 뒤 시각화가 구 형식으로 언팩해 ValueError가 났고,
                 # cam on 하는 순간 **추론 스레드가 통째로 죽어** 화면이 멈췄다.
                 # 오버레이는 진단용 부가 기능이라 판정·이벤트를 중단시킬 이유가 없다 —
@@ -426,7 +426,7 @@ def run_pipeline(config):
             if elapsed_sec < min_loop_interval_sec:
                 time.sleep(min_loop_interval_sec - elapsed_sec)
 
-    # 머리 앵커 추론 스레드(2026-07-31 키오스크 실기 — 모듈 독스트링): 손 루프와
+    # 머리 앵커 추론 스레드(2026-07-31 키오스크 테스트 — 모듈 독스트링): 손 루프와
     # 분리해 포즈 비용(호출당 수십 ms)이 손 추적 프레임을 밀어내지 않게 한다.
     # 관측은 최신 1건만 유지, 손 루프가 소비하는 즉시 비운다 — hand_select의
     # "None = 관측 없음(앵커 유지)" 규약이 그대로 성립한다

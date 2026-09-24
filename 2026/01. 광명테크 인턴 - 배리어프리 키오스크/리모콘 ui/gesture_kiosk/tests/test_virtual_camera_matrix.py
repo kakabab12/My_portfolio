@@ -189,8 +189,8 @@ def test_body_translation_does_not_move_the_cursor(mount_name):
 def test_horizontal_sweep_stays_horizontal(mount_name):
     """★좌우로만 돌릴 때 세로가 크게 휘면 안 된다 (포물선 재발 방지).
 
-    가로 진폭 대비 세로 변동으로 잰다. 배치가 달라져도 이 값이 유지되는
-    것이 "곡률 보정을 다시 잴 필요가 없다"의 근거다.
+    가로 진폭 대비 세로 변동으로 측정한다. 배치가 달라져도 이 값이 유지되는
+    것이 "곡률 보정을 다시 측정할 필요가 없다"의 근거다.
     """
     camera = VirtualCamera(mount=MOUNTS[mount_name], seed=8)
     ho = _prepared(camera)

@@ -1,6 +1,6 @@
 """hand_tracker 단위 테스트 — 중복 검출 억제(순수 함수)만 검증한다 (2026-07-29).
 
-MediaPipe가 한 손을 좌/우 라벨로 두 번 보고하는 중복 검출(실기: 한 손에 L·R
+MediaPipe가 한 손을 좌/우 라벨로 두 번 보고하는 중복 검출(테스트: 한 손에 L·R
 겹침 — 유령 라벨)이 억제되는지 카메라·모델 없이 확인한다.
 """
 import os
@@ -16,7 +16,7 @@ from tests.hand_fixtures import make_hand
 
 class SuppressDuplicateHandsTest(unittest.TestCase):
     def test_same_position_both_labels_keeps_higher_conf(self):
-        # 한 손이 좌/우 라벨로 두 번 보고됨(실기 유령 라벨) — 신뢰도 높은 쪽만 남는다
+        # 한 손이 좌/우 라벨로 두 번 보고됨(테스트 유령 라벨) — 신뢰도 높은 쪽만 남는다
         duplicate = [
             make_hand("right", "finger", (500, 400), conf=0.9),
             make_hand("left", "fist", (505, 402), conf=0.6),   # 같은 자리 — 중복

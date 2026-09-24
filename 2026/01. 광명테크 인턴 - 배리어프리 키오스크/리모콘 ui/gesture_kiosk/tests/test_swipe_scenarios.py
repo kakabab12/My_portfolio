@@ -277,7 +277,7 @@ class SwipeScenarioTest(unittest.TestCase):
 
     def test_19_diagonal_raise_then_left_swipe(self):
         # 우측으로 호를 그리는 들어올리기 직후 좌 쓸기 — 호의 수평 꼬리가 좌 이동을
-        # 상쇄해 포커스가 의도대로 안 가던 실기 증상 (2026-07-20)
+        # 상쇄해 포커스가 의도대로 안 가던 테스트 증상 (2026-07-20)
         def scenario(sim):
             sim.position = (0.62, HANG[1])
             sim.hold(0.5)
@@ -287,7 +287,7 @@ class SwipeScenarioTest(unittest.TestCase):
         self._run(scenario, ["left"])
 
     def test_20_close_range_hand_appearance_then_down(self):
-        # 근거리 실기 정정(2026-07-21): 내린 손은 화면 밖(휴식 존이 프레임 아래) —
+        # 근거리 테스트 정정(2026-07-21): 내린 손은 화면 밖(휴식 존이 프레임 아래) —
         # 손이 어깨선 아래에서 "등장"해 올라오는 것 자체가 들어올리기 신호다.
         # 등장→상승이 select로 오발되지 않아야 한다 (아래는 07-29부터 정의 없음)
         def scenario(sim):
@@ -299,7 +299,7 @@ class SwipeScenarioTest(unittest.TestCase):
         self._run(scenario, [])
 
     def test_21_close_range_appear_pause_then_select(self):
-        # 근거리 정정 2차(2026-07-31 키오스크 실기 — 근거리에서 위 쓸기 무반응):
+        # 근거리 정정 2차(2026-07-31 키오스크 테스트 — 근거리에서 위 쓸기 무반응):
         # 근거리에선 내린 손이 화면 밖이라 손 등장마다 휴식 존이 스탬프되는데,
         # 구 로직은 유예(0.6초)를 다 기다려야 위 플릭이 살았다 — 등장 직후의
         # 자연스러운 "멈췄다 위로 스냅"이 전부 삼켜졌다. 존 밖 정지(재장전
@@ -315,7 +315,7 @@ class SwipeScenarioTest(unittest.TestCase):
         self._run(scenario, ["select"])
 
     def test_22_pointing_at_screen_navigates_via_memory(self):
-        # v2 모양 기억(실기 사진 실증): 손가락을 세워 보인 뒤 화면을 가리키며
+        # v2 모양 기억(테스트 사진 실증): 손가락을 세워 보인 뒤 화면을 가리키며
         # (검지가 카메라 쪽으로 누움 — 판별 기권) 쓸어도 항법이 유지된다
         def scenario(sim):
             sim.hold(0.5)                    # 한 손가락 각인 (분명한 판별 구간)
@@ -335,7 +335,7 @@ class SwipeScenarioTest(unittest.TestCase):
         self._run(scenario, [])
 
     def test_24_handedness_flap_mid_stroke_keeps_back(self):
-        # 좌/우 라벨 플랩(2026-07-28 실기 — MediaPipe handedness가 주먹에서 불안정):
+        # 좌/우 라벨 플랩(2026-07-28 테스트 — MediaPipe handedness가 주먹에서 불안정):
         # 2026-07-31 라벨 제거로 라벨은 판정과 무관해졌다 — 획 중간에 라벨이 튀어도
         # 신호는 같은 손(hand_select 연속성)이라 back이 그대로 발화한다.
         # 구 플랩 보정(side_flap_jump)의 회귀 검증을 라벨 무관성 검증으로 계승

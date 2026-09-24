@@ -88,7 +88,7 @@ def test_cursor_starts_at_center_after_calibration():
 def test_half_span_angle_puts_cursor_at_screen_edge():
     """설계값 그대로 — 정한 각도만큼 돌리면 커서가 정확히 화면 끝에 닿는다.
 
-    이것이 "재지 않아도 되는" 이유다. 감도가 추상적인 배율이 아니라
+    이것이 "측정하지 않아도 되는" 이유다. 감도가 추상적인 배율이 아니라
     '몇 도 돌리면 끝'이라는 사람이 정하는 숫자다.
     """
     clock = _Clock()
@@ -202,7 +202,7 @@ def test_larger_half_span_needs_more_turning():
 
 
 def test_brief_loss_keeps_neutral():
-    """★잠깐 놓친 것으로 중립을 버리면 안 된다 (2026-08-31 실기 보고 대응).
+    """★잠깐 놓친 것으로 중립을 버리면 안 된다 (2026-08-31 테스트 보고 대응).
 
     기울여 단 카메라처럼 검출이 간헐적으로 끊기는 배치에서, 한 프레임 놓칠
     때마다 중립을 버리면 캘리브레이션이 끝나지 않아 커서가 영영 안 나온다.
@@ -231,7 +231,7 @@ def test_sustained_loss_clears_neutral():
 
 
 def test_intermittent_detection_still_produces_a_moving_cursor():
-    """★실기 증상 재현 — 검출이 띄엄띄엄이어도 커서가 움직여야 한다.
+    """★테스트 증상 재현 — 검출이 띄엄띄엄이어도 커서가 움직여야 한다.
 
     3프레임마다 한 번씩 얼굴을 놓치는 상황을 만든다. 예전 동작(즉시 리셋)
     이라면 캘리브레이션이 끝나지 않아 커서가 계속 None이었다.
@@ -265,7 +265,7 @@ TRACKER_MODULES = ("eyebrow", "forehead", "head")
 def test_every_tracker_enables_orientation_mapping(module_name):
     """eyebrow·forehead·head 세 트래커 모두 상대 회전 매핑을 쓴다.
 
-    셋 다 같은 문제(카메라 배치마다 다시 재기)를 겪었으므로 처방도 같아야 한다.
+    셋 다 같은 문제(카메라 배치마다 다시 측정하기)를 겪었으므로 처방도 같아야 한다.
     새 트래커를 만들면서 이 배선을 빠뜨리면 여기서 걸린다.
     """
     import importlib
