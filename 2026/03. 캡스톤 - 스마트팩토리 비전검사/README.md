@@ -8,7 +8,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](../../기술_용어집.md#fastapi)
 [![Arduino](https://img.shields.io/badge/Arduino-00979D?style=flat-square&logo=arduino&logoColor=white)](../../기술_용어집.md#arduino)
 
-**캡스톤 디자인 2단계(최종)** · 2026년 1학기 · 최종 전시회 출품작
+**캡스톤 디자인 2단계(최종)** · 2026년 1학기 · 3인 팀 · 최종 전시회 출품작
 
 </div>
 
@@ -29,6 +29,10 @@ flowchart LR
     A --> R["로봇팔"]
     Y --> W["관제 대시보드<br/>+ Gemini 챗봇"]
 ```
+
+<p align="center"><img src="assets/dashboard.png" width="720" alt="관제 대시보드"><br>
+<sub>관제 대시보드(<code>project/index.html</code>)를 카메라·젯슨 없이 브라우저로만 띄운 화면입니다.
+실제로는 왼쪽 두 칸에 RealSense와 USB 웹캠 영상이 나오고, 오른쪽에 CPU·메모리·FPS와 탐지 내역이 채워집니다</sub></p>
 
 ---
 

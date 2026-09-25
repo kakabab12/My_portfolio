@@ -16,6 +16,15 @@
 03_flask_mongodb    Flask   + MongoDB    ← DB만 교체
 ```
 
+<table>
+<tr>
+<td align="center" width="50%"><img src="assets/guestbook_add.gif" alt="Flask 방명록에 글 남기기"><br><sub><b>01 Flask + SQLite</b> — 글을 남기면 SQLite에 저장되고 목록 맨 위에 붙습니다(3건 → 4건)</sub></td>
+<td align="center" width="50%"><img src="assets/fastapi_docs.png" alt="FastAPI 자동 API 문서"><br><sub><b>02 FastAPI + SQLite</b> — 코드에 적은 요약으로 API 문서(<code>/docs</code>)가 저절로 생깁니다. DB 계층(<code>db.py</code>)은 01 것을 그대로 씁니다</sub></td>
+</tr>
+</table>
+
+<sub>두 서버를 실제로 띄워 헤드리스 브라우저로 찍었습니다(2026-09-25).</sub>
+
 ---
 
 ## 챕터 목차

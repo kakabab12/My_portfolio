@@ -44,41 +44,59 @@
 <table>
 <tr>
 <td align="center" valign="top" width="33%">
-<a href="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/"><img src="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/assets/headtracker_nose.gif" width="250" alt="헤드트래커 시연"></a><br>
+<a href="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/"><img src="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/assets/headtracker_nose.gif" width="250" alt="배리어프리 키오스크 입력 장치"></a><br>
 <b><a href="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/">배리어프리 키오스크 입력 장치</a></b><br>
-<sub>고개로 커서를 옮기고 입을 벌려 클릭 · 드래그<br><code>2026 기업 인턴</code></sub>
+<sub>고개로 커서를 옮기고 입을 벌려 클릭·드래그<br><code>2026 기업 인턴</code></sub>
 </td>
 <td align="center" valign="top" width="33%">
-<a href="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/"><img src="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/assets/walnut_detect.jpg" width="250" alt="YOLOv8 견과류 판정"></a><br>
-<b><a href="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/">라즈베리파이 선별 시스템</a></b><br>
-<sub>YOLOv8로 양품·불량을 가려 아두이노 분류기 제어<br><code>2025 캡스톤 1단계</code></sub>
+<a href="2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/"><img src="2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/assets/patrol_map.png" width="250" alt="TurtleBot3 자율주행 로봇"></a><br>
+<b><a href="2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/">TurtleBot3 자율주행 로봇</a></b><br>
+<sub>SLAM 지도 위 A→B→C→D 순찰 · ROS 2<br><code>2026 팀 프로젝트</code></sub>
 </td>
 <td align="center" valign="top" width="33%">
-<a href="2026/04.%20메디컬%20머신러닝%20대회/"><img src="2026/04.%20메디컬%20머신러닝%20대회/assets/shap_classification.png" width="250" alt="SHAP 변수 중요도"></a><br>
-<b><a href="2026/04.%20메디컬%20머신러닝%20대회/">수술 위험도 예측 AI</a></b><br>
-<sub>ICU 입원 위험을 예측하고 SHAP으로 판단 근거 설명<br><code>2026 대회</code></sub>
+<a href="2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/"><img src="2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/assets/dashboard.png" width="250" alt="스마트팩토리 비전 검사"></a><br>
+<b><a href="2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/">스마트팩토리 비전 검사</a></b><br>
+<sub>카메라 2대 병렬 추론 → 로봇팔 · 관제 화면<br><code>2026 캡스톤 2단계</code></sub>
 </td>
 </tr>
 <tr>
-<td align="center" valign="top">
-<a href="개인%20프로젝트/고클린%20-%20윈도우%20최적화%20도구/"><img src="개인%20프로젝트/고클린%20-%20윈도우%20최적화%20도구/beta.ver/demo/demo.gif" width="250" alt="고클린 시연"></a><br>
+<td align="center" valign="top" width="33%">
+<a href="2026/04.%20메디컬%20머신러닝%20대회/"><img src="2026/04.%20메디컬%20머신러닝%20대회/assets/dashboard_result.png" width="250" alt="수술 위험도 예측 AI"></a><br>
+<b><a href="2026/04.%20메디컬%20머신러닝%20대회/">수술 위험도 예측 AI</a></b><br>
+<sub>ICU 위험·수술시간 예측과 근거 브리핑<br><code>2026 대회</code></sub>
+</td>
+<td align="center" valign="top" width="33%">
+<a href="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/"><img src="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/assets/walnut_detect.jpg" width="250" alt="라즈베리파이 선별 시스템"></a><br>
+<b><a href="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/">라즈베리파이 선별 시스템</a></b><br>
+<sub>YOLOv8로 양품·불량 → 아두이노 분류기<br><code>2025 캡스톤 1단계</code></sub>
+</td>
+<td align="center" valign="top" width="33%">
+<a href="2026/06.%20웹서버%20DB%20연동%20기초/"><img src="2026/06.%20웹서버%20DB%20연동%20기초/assets/guestbook_add.gif" width="250" alt="웹서버 + DB 교재"></a><br>
+<b><a href="2026/06.%20웹서버%20DB%20연동%20기초/">웹서버 + DB 교재</a></b><br>
+<sub>같은 앱을 서버 3종 × DB 2종으로<br><code>2026 학습·교재</code></sub>
+</td>
+</tr>
+<tr>
+<td align="center" valign="top" width="33%">
+<a href="개인%20프로젝트/고클린%20-%20윈도우%20최적화%20도구/"><img src="개인%20프로젝트/고클린%20-%20윈도우%20최적화%20도구/beta.ver/demo/demo.gif" width="250" alt="윈도우 최적화 도구 (고클린)"></a><br>
 <b><a href="개인%20프로젝트/고클린%20-%20윈도우%20최적화%20도구/">윈도우 최적화 도구 (고클린)</a></b><br>
-<sub>PC 청소·게임모드·진단을 한 화면에, exe로 배포<br><code>개인 도구</code></sub>
+<sub>청소·게임모드·진단을 한 화면, exe 배포<br><code>개인 도구</code></sub>
 </td>
-<td align="center" valign="top">
-<a href="2024/01.%20임베디드%20리눅스%20-%20배달감지%20카메라/"><img src="2024/01.%20임베디드%20리눅스%20-%20배달감지%20카메라/assets/delivery_detect.gif" width="250" alt="배달감지 카메라 시연"></a><br>
+<td align="center" valign="top" width="33%">
+<a href="2025/02.%20SW파일럿%20-%20웹%20로봇제어%20UI/"><img src="2025/02.%20SW파일럿%20-%20웹%20로봇제어%20UI/assets/robotui.gif" width="250" alt="웹 로봇제어 UI"></a><br>
+<b><a href="2025/02.%20SW파일럿%20-%20웹%20로봇제어%20UI/">웹 로봇제어 UI</a></b><br>
+<sub>캔버스를 눌러 ROS 목표 좌표 전송<br><code>2025 SW파일럿</code></sub>
+</td>
+<td align="center" valign="top" width="33%">
+<a href="2024/01.%20임베디드%20리눅스%20-%20배달감지%20카메라/"><img src="2024/01.%20임베디드%20리눅스%20-%20배달감지%20카메라/assets/delivery_detect.gif" width="250" alt="배달감지 카메라"></a><br>
 <b><a href="2024/01.%20임베디드%20리눅스%20-%20배달감지%20카메라/">배달감지 카메라</a></b><br>
-<sub>임베디드 리눅스 보드에서 현관 앞 상자 감지<br><code>2024 수업 프로젝트</code></sub>
-</td>
-<td align="center" valign="top">
-<a href="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/"><img src="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/assets/headtracker_brow.gif" width="250" alt="어두운 방에서 헤드트래커 시연"></a><br>
-<b><a href="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/">같은 장치, 불 끈 방</a></b><br>
-<sub>미간 기준 헤드트래커 · 저조도에서도 조작<br><code>2026 기업 인턴</code></sub>
+<sub>임베디드 리눅스 보드로 현관 앞 상자 감지<br><code>2024 수업 프로젝트</code></sub>
 </td>
 </tr>
 </table>
 
-<sub>그림을 누르면 해당 프로젝트 폴더로 갑니다. 움직이는 그림은 시연 영상을 줄인 것이고, 원본 영상은 각 폴더에 있습니다.</sub>
+<sub>그림을 누르면 해당 프로젝트 폴더로 갑니다. 움직이는 그림은 시연 영상을 줄였거나 프로그램을 직접 띄워 찍은 것이고,
+장비가 없어 빈칸으로 찍힌 화면은 각 README에 그렇게 적어 두었습니다.</sub>
 
 ## 무엇을 만들었나
 
@@ -356,6 +374,9 @@ flowchart TD
     SVM --> LED["OpenCR LED<br/>정상/이상 알림"]
     BOT --> SAFE["안전 로직<br/>장애물 → 정지 → 후진 → 재개"]
 ```
+
+<p align="center"><img src="2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/assets/patrol_map.png" width="360" alt="SLAM 지도와 순찰 경로"><br>
+<sub>SLAM으로 만든 연습장 지도 위에 순찰 코드의 A→B→C→D 좌표를 그린 것</sub></p>
 
 | 기능 | 구현 내용 |
 |---|---|

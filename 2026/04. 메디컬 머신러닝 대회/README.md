@@ -33,6 +33,11 @@ flowchart TD
     F --> U
 ```
 
+<p align="center"><img src="assets/dashboard_result.png" width="640" alt="의료진 대시보드 예측 결과"><br>
+<sub>서버(<code>server.py</code>)를 실제로 띄우고 <b>가상 환자</b>(72세 남성, ASA 3등급, 계획 수술, 심혈관·내분비 질환,
+일반외과, 전신마취)를 넣은 결과입니다 — 실제 환자가 아닙니다. ICU 위험도 게이지, 최단·중간·최장 수술시간,
+결정 요인, 종합 소견이 한 화면에 나옵니다. 입력부터 결과까지의 흐름은 <a href="assets/dashboard_predict.gif">GIF</a></sub></p>
+
 <p align="center"><img src="assets/shap_classification.png" width="460" alt="ICU 입원 위험도 모델의 SHAP 변수 중요도"><br>
 <sub>ICU 입원 위험도 모델의 SHAP 요약 — 점 하나가 환자 한 명이고, 오른쪽으로 갈수록 위험을 높인 변수입니다.
 <code>test.py</code>가 만든 그림(<a href="AI/shap_classification.png">원본</a>)에서 한글이 깨진 제목만 잘라냈습니다</sub></p>

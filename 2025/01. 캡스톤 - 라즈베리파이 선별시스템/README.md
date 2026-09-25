@@ -27,6 +27,10 @@
 불량 등급(<code>nuts-bad0.25</code> · <code>nuts-bad0.5</code>)으로 나눕니다.
 <a href="Classfication_fruit.v1i.yolov8/runs/detect/runs_detect/nuts_detect_train/">학습 결과 전체</a></sub></p>
 
+<p align="center"><img src="assets/dashboard.png" width="640" alt="웹 관제 대시보드"><br>
+<sub>웹 관제 대시보드(<code>RPI-Flask-main/index.html</code>)를 라즈베리파이·카메라 없이 브라우저로만 띄운 화면입니다.
+실제로는 왼쪽에 카메라 영상이 나오고 CPU·메모리·FPS, 탐지 내역, 생산량·불량률 차트가 채워집니다</sub></p>
+
 ```mermaid
 flowchart LR
     A["Picamera2<br/>FHD · AF · AWB"] --> B["YOLOv8-seg<br/>ONNX · CPU"]

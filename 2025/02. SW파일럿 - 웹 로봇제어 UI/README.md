@@ -22,6 +22,11 @@ flowchart LR
     B -->|"토픽 발행"| C["ROS 로봇"]
 ```
 
+<p align="center"><img src="assets/robotui.gif" width="560" alt="웹 로봇제어 UI 시연"><br>
+<sub>캔버스를 누르면 로봇 아이콘이 그 점으로 가고, <b>좌표 전송</b>을 누르면 ROS 좌표로 바꿔
+<code>/move_base_simple/goal</code>로 보냅니다. 로봇과 rosbridge 없이 브라우저만 띄워 찍은 것이라
+실제로 로봇에 가지는 않습니다(화면의 "전송 완료"는 연결과 상관없이 뜹니다)</sub></p>
+
 ## 파일
 
 | 파일 | 설명 |

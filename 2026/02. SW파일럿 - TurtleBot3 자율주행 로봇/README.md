@@ -32,6 +32,11 @@ flowchart TD
     BOT --> SAFE["안전 로직<br/>장애물 → 정지 → 후진 → 재개"]
 ```
 
+<p align="center"><img src="assets/patrol_map.png" width="440" alt="SLAM 지도와 순찰 경로"><br>
+<sub>SLAM으로 만든 연습장 지도(<a href="로봇%20프로젝트%20본체/sw/robot/maps/"><code>maps/시연용.pgm</code></a>, 약 2.2 m × 2.3 m) 위에
+순찰 코드(<a href="로봇%20프로젝트%20본체/sw/robot/ros2_bridge/waypoint_patrol_demo.py"><code>waypoint_patrol_demo.py</code></a>)의
+A→B→C→D 좌표를 그렸습니다. 가운데 마름모가 장애물이고, 로봇은 그 둘레를 돕니다</sub></p>
+
 ## 구현 기능
 
 | 기능 | 구현 내용 |
