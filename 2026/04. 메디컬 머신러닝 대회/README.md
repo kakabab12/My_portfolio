@@ -33,6 +33,10 @@ flowchart TD
     F --> U
 ```
 
+<p align="center"><img src="assets/shap_classification.png" width="460" alt="ICU 입원 위험도 모델의 SHAP 변수 중요도"><br>
+<sub>ICU 입원 위험도 모델의 SHAP 요약 — 점 하나가 환자 한 명이고, 오른쪽으로 갈수록 위험을 높인 변수입니다.
+<code>test.py</code>가 만든 그림(<a href="AI/shap_classification.png">원본</a>)에서 한글이 깨진 제목만 잘라냈습니다</sub></p>
+
 ---
 
 ## 가장 신경 쓴 세 가지

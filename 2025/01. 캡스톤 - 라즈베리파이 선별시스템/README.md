@@ -22,6 +22,11 @@
 > 확인한 것이 다음 학기 [2단계(젯슨나노 + TensorRT)](../../2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/)로
 > 이어졌습니다. 두 폴더를 함께 보면 **같은 문제를 하드웨어를 바꿔가며 푼 1년치 흐름**이 보입니다.
 
+<p align="center"><img src="assets/walnut_detect.jpg" width="420" alt="YOLOv8 검증 이미지 예측 결과"><br>
+<sub>Roboflow 데이터셋으로 학습한 YOLOv8의 검증 이미지 예측 — 견과류를 양품(<code>nuts-good</code>)과
+불량 등급(<code>nuts-bad0.25</code> · <code>nuts-bad0.5</code>)으로 나눕니다.
+<a href="Classfication_fruit.v1i.yolov8/runs/detect/runs_detect/nuts_detect_train/">학습 결과 전체</a></sub></p>
+
 ```mermaid
 flowchart LR
     A["Picamera2<br/>FHD · AF · AWB"] --> B["YOLOv8-seg<br/>ONNX · CPU"]

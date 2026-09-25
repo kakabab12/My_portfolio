@@ -16,6 +16,13 @@
 Node.js와 MongoDB로 만든 **개인 블로그(게시판)** 입니다. 화면에는 "용이의 BLOG"라고
 띄웁니다. 글을 쓰고 읽고, 글마다 댓글을 다는 데까지 만들었습니다.
 
+<table>
+<tr>
+<td align="center" width="50%"><img src="201119160이지용%20실행화면-1.PNG" alt="블로그 첫 화면"><br><sub>첫 화면 — 글 목록, 옆에 MongoDB와 서버 로그</sub></td>
+<td align="center" width="50%"><img src="201119160이지용%20실행화면-4.PNG" alt="글과 댓글 화면"><br><sub>글 보기 — 댓글 목록과 댓글 쓰기</sub></td>
+</tr>
+</table>
+
 > **폴더 이름 주의** — 원래 폴더명이 `express-locallibrary-tutorial` 이었습니다.
 > MDN의 Express 튜토리얼(도서관 앱)을 따라 하며 시작했기 때문인데,
 > **실제로 만든 것은 도서관이 아니라 블로그/게시판**입니다. 튜토리얼로 골격만
