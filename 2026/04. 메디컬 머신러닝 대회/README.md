@@ -89,6 +89,6 @@ SHAP으로 **전체 변수 중요도**와 **환자별 폭포수 차트**("이 �
 
 ---
 
-> ⚠ `AI/inspire-a-publicly-available-research-dataset-.../` 는 원본 공개 데이터셋이며,
+> ⚠ `AI/inspire-a-publicly-available-research-dataset-.../`는 원본 공개 데이터셋이며,
 > 해당 폴더의 `LICENSE.txt` 조건을 따릅니다.
 > 파일별 상세 설명 원본은 [`AI  폴더 코드 설명.md`](AI%20%20폴더%20코드%20설명.md) 참고.

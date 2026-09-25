@@ -6,6 +6,9 @@
 - 라이다: LDS-03
 - 워크스페이스: `~/turtlebot3_ws`
 
+> 본문에 나오는 `raw_logs/…` 원본 로그는 이 저장소에 올리지 않았습니다. 설정 파일 사본만
+> [`config_snapshots/`](config_snapshots/)에 있습니다(9절 참고).
+
 ## 1. 최종 상태
 
 현재 다음 항목을 정상 확인했습니다.
@@ -32,7 +35,7 @@ raw_logs/ros_runtime/final_bringup/launch.log
 1. 조이스틱 패키지의 잘못된 rosdep 의존성 선언
 2. Conda Python과 시스템 ROS Python 환경 충돌
 3. 과거 C++ 빌드가 강제 종료되어 남은 불완전한 `install` 폴더
-4. 조이스틱 시험 당시 모터 토크 비활성화 및 여러 `/cmd_vel` 발행자 충돌 가능성
+4. 조이스틱 테스트 당시 모터 토크 비활성화, 여러 `/cmd_vel` 발행자 충돌 가능성
 5. 실제 라이다는 LDS-03인데 환경이 LDS-02로 설정됨
 6. LDS-03 기본 포트 별칭 `/dev/tb3_lidar`가 tty가 아닌 USB 장치를 가리킴
 
@@ -57,7 +60,7 @@ src/turtlebot3_joystick/package.xml
 ```
 
 `ament_python`은 이 패키지에서 `<build_type>`으로 사용되지만 현재 Humble rosdep
-데이터베이스에서는 해당 이름을 시스템 의존성 키로 해석하지 못했습니다.
+데이터베이스는 이 이름을 시스템 의존성 키로 해석하지 못했습니다.
 
 ### 수정
 
@@ -105,7 +108,7 @@ angular:
 `PUSH SW1` 자체 시험과 공식 키보드 teleop이 모두 성공해 펌웨어와 모터도
 정상임을 확인했습니다.
 
-시험 과정에서 모터 전원을 다음 서비스로 활성화했습니다.
+테스트 과정에서 모터 전원을 다음 서비스로 켰습니다.
 
 ```bash
 ros2 service call /motor_power std_srvs/srv/SetBool "{data: true}"
@@ -119,8 +122,8 @@ SetBool_Response(success=True, message='Succeeded to write data')
 
 또한 키보드 teleop과 조이스틱 teleop을 동시에 실행하면 두 노드가 같은
 `/cmd_vel`을 발행합니다. 조이스틱 노드는 스틱을 놓은 동안에도 20 Hz로 0 속도를
-발행하므로 다른 주행 명령을 빠르게 덮어쓸 수 있습니다. 최종적으로 bringup과 한 개의
-teleop 노드만 실행해 정상 주행을 확인했습니다.
+발행하므로 다른 주행 명령을 빠르게 덮어쓸 수 있습니다. 최종적으로 bringup과
+teleop 노드 하나만 실행해 정상 주행을 확인했습니다.
 
 ## 5. 통합 `install/setup.bash`가 깨진 원인
 
@@ -266,7 +269,7 @@ raw_logs/ros_runtime/lds03_direct/launch.log
 raw_logs/ros_runtime/verification_transcript.txt
 ```
 
-### 포트 별칭 추가 문제
+### 추가로 발견한 포트 별칭 문제
 
 LDS-03 기본 설정은 다음 경로를 사용했습니다.
 
@@ -353,26 +356,38 @@ ros2 pkg prefix turtlebot3_joystick
 
 ## 9. 보관 파일 구조
 
+이 저장소에는 이 README와 `config_snapshots/`만 올렸습니다.
+
 ```text
-project_diagnostics_2026-08-17/
+TurtleBot3_오류_분석_및_해결_2026-08-17/
 ├── README.md
-├── config_snapshots/
-│   ├── coin_d4_driver_single_lidar_node_FIXED.yaml
-│   ├── teleop.launch.py
-│   ├── tgz_850m.yaml
-│   └── turtlebot3_joystick_package_FIXED.xml
-└── raw_logs/
-    ├── build_failures/
-    │   ├── catkin_pkg/
-    │   ├── oom_coin_d4_driver/
-    │   ├── oom_dynamixel_sdk_examples/
-    │   └── oom_turtlebot3_node/
-    ├── build_success/
-    │   ├── coin_d4_driver/
-    │   ├── dynamixel_sdk_examples/
-    │   └── turtlebot3_node/
-    └── ros_runtime/
-        ├── final_bringup/
-        ├── lds03_direct/
-        └── verification_transcript.txt
+└── config_snapshots/
+    ├── bashrc_ros_settings.txt                          # 정상화 후 .bashrc의 모델 설정 발췌
+    ├── coin_d4_driver_port_BEFORE.yaml                  # 라이다 포트 수정 전
+    ├── coin_d4_driver_single_lidar_node_FIXED.yaml      # 라이다 포트 수정 후
+    ├── teleop.launch.py
+    ├── tgz_850m.yaml
+    ├── turtlebot3_joystick_package_BEFORE_excerpt.xml   # rosdep 오류가 난 선언 발췌
+    └── turtlebot3_joystick_package_FIXED.xml
+```
+
+본문에 나오는 `raw_logs/` 경로는 작성 당시 로봇의 진단 폴더
+(`project_diagnostics_2026-08-17/`) 기준입니다. 원본 로그는 이 저장소에 없으며,
+당시 구성은 다음과 같았습니다.
+
+```text
+raw_logs/
+├── build_failures/
+│   ├── catkin_pkg/
+│   ├── oom_coin_d4_driver/
+│   ├── oom_dynamixel_sdk_examples/
+│   └── oom_turtlebot3_node/
+├── build_success/
+│   ├── coin_d4_driver/
+│   ├── dynamixel_sdk_examples/
+│   └── turtlebot3_node/
+└── ros_runtime/
+    ├── final_bringup/
+    ├── lds03_direct/
+    └── verification_transcript.txt
 ```

@@ -23,7 +23,7 @@ Node.js와 MongoDB로 만든 **개인 블로그(게시판)** 입니다. 화면�
 </tr>
 </table>
 
-> **폴더 이름 주의** — 원래 폴더명이 `express-locallibrary-tutorial` 이었습니다.
+> **폴더 이름 주의** — 원래 폴더명이 `express-locallibrary-tutorial`이었습니다.
 > MDN의 Express 튜토리얼(도서관 앱)을 따라 하며 시작했기 때문인데,
 > **실제로 만든 것은 도서관이 아니라 블로그/게시판**입니다. 튜토리얼로 골격만
 > 잡고 내용은 다르게 갔습니다.

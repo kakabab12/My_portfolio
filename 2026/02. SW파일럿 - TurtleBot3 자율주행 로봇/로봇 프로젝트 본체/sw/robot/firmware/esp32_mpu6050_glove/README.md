@@ -1,8 +1,8 @@
 # ESP32 MPU6050 장갑 송신기
 
-`esp32_mpu6050_glove.ino`는 제공한 `esp32_test_code_bundle.pdf`의
+`esp32_mpu6050_glove.ino`는 제공받은 `esp32_test_code_bundle.pdf`의
 `main/esp32_test.c`를 Arduino IDE에서 바로 올릴 수 있게 옮긴 것입니다. MPU6050의
-자세를 20Hz로 USB 직렬과 Wi-Fi UDP로 보냅니다. Wi-Fi 수신 노드가 데이터를 TurtleBot3의
+자세를 20 Hz로 USB 직렬과 Wi-Fi UDP로 보냅니다. Wi-Fi 수신 노드가 데이터를 TurtleBot3의
 `/cmd_vel_glove`로 변환합니다. 게임 컨트롤러와 USB 데이터 케이블은 필요 없습니다.
 
 ## 배선
@@ -41,6 +41,6 @@ ESP32 기본 I2C 핀을 씁니다.
 
 앞으로 기울이면 전진, 뒤로 기울이면 후진, 오른쪽/왼쪽 기울이면 우/좌회전입니다.
 방향이 반대면 실행 명령에 `--invert-pitch` 또는 `--invert-roll`을 넣습니다.
-Wi-Fi 연결이나 MPU6050 읽기가 끊기면 ESP32가 값 전송을 멈추며, ROS 노드와 mux가
-0.35초 안에 정지 명령을 유지합니다. ESP32의 직렬 모니터에 `MPU6050 not detected`가
+Wi-Fi 연결이나 MPU6050 읽기가 끊기면 ESP32가 값 전송을 멈추고, ROS 노드와 mux가
+0.35초 안에 정지 명령으로 바꿔 유지합니다. ESP32의 직렬 모니터에 `MPU6050 not detected`가
 계속 나오면 LED 점등과 무관하게 I2C 통신이 안 되는 상태이므로 주행을 시작하면 안 됩니다.

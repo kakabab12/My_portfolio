@@ -15,6 +15,12 @@
 |:-:|---|:-:|---|---|
 | **01** | [**Express 블로그 - 게시판**](01.%20Express%20블로그%20-%20게시판/) | `2021-06-09 ~ 06-15` | 게시글·댓글 CRUD를 갖춘 개인 블로그 | `Node.js` `Express` `MongoDB` `Mongoose` `EJS` |
 
+<table>
+<tr>
+<td align="center" width="100%"><a href="01.%20Express%20블로그%20-%20게시판/"><img src="../assets/thumbs/express.png" width="220" alt="01 Express 블로그 첫 화면"></a><br><sub>01 Express 블로그 첫 화면</sub></td>
+</tr>
+</table>
+
 ---
 
 ## 이때와 지금

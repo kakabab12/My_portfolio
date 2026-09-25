@@ -33,25 +33,25 @@ LED로 알리기, SO-101 로봇팔 원격 조종까지 들어 있습니다.
 - `firmware/esp32_mpu6050_glove/` — 자이로 장갑에 들어가는 ESP32 펌웨어(Arduino `.ino`, MPU6050 센서, Wi-Fi 설정)
 - `configs/` — 실행 설정값: `config.yaml`(카메라·모델 임계값·D-pad 감도·안전 파라미터), `tgz_850m_mux.yaml`(조이스틱 매핑), `turtlebot3_navigation.rviz`(RViz 화면 구성)
 - `maps/`, `models/` — 저장된 SLAM 지도(공장 지도, 시연용 지도)와 학습된 판별 모델(기어박스 소리 이상감지 SVM `.joblib`)
-- `scripts/` — 실행 스크립트 모음. 제스처 단독 주행, 제스처+조이스틱, 자율주행 중 제스처/조이스틱 전환, 자이로 장갑 주행, 소리 이상감지 단독 실행, 오늘 지도 기준 A→B→C→D→A 전체 순찰 실행(`turtlebot3_전체실행.sh`) 등
+- `scripts/` — 실행 스크립트 모음. 제스처 단독 주행, 제스처+조이스틱, 자율주행 중 제스처/조이스틱 전환, 자이로 장갑 주행, 소리 이상감지 단독 실행, 저장된 공장 지도 기준 A→B→C→D→A 전체 순찰 실행(`turtlebot3_전체실행.sh`) 등
 - `tests/` — 카메라·모델·로봇 없이 도는 단위 테스트(손 모양 판별, D-pad 매핑, mux 로직, waypoint 도착 판정 등)
 - `runtime_sources/` — 실제 로봇에서 돌아가는 ROS 2 워크스페이스(`~/ros2_ws`, `~/turtlebot3_ws`)의 소스 코드 원본 백업. 소리 이상감지 ROS 2 패키지(`ros2_ws/src`)와 OpenCR LED·LiDAR·Dynamixel 관련 소스(`turtlebot3_ws/src`)를 보관하며, 빌드 산출물(`build/`, `install/`, 가상환경)은 기기별로 재생성되므로 제외했습니다
 
 ### `turtlebot3_ws/` — 표준 ROS 2 워크스페이스
 
-로봇 구동에 필요한 ROS 2 패키지 소스. ROBOTIS 공식 패키지(`turtlebot3`, `turtlebot3_msgs`, `DynamixelSDK`, `ld08_driver`, `coin_d4_driver`, `turtlebot3_slam_toolbox`, `turtlebot3_joystick`)와, 이 팀이 직접 작성한 커스텀 패키지 `turtlebot3_waypoint_patrol`(`patrol_node.py` — 순찰 노드, `safety_mission_manager.py` — 자율주행 중 장애물 감지 시 정지→후진→재개 안전 로직)이 함께 들어 있습니다. `maps/`에는 이 워크스페이스 기준 지도 파일이 있습니다.
+로봇 구동에 필요한 ROS 2 패키지 소스입니다. ROBOTIS 공식 패키지(`turtlebot3`, `turtlebot3_msgs`, `DynamixelSDK`, `ld08_driver`, `coin_d4_driver`, `turtlebot3_slam_toolbox`, `turtlebot3_joystick`)와, 이 팀이 직접 작성한 커스텀 패키지 `turtlebot3_waypoint_patrol`(`patrol_node.py` — 순찰 노드, `safety_mission_manager.py` — 자율주행 중 장애물 감지 시 정지→후진→재개 안전 로직)이 함께 들어 있습니다. `maps/`에는 이 워크스페이스 기준 지도 파일이 있습니다.
 
 ### `20260810/` — ROS 2 설치본(bringup) 백업
 
-2026-08-10 시점에 실제 로봇을 구동시킨 `/opt/ros/humble/share/` 아래의 TurtleBot3 bringup 관련 설치 파일(launch, URDF, LDS-02 드라이버, OpenCR 통신 노드 등)을 그대로 복사해 보관한 스냅샷. 어떤 launch 파일이 로봇의 어떤 하드웨어(라이다, OpenCR, 상태 발행)를 담당하는지 안내하는 `20260810_터틀봇3_파일위치_안내.md`가 포함되어 있습니다.
+2026-08-10 시점에 실제 로봇을 구동시킨 `/opt/ros/humble/share/` 아래의 TurtleBot3 bringup 관련 설치 파일(launch, URDF, LDS-02 드라이버, OpenCR 통신 노드 등)을 그대로 복사해 보관한 스냅샷입니다. 어떤 launch 파일이 로봇의 어떤 하드웨어(라이다, OpenCR, 상태 발행)를 담당하는지 안내하는 `20260810_터틀봇3_파일위치_안내.md`가 포함되어 있습니다.
 
 ### `TurtleBot3_오류_분석_및_해결_2026-08-17/` — Jetson 이전 트러블슈팅 기록
 
-로봇 제어 컴퓨터를 Jetson Orin Nano로 옮기는 과정에서 겹쳐 발생한 6가지 문제(조이스틱 패키지의 잘못된 rosdep 선언, Conda/시스템 Python 충돌, 불완전한 빌드 잔재, 모터 토크 비활성화, 라이다 모델 설정 오류, 라이다 포트 별칭 오류)를 원인·조사 과정·수정 방법 순으로 정리한 기록. 최종적으로 OpenCR·LDS-03 라이다·조이스틱·SLAM/Nav2가 모두 정상 동작한 상태로 마무리됐습니다. 당시 원본 로그(`raw_logs/`)와 수정된 설정 파일(`config_snapshots/`)도 함께 보관되어 있습니다.
+로봇 제어 컴퓨터를 Jetson Orin Nano로 옮기는 과정에서 겹쳐 발생한 6가지 문제(조이스틱 패키지의 잘못된 rosdep 선언, Conda/시스템 Python 충돌, 불완전한 빌드 잔재, 모터 토크 비활성화, 라이다 모델 설정 오류, 라이다 포트 별칭 오류)를 원인·조사 과정·수정 방법 순으로 정리한 기록입니다. 최종적으로 OpenCR·LDS-03 라이다·조이스틱·SLAM/Nav2가 모두 정상 동작한 상태로 마무리됐습니다. 당시 원본 로그(`raw_logs/`)와 수정된 설정 파일(`config_snapshots/`)도 함께 보관되어 있습니다.
 
-### `led_test_ws/` — OpenCR LED 상태 표시 노드 (독립 테스트용)
+### `led_test_ws/` — 젯슨 GPIO LED 상태 표시 노드 (독립 테스트용)
 
-젯슨 GPIO로 초록/빨강 LED를 켜서 로봇 상태(대기/정상/이상)를 표시하는 ROS 2 패키지 `led_status_node`. 하드웨어 없이도 상태 전이 로직만 검증할 수 있도록 GPIO 접근부와 상태 머신(`controller.py`)을 분리했고, 단위 테스트(`test_controller.py`)가 포함되어 있습니다.
+젯슨 GPIO로 초록/빨강 LED를 켜서 로봇 상태(대기/정상/이상)를 표시하는 ROS 2 패키지 `led_status_node`입니다. 하드웨어 없이도 상태 전이 로직만 검증할 수 있도록 GPIO 접근부와 상태 머신(`controller.py`)을 분리했고, 단위 테스트(`test_controller.py`)가 포함되어 있습니다.
 
 ## 최상위 문서·스크립트 파일
 
@@ -67,7 +67,7 @@ LED로 알리기, SO-101 로봇팔 원격 조종까지 들어 있습니다.
 | `sound_anomaly_led_실행방법.md` | 소리 이상감지 + LED 연동 통합 실행 스크립트 사용법 |
 | `내일할것들.md` | 2026-08-22 시점 TurtleBot3 + 소리 이상감지 통합 시험 계획 |
 | `Turtlebot3_Safety.md` | 자율주행 안전 정지 로직(장애물 감지 시 정지→후진→재개) 최종 구현 정리 |
-| `TurtleBot3_전체실행.sh` / `.desktop`, `TurtleBot3_전체실행_Safety.desktop` | 오늘 지도 기준 A→B→C→D→A 전체 순찰을 한 번에 실행하는 스크립트/바로가기 |
+| `TurtleBot3_전체실행.sh` / `.desktop`, `TurtleBot3_전체실행_Safety.desktop` | 저장된 공장 지도 기준 A→B→C→D→A 전체 순찰을 한 번에 실행하는 스크립트/바로가기 |
 | `sound_anomaly_led.sh`, `소음_이상감지_단독실행.desktop` | 소리 이상감지 + LED만 단독 실행 |
 | `시연용.sh`, `시연용 복사본.sh` | 시연용 실행 스크립트 |
 | `Codex_ESP32_IMU_WiFi_Automation_Guide.pdf`, `esp32_test_code_bundle.pdf` | 자이로 장갑 ESP32(IMU·Wi-Fi) 개발에 참고한 자동화 가이드와 테스트 코드 |

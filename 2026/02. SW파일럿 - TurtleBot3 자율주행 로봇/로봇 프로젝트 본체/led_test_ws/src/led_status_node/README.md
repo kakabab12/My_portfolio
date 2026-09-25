@@ -1,4 +1,4 @@
-# Jetson Orin Nano ROS 2 LED test
+# Jetson Orin Nano ROS 2 LED 테스트
 
 물리 헤더 핀(BOARD) 31번은 초록색, 33번은 빨간색으로 사용합니다. 각 LED에는 적절한 직렬 저항을 사용하고 Jetson과 모듈의 GND를 공통으로 연결하세요. GPIO에는 5 V를 인가하지 마세요.
 

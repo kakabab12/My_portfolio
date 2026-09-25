@@ -12,8 +12,8 @@
 
 `build/`, `install/`, `log/`, Python 가상환경과 `python_deps/`는 기기마다 다시
 만들어지는 것이라 복사하지 않았습니다. 소리감지에 필요한 Python 패키지 목록은
-`ros2_ws/src/dyeun_robotics/sound_anomaly/requirements-inference.txt`에 있다.
+`ros2_ws/src/dyeun_robotics/sound_anomaly/requirements-inference.txt`에 있습니다.
 
 지금 P5U 설정은 `ros2_ws/src/dyeun_robotics/sound_anomaly/config/sound_anomaly.yaml`의
-`audio_device: "USB Microphone: Audio (hw:1,0)"` 입니다. OpenCR 포트는 연결 순서에
-따라 바뀔 수 있는데, 지금은 `/dev/ttyACM1` 입니다.
+`audio_device: "USB Microphone: Audio (hw:1,0)"`입니다. OpenCR 포트는 연결 순서에
+따라 바뀔 수 있는데, 지금은 `/dev/ttyACM1`입니다.

@@ -79,5 +79,5 @@ Intel RealSense와 일반 USB 웹캠 조합으로 **구조를 갈아엎었습니
 
 ---
 
-> ⚠ `project/lerobot/` 은 HuggingFace의 **lerobot 오픈소스**입니다. 제가 쓴 코드가 아닙니다.
+> ⚠ `project/lerobot/`은 HuggingFace의 **lerobot 오픈소스**입니다. 제가 쓴 코드가 아닙니다.
 > 파일별 상세 설명 원본은 [`코드설명.md`](코드설명.md) 참고.

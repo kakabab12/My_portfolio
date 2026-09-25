@@ -98,7 +98,7 @@ gesture_kiosk/
 | `py main.py --debug` | 창을 켠 채 시작 |
 | `py scripts\calibrate.py` | 임계값 자동 보정 — 실제 동작을 측정해서 config 반영 |
 | `py scripts\pipe_listen.py` | 델파이 대역 — 파이프 수신 규격 자가 검증 |
-| `py scriptsenchmark.py` | 추론 단독 FPS 측정 (기획서 6.1 — KPI 30 FPS) |
+| `py scripts\benchmark.py` | 추론 단독 FPS 측정 (기획서 6.1 — KPI 30 FPS) |
 | `py -m unittest discover tests -v` | 판정·손 추적·손모양·시나리오 단위 테스트 |
 
 ## 회사 프로그램(UI) 연동 계약

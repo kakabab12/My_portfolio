@@ -5,7 +5,7 @@ Jetson Orin Nano에서 ROS 2 노드로 패키징할 수 있도록 준비한 기�
 ## 포함 내용
 
 - `models/gearbox_svm_source.joblib` — Jetson에서 불러 쓸 학습 모델 (약 2 MB)
-- `models/*report.json` — 보류 평가 결과
+- `models/*report.json` — 홀드아웃(학습에 쓰지 않은 데이터) 평가 결과
 - `scripts/live_predict.py` — 마이크로 3초마다 실시간 판정
 - `scripts/predict_file.py` — WAV 파일 판정
 - `scripts/audio_utils.py` — 특징 추출 공통 코드
@@ -13,11 +13,11 @@ Jetson Orin Nano에서 ROS 2 노드로 패키징할 수 있도록 준비한 기�
 
 ## 현재 검증 성능
 
-MIMII 기어박스 음원의 `source_test` 762개로 학습하고, 사용하지 않은 `target_test` 645개로 평가했습니다.
+MIMII 기어박스 음원의 `source_test` 762개로 학습하고, 학습에 쓰지 않은 `target_test` 645개로 평가했습니다.
 
 | 측정 기준 | 결과 |
 | --- | ---: |
-| 파일 전체(3개 3초 구간 평균) 정확도 | 78.1% |
+| 파일 단위(3초 구간 3개 평균) 정확도 | 78.1% |
 | 3초 실시간 구간 정확도 | 74.8% |
 | 3초 실시간 구간 비정상 F1 | 75.6% |
 
@@ -50,12 +50,12 @@ python3 scripts/live_predict.py --model models/gearbox_svm_source.joblib --devic
 | `NORMAL` | 2 | GPIO 50 초록 LED만 점멸 |
 | `IDLE` | 1 | 빨강과 초록 LED 모두 계속 켜짐 |
 
-노드를 종료하면 종료 전용 OpenCR 모드 `0`을 마지막으로 발행하여 두 LED를 모두
-끈다. 이를 위해 전체 시스템을 끌 때는 이상감지 노드를 TurtleBot3 노드보다 먼저
-종료해야 한다.
+노드를 종료하면 종료 전용 OpenCR 모드 `0`을 마지막으로 발행해 두 LED를 모두
+끕니다. 그래서 전체 시스템을 끌 때는 이상감지 노드를 TurtleBot3 노드보다 먼저
+종료해야 합니다.
 
-`IDLE`은 시작 중, 입력 음량이 `silence_rms_threshold`보다 작은 경우 또는 추론
-오류가 발생한 경우입니다. LED 명령은 `/opencr_led_status`에
+`IDLE`은 시작하는 중이거나, 입력 음량이 `silence_rms_threshold`보다 작거나, 추론
+오류가 났을 때입니다. LED 명령은 `/opencr_led_status`에
 `std_msgs/msg/UInt8`로 발행됩니다. 현재 상태와 확률은 각각
 `/sound_anomaly_node/state`, `/sound_anomaly_node/anomaly_probability`에서 확인합니다.
 
@@ -93,5 +93,5 @@ PYTHONPATH=~/ros2_ws/python_deps python3 scripts/list_audio_devices.py
 ```
 
 `launch` 파일은 노드가 예기치 않게 종료되면 2초 뒤 다시 실행합니다. Jetson 부팅
-후 자동 백그라운드 실행은 마이크와 LED 현장 시험이 끝난 뒤 systemd 서비스로
+후 자동 백그라운드 실행은 마이크와 LED 현장 테스트가 끝난 뒤 systemd 서비스로
 등록하는 것을 권장합니다.

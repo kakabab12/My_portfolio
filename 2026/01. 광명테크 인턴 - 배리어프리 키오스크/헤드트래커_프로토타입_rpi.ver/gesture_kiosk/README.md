@@ -25,10 +25,10 @@
 - `requirements.txt`의 mediapipe·opencv-python 버전이 aarch64 리눅스 휠로 존재하는지
   이 세션에서 확인하지 못했습니다 — `install.sh` 실행 중 실패하면 버전 범위를 완화해서
   재시도할 것(파일 상단 주석 참고).
-- `camera.backend: picamera2` 경로는 실기 카메라 모듈로 테스트되지 않았습니다.
+- `camera.backend: picamera2` 경로는 실제 카메라 모듈로 테스트하지 않았습니다.
 
 **첫 실행은 `scripts/benchmark.py`로 실측 FPS부터 확인하고, `설치가이드.md`의
-"성능 튜닝" 절을 따라 숫자를 실기 기준으로 맞출 것.**
+"성능 튜닝" 절을 따라 숫자를 실제 장치 기준으로 맞출 것.**
 
 ## 빠른 시작 (라즈베리파이5)
 
@@ -60,7 +60,7 @@ CPU 플랫폼과 무관하기 때문입니다. 자세한 판정 로직·설계 �
    목표 해상도·BGR 변환을 직접 뽑아줘 소프트웨어 리사이즈 단계가 통째로 스킵됩니다
    (`src/capture/camera_stream.py`). CPU를 추론에 더 쓸 수 있게 되는, 이식에서 가장
    큰 성능 레버.
-2. **처리 해상도·num_faces 하향** — `configs/config.yaml` 참고(추정 초기값, 실기 튜닝 필요).
+2. **처리 해상도·num_faces 하향** — `configs/config.yaml` 참고(추정 초기값, 실제 장치에서 튜닝 필요).
 3. **systemd 배포용 우선순위 보장** — 리눅스는 일반 사용자가 프로세스 우선순위를
    못 올린다(윈도우와 다름). `deploy/gesture_kiosk.service`의 `Nice=-5`로 확실히 보장.
 
