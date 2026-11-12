@@ -8,7 +8,7 @@
 [![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=flat-square&logo=opencv&logoColor=white)](../../기술_용어집.md#opencv)
 [![Windows](https://img.shields.io/badge/Windows_CPU_only-0078D6?style=flat-square&logo=windows&logoColor=white)](../../기술_용어집.md#windows)
 
-**(주)광명테크 인턴 프로젝트** · `2026.07 ~ 08`
+**(주)광명테크 인턴 프로젝트** · `2026.07 ~ 09` (3개월)
 
 </div>
 
@@ -161,9 +161,9 @@ flowchart TD
 
 ---
 
-## 인턴 이후 — 출시 준비 (2026.09)
+## 출시 준비 — 인턴 3개월차 (2026.09)
 
-인턴은 8월 말에 끝났지만 헤드트래커는 실제 키오스크에 들어갈 제품이라 9월에도 이어서
+8월까지 기능을 만들었고, 인턴 마지막 달인 9월에는 헤드트래커를 실제 키오스크에 들어갈 제품으로
 다듬었습니다. 아래 수치는 **가상 카메라·가상 사용자로 측정한 시뮬레이션 값**입니다
 (실제 장치 측정치와 섞지 않았습니다 — [측정 자료](리모콘%20ui/gesture_kiosk/데이터%20수치/00_README.md)).
 
