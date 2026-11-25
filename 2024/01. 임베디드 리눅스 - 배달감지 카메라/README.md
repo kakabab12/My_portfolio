@@ -5,7 +5,7 @@
 임베디드 리눅스 보드에서 카메라를 다뤄 본 과제입니다. **현관 앞 배달물 감지**와
 **바디캠**, 두 가지를 만들었습니다.
 
-<p align="center"><img src="assets/delivery_detect.gif" width="420" alt="배달감지 카메라 시연"><br>
+<p align="center"><img src="assets/delivery_detect.gif" width="50%" alt="배달감지 카메라 시연"><br>
 <sub>상자를 카메라 앞에 두면 화면에 <code>Baedal objective detect!!</code>가 뜹니다(평상시 조도 영상의 일부, 1.5배속)</sub></p>
 
 ## 파일

@@ -21,8 +21,8 @@
 
 <table>
 <tr>
-<td align="center" width="50%"><a href="01.%20캡스톤%20-%20라즈베리파이%20선별시스템/"><img src="../assets/thumbs/rpi.png" width="220" alt="01 라즈베리파이 선별 — YOLOv8 판정"></a><br><sub>01 라즈베리파이 선별 — YOLOv8 판정</sub></td>
-<td align="center" width="50%"><a href="02.%20SW파일럿%20-%20웹%20로봇제어%20UI/"><img src="../assets/thumbs/robotui.gif" width="220" alt="02 웹 로봇제어 UI"></a><br><sub>02 웹 로봇제어 UI</sub></td>
+<td align="center" width="50%"><a href="01.%20캡스톤%20-%20라즈베리파이%20선별시스템/"><img src="../assets/thumbs/rpi.png" width="52%" alt="01 라즈베리파이 선별 — YOLOv8 판정"></a><br><sub>01 라즈베리파이 선별 — YOLOv8 판정</sub></td>
+<td align="center" width="50%"><a href="02.%20SW파일럿%20-%20웹%20로봇제어%20UI/"><img src="../assets/thumbs/robotui.gif" width="52%" alt="02 웹 로봇제어 UI"></a><br><sub>02 웹 로봇제어 UI</sub></td>
 </tr>
 </table>
 

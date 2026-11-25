@@ -25,17 +25,17 @@
 
 <table>
 <tr>
-<td align="center" width="33%"><a href="01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/"><img src="../assets/thumbs/kiosk.gif" width="220" alt="01 배리어프리 키오스크"></a><br><sub>01 배리어프리 키오스크</sub></td>
-<td align="center" width="33%"><a href="02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/"><img src="../assets/thumbs/turtlebot3.png" width="220" alt="02 TurtleBot3 순찰"></a><br><sub>02 TurtleBot3 순찰</sub></td>
-<td align="center" width="33%"><a href="03.%20캡스톤%20-%20스마트팩토리%20비전검사/"><img src="../assets/thumbs/factory.png" width="220" alt="03 스마트팩토리 관제"></a><br><sub>03 스마트팩토리 관제</sub></td>
+<td align="center" width="33%"><a href="01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/"><img src="../assets/thumbs/kiosk.gif" width="100%" alt="01 배리어프리 키오스크"></a><br><sub>01 배리어프리 키오스크</sub></td>
+<td align="center" width="33%"><a href="02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/"><img src="../assets/thumbs/turtlebot3.png" width="100%" alt="02 TurtleBot3 순찰"></a><br><sub>02 TurtleBot3 순찰</sub></td>
+<td align="center" width="33%"><a href="03.%20캡스톤%20-%20스마트팩토리%20비전검사/"><img src="../assets/thumbs/factory.png" width="100%" alt="03 스마트팩토리 관제"></a><br><sub>03 스마트팩토리 관제</sub></td>
 </tr>
 <tr>
-<td align="center" width="33%"><a href="04.%20메디컬%20머신러닝%20대회/"><img src="../assets/thumbs/medical.png" width="220" alt="04 수술 위험도 AI"></a><br><sub>04 수술 위험도 AI</sub></td>
-<td align="center" width="33%"><a href="05.%20웹캠%20로봇팔%20원격조종/"><img src="../assets/thumbs/arm.png" width="220" alt="05 웹캠 로봇팔 (원리 그림)"></a><br><sub>05 웹캠 로봇팔 (원리 그림)</sub></td>
-<td align="center" width="33%"><a href="06.%20웹서버%20DB%20연동%20기초/"><img src="../assets/thumbs/webdb.gif" width="220" alt="06 웹서버 + DB"></a><br><sub>06 웹서버 + DB</sub></td>
+<td align="center" width="33%"><a href="04.%20메디컬%20머신러닝%20대회/"><img src="../assets/thumbs/medical.png" width="100%" alt="04 수술 위험도 AI"></a><br><sub>04 수술 위험도 AI</sub></td>
+<td align="center" width="33%"><a href="05.%20웹캠%20로봇팔%20원격조종/"><img src="../assets/thumbs/arm.png" width="100%" alt="05 웹캠 로봇팔 (원리 그림)"></a><br><sub>05 웹캠 로봇팔 (원리 그림)</sub></td>
+<td align="center" width="33%"><a href="06.%20웹서버%20DB%20연동%20기초/"><img src="../assets/thumbs/webdb.gif" width="100%" alt="06 웹서버 + DB"></a><br><sub>06 웹서버 + DB</sub></td>
 </tr>
 <tr>
-<td align="center" width="33%"><a href="07.%20학부연구생%20-%20웹캠%20PiPER%20원격조종/"><img src="../assets/thumbs/piper_webcam.png" width="220" alt="07 웹캠 PiPER 원격조종"></a><br><sub>07 웹캠 PiPER 원격조종</sub></td>
+<td align="center" width="33%"><a href="07.%20학부연구생%20-%20웹캠%20PiPER%20원격조종/"><img src="../assets/thumbs/piper_webcam.png" width="100%" alt="07 웹캠 PiPER 원격조종"></a><br><sub>07 웹캠 PiPER 원격조종</sub></td>
 </tr>
 </table>
 

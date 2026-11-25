@@ -20,8 +20,8 @@
 
 <table>
 <tr>
-<td align="center" width="50%"><img src="assets/headtracker_nose.gif" width="300" alt="코끝 기준 헤드트래커 시연"><br><sub><b>코끝 기준</b>(<code>head.py</code>) · 조명 켠 방</sub></td>
-<td align="center" width="50%"><img src="assets/headtracker_brow.gif" width="300" alt="미간 기준 헤드트래커 시연"><br><sub><b>미간 기준</b>(<code>eyebrow.py</code>) · 조명 끈 방</sub></td>
+<td align="center" width="50%"><img src="assets/headtracker_nose.gif" width="70%" alt="코끝 기준 헤드트래커 시연"><br><sub><b>코끝 기준</b>(<code>head.py</code>) · 조명 켠 방</sub></td>
+<td align="center" width="50%"><img src="assets/headtracker_brow.gif" width="70%" alt="미간 기준 헤드트래커 시연"><br><sub><b>미간 기준</b>(<code>eyebrow.py</code>) · 조명 끈 방</sub></td>
 </tr>
 </table>
 

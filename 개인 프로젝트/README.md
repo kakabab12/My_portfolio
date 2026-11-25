@@ -29,7 +29,7 @@
 
 시스템 관리 기능을 한 화면에 모은 유틸리티입니다. 제가 쓰려고 만들었습니다.
 
-<p align="center"><img src="고클린%20-%20윈도우%20최적화%20도구/beta.ver/demo/demo.gif" width="560" alt="고클린 BETA 1.0 작동 모습"><br>
+<p align="center"><img src="고클린%20-%20윈도우%20최적화%20도구/beta.ver/demo/demo.gif" width="66%" alt="고클린 BETA 1.0 작동 모습"><br>
 <sub>BETA 1.0의 작동 모습 — 자세한 화면과 설치법은 <a href="고클린%20-%20윈도우%20최적화%20도구/beta.ver/">beta.ver</a></sub></p>
 
 | 기능 | 내용 |

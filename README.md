@@ -54,63 +54,63 @@
 <table>
 <tr>
 <td align="center" valign="top" width="33%">
-<a href="https://github.com/kakabab12/LAB-1309"><img src="assets/thumbs/vla_research.png" width="250" alt="VLA 로봇팔 작업 전환 연구 (PiPER 디지털 트윈)"></a><br>
+<a href="https://github.com/kakabab12/LAB-1309"><img src="assets/thumbs/vla_research.png" width="100%" alt="VLA 로봇팔 작업 전환 연구 (PiPER 디지털 트윈)"></a><br>
 <b><a href="https://github.com/kakabab12/LAB-1309">말로 시키는 로봇팔 AI 연구</a></b><br>
 <sub>일하는 도중 새 명령에도 이어서 · SmolVLA<br><code>2026 학부연구생</code></sub>
 </td>
 <td align="center" valign="top" width="33%">
-<a href="2026/07.%20학부연구생%20-%20웹캠%20PiPER%20원격조종/"><img src="assets/thumbs/piper_webcam.png" width="250" alt="웹캠으로 실물 PiPER 원격조종"></a><br>
+<a href="2026/07.%20학부연구생%20-%20웹캠%20PiPER%20원격조종/"><img src="assets/thumbs/piper_webcam.png" width="100%" alt="웹캠으로 실물 PiPER 원격조종"></a><br>
 <b><a href="2026/07.%20학부연구생%20-%20웹캠%20PiPER%20원격조종/">웹캠으로 실물 로봇팔 원격조종</a></b><br>
 <sub>손을 재서 연구실 PiPER 가 따라 집음<br><code>2026 학부연구생</code></sub>
 </td>
 <td align="center" valign="top" width="33%">
-<a href="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/"><img src="assets/thumbs/kiosk.gif" width="250" alt="배리어프리 키오스크 입력 장치"></a><br>
+<a href="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/"><img src="assets/thumbs/kiosk.gif" width="100%" alt="배리어프리 키오스크 입력 장치"></a><br>
 <b><a href="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/">배리어프리 키오스크 입력 장치</a></b><br>
 <sub>고개로 커서를 옮기고 입을 벌려 클릭·드래그<br><code>2026 기업 인턴</code></sub>
 </td>
 </tr>
 <tr>
 <td align="center" valign="top" width="33%">
-<a href="2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/"><img src="assets/thumbs/turtlebot3.png" width="250" alt="TurtleBot3 자율주행 로봇"></a><br>
+<a href="2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/"><img src="assets/thumbs/turtlebot3.png" width="100%" alt="TurtleBot3 자율주행 로봇"></a><br>
 <b><a href="2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/">TurtleBot3 자율주행 로봇</a></b><br>
 <sub>SLAM 지도 위 A→B→C→D 순찰 · ROS 2<br><code>2026 팀 프로젝트</code></sub>
 </td>
 <td align="center" valign="top" width="33%">
-<a href="2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/"><img src="assets/thumbs/factory.png" width="250" alt="스마트팩토리 비전 검사"></a><br>
+<a href="2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/"><img src="assets/thumbs/factory.png" width="100%" alt="스마트팩토리 비전 검사"></a><br>
 <b><a href="2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/">스마트팩토리 비전 검사</a></b><br>
 <sub>카메라 2대 병렬 추론 → 로봇팔 · 관제 화면<br><code>2026 캡스톤 2단계</code></sub>
 </td>
 <td align="center" valign="top" width="33%">
-<a href="2026/04.%20메디컬%20머신러닝%20대회/"><img src="assets/thumbs/medical.png" width="250" alt="수술 위험도 예측 AI"></a><br>
+<a href="2026/04.%20메디컬%20머신러닝%20대회/"><img src="assets/thumbs/medical.png" width="100%" alt="수술 위험도 예측 AI"></a><br>
 <b><a href="2026/04.%20메디컬%20머신러닝%20대회/">수술 위험도 예측 AI</a></b><br>
 <sub>ICU 위험·수술시간 예측과 근거 브리핑<br><code>2026 대회</code></sub>
 </td>
 </tr>
 <tr>
 <td align="center" valign="top" width="33%">
-<a href="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/"><img src="assets/thumbs/rpi.png" width="250" alt="라즈베리파이 선별 시스템"></a><br>
+<a href="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/"><img src="assets/thumbs/rpi.png" width="100%" alt="라즈베리파이 선별 시스템"></a><br>
 <b><a href="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/">라즈베리파이 선별 시스템</a></b><br>
 <sub>YOLOv8로 양품·불량 → 아두이노 분류기<br><code>2025 캡스톤 1단계</code></sub>
 </td>
 <td align="center" valign="top" width="33%">
-<a href="2026/06.%20웹서버%20DB%20연동%20기초/"><img src="assets/thumbs/webdb.gif" width="250" alt="웹서버 + DB 교재"></a><br>
+<a href="2026/06.%20웹서버%20DB%20연동%20기초/"><img src="assets/thumbs/webdb.gif" width="100%" alt="웹서버 + DB 교재"></a><br>
 <b><a href="2026/06.%20웹서버%20DB%20연동%20기초/">웹서버 + DB 교재</a></b><br>
 <sub>같은 앱을 서버 3종 × DB 2종으로<br><code>2026 학습·교재</code></sub>
 </td>
 <td align="center" valign="top" width="33%">
-<a href="개인%20프로젝트/고클린%20-%20윈도우%20최적화%20도구/"><img src="assets/thumbs/goclean.gif" width="250" alt="윈도우 최적화 도구 (고클린)"></a><br>
+<a href="개인%20프로젝트/고클린%20-%20윈도우%20최적화%20도구/"><img src="assets/thumbs/goclean.gif" width="100%" alt="윈도우 최적화 도구 (고클린)"></a><br>
 <b><a href="개인%20프로젝트/고클린%20-%20윈도우%20최적화%20도구/">윈도우 최적화 도구 (고클린)</a></b><br>
 <sub>청소·게임모드·진단을 한 화면, exe 배포<br><code>개인 도구</code></sub>
 </td>
 </tr>
 <tr>
 <td align="center" valign="top" width="33%">
-<a href="2025/02.%20SW파일럿%20-%20웹%20로봇제어%20UI/"><img src="assets/thumbs/robotui.gif" width="250" alt="웹 로봇제어 UI"></a><br>
+<a href="2025/02.%20SW파일럿%20-%20웹%20로봇제어%20UI/"><img src="assets/thumbs/robotui.gif" width="100%" alt="웹 로봇제어 UI"></a><br>
 <b><a href="2025/02.%20SW파일럿%20-%20웹%20로봇제어%20UI/">웹 로봇제어 UI</a></b><br>
 <sub>캔버스를 눌러 ROS 목표 좌표 전송<br><code>2025 SW파일럿</code></sub>
 </td>
 <td align="center" valign="top" width="33%">
-<a href="2024/01.%20임베디드%20리눅스%20-%20배달감지%20카메라/"><img src="assets/thumbs/delivery.gif" width="250" alt="배달감지 카메라"></a><br>
+<a href="2024/01.%20임베디드%20리눅스%20-%20배달감지%20카메라/"><img src="assets/thumbs/delivery.gif" width="100%" alt="배달감지 카메라"></a><br>
 <b><a href="2024/01.%20임베디드%20리눅스%20-%20배달감지%20카메라/">배달감지 카메라</a></b><br>
 <sub>임베디드 리눅스 보드로 현관 앞 상자 감지<br><code>2024 수업 프로젝트</code></sub>
 </td>
