@@ -30,17 +30,30 @@
 
 배지를 누르면 그 기술을 어디에 왜 썼는지 볼 수 있습니다 → [**기술 용어집**](기술_용어집.md)
 
+<a href="mailto:yeez0612@naver.com"><img alt="Email" src="https://img.shields.io/badge/Email-Contact-03C75A?style=flat-square&logo=naver&logoColor=white"></a>
+<a href="https://github.com/kakabab12/LAB-1309"><img alt="Research" src="https://img.shields.io/badge/Research-LAB--1309-2A6F97?style=flat-square&logo=github&logoColor=white"></a>
+<a href="https://www.youtube.com/shorts/RBSCCwu8Yuc"><img alt="Demo video" src="https://img.shields.io/badge/Demo-YouTube-FF0000?style=flat-square&logo=youtube&logoColor=white"></a>
+<img alt="last update" src="https://img.shields.io/github/last-commit/kakabab12/My_portfolio?style=flat-square&label=last%20update&color=555">
+
+**이지용** · 계명대학교 컴퓨터공학전공 · yeez0612@naver.com · 010-4803-0454
+
 </div>
 
 ---
 
 웹캠으로 사람의 손과 얼굴을 읽어 기계를 움직이는 일을 주로 했습니다.
 키오스크 입력 장치, 자율주행 로봇, 비전 검사 설비, 연구실 로봇팔 원격조종이 그런 작업입니다.
+지금은 계명대 LAB-1309 학부연구생으로, 말로 일을 시키는 로봇팔 AI 를 연구합니다.
 
 ## 한눈에 보기
 
 <table>
 <tr>
+<td align="center" valign="top" width="33%">
+<a href="https://github.com/kakabab12/LAB-1309"><img src="assets/thumbs/vla_research.png" width="250" alt="VLA 로봇팔 작업 전환 연구 (PiPER 디지털 트윈)"></a><br>
+<b><a href="https://github.com/kakabab12/LAB-1309">말로 시키는 로봇팔 AI 연구</a></b><br>
+<sub>일하는 도중 새 명령에도 이어서 · SmolVLA<br><code>2026 학부연구생</code></sub>
+</td>
 <td align="center" valign="top" width="33%">
 <a href="2026/07.%20학부연구생%20-%20웹캠%20PiPER%20원격조종/"><img src="assets/thumbs/piper_webcam.png" width="250" alt="웹캠으로 실물 PiPER 원격조종"></a><br>
 <b><a href="2026/07.%20학부연구생%20-%20웹캠%20PiPER%20원격조종/">웹캠으로 실물 로봇팔 원격조종</a></b><br>
@@ -51,13 +64,13 @@
 <b><a href="2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/">배리어프리 키오스크 입력 장치</a></b><br>
 <sub>고개로 커서를 옮기고 입을 벌려 클릭·드래그<br><code>2026 기업 인턴</code></sub>
 </td>
+</tr>
+<tr>
 <td align="center" valign="top" width="33%">
 <a href="2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/"><img src="assets/thumbs/turtlebot3.png" width="250" alt="TurtleBot3 자율주행 로봇"></a><br>
 <b><a href="2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/">TurtleBot3 자율주행 로봇</a></b><br>
 <sub>SLAM 지도 위 A→B→C→D 순찰 · ROS 2<br><code>2026 팀 프로젝트</code></sub>
 </td>
-</tr>
-<tr>
 <td align="center" valign="top" width="33%">
 <a href="2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/"><img src="assets/thumbs/factory.png" width="250" alt="스마트팩토리 비전 검사"></a><br>
 <b><a href="2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/">스마트팩토리 비전 검사</a></b><br>
@@ -68,13 +81,13 @@
 <b><a href="2026/04.%20메디컬%20머신러닝%20대회/">수술 위험도 예측 AI</a></b><br>
 <sub>ICU 위험·수술시간 예측과 근거 브리핑<br><code>2026 대회</code></sub>
 </td>
+</tr>
+<tr>
 <td align="center" valign="top" width="33%">
 <a href="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/"><img src="assets/thumbs/rpi.png" width="250" alt="라즈베리파이 선별 시스템"></a><br>
 <b><a href="2025/01.%20캡스톤%20-%20라즈베리파이%20선별시스템/">라즈베리파이 선별 시스템</a></b><br>
 <sub>YOLOv8로 양품·불량 → 아두이노 분류기<br><code>2025 캡스톤 1단계</code></sub>
 </td>
-</tr>
-<tr>
 <td align="center" valign="top" width="33%">
 <a href="2026/06.%20웹서버%20DB%20연동%20기초/"><img src="assets/thumbs/webdb.gif" width="250" alt="웹서버 + DB 교재"></a><br>
 <b><a href="2026/06.%20웹서버%20DB%20연동%20기초/">웹서버 + DB 교재</a></b><br>
@@ -85,13 +98,13 @@
 <b><a href="개인%20프로젝트/고클린%20-%20윈도우%20최적화%20도구/">윈도우 최적화 도구 (고클린)</a></b><br>
 <sub>청소·게임모드·진단을 한 화면, exe 배포<br><code>개인 도구</code></sub>
 </td>
+</tr>
+<tr>
 <td align="center" valign="top" width="33%">
 <a href="2025/02.%20SW파일럿%20-%20웹%20로봇제어%20UI/"><img src="assets/thumbs/robotui.gif" width="250" alt="웹 로봇제어 UI"></a><br>
 <b><a href="2025/02.%20SW파일럿%20-%20웹%20로봇제어%20UI/">웹 로봇제어 UI</a></b><br>
 <sub>캔버스를 눌러 ROS 목표 좌표 전송<br><code>2025 SW파일럿</code></sub>
 </td>
-</tr>
-<tr>
 <td align="center" valign="top" width="33%">
 <a href="2024/01.%20임베디드%20리눅스%20-%20배달감지%20카메라/"><img src="assets/thumbs/delivery.gif" width="250" alt="배달감지 카메라"></a><br>
 <b><a href="2024/01.%20임베디드%20리눅스%20-%20배달감지%20카메라/">배달감지 카메라</a></b><br>
@@ -107,10 +120,11 @@
 
 | 무엇을 | 어떤 문제를 풀었나 | 언제 · 어떤 형태로 |
 |---|---|:-:|
+| **[말로 시키는 로봇팔 AI 연구](https://github.com/kakabab12/LAB-1309)** | 카메라 화면과 말로 된 명령을 보고 움직이는 로봇팔 AI(SmolVLA)가 **일하는 도중 새 명령을 받아도 처음으로 돌아가지 않고 이어서** 하게 만드는 연구입니다. 실물 PiPER 를 그대로 옮긴 시뮬레이션에서, 마지막 몇 cm 를 맞추는 보조를 붙여 일 하나를 81% 해냅니다 | `2026.09~`<br>**학부연구생** |
 | **[웹캠으로 실물 로봇팔 원격조종](2026/07.%20학부연구생%20-%20웹캠%20PiPER%20원격조종/)** | 웹캠으로 사람 손을 재서, **연구실 실물 로봇팔 PiPER 가 손을 따라 물체를 집게** 했습니다. 로봇에게 가르칠 시범 데이터를 VR 장비 없이 모으려는 작업입니다 | `2026.11`<br>**학부연구생** |
 | **[배리어프리 키오스크 입력 장치](2026/01.%20광명테크%20인턴%20-%20배리어프리%20키오스크/)** | 손을 쓰기 어려운 분이 **고개와 입만으로 민원발급기를 조작**할 수 있게 했습니다. 웹캠 한 대만 씁니다 | `2026.07~09`<br>**기업 인턴**<br><sub>9월은 출시 준비</sub> |
 | **[자율주행 로봇](2026/02.%20SW파일럿%20-%20TurtleBot3%20자율주행%20로봇/)** | 손짓·자이로 장갑으로 로봇을 조종하고, 지도를 만들어 **스스로 순찰**하게 했습니다. 기계 소리로 고장도 감지합니다 | `2026.08`<br>팀 프로젝트 |
-| **[스마트팩토리 비전 검사](2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/)** | 카메라 두 대로 박스를 분류하고 무게 숫자를 읽어 **로봇팔을 제어**합니다 | `2026 상반기`<br>캡스톤 2단계 |
+| **[스마트팩토리 비전 검사](2026/03.%20캡스톤%20-%20스마트팩토리%20비전검사/)** | 카메라 두 대로 박스를 분류하고 무게 숫자를 읽어 **로봇팔을 제어**합니다. 적재 동작을 시뮬레이션으로 다시 평가해 대한전자공학회 2026 추계학술대회 학부생 논문경진대회에 논문을 냈습니다 | `2026 상반기`<br>캡스톤 2단계 |
 | **[수술 위험도 예측 AI](2026/04.%20메디컬%20머신러닝%20대회/)** | 수술 **전** 데이터만으로 중환자실 입원 위험과 수술 시간을 예측하고, **왜 그렇게 판단했는지까지** 의료진에게 설명합니다 | `2026.05`<br>대회 |
 | **[웹캠 로봇팔 원격조종](2026/05.%20웹캠%20로봇팔%20원격조종/)** | 센서나 장갑 없이 **웹캠만으로** 사람 팔을 따라 하는 6축 로봇팔을 만들었습니다 | `2026`<br>개인 |
 | **[웹서버 + DB 교재](2026/06.%20웹서버%20DB%20연동%20기초/)** | 같은 앱을 **서버 3종 × DB 2종**으로 만들어 차이를 정리하고, **15챕터 교재를 직접 썼습니다** | `2026`<br>학습 |
@@ -175,6 +189,8 @@ My_portfolio
     └── [외부코드] 마인크래프트 falling-pickaxe
 ```
 
+학부연구생으로 하는 연구의 일지·결과·주간보고는 따로 [**LAB-1309**](https://github.com/kakabab12/LAB-1309) 저장소에 모아 두었습니다.
+
 ---
 
 ## 프로젝트 타임라인
@@ -203,6 +219,7 @@ gantt
     광명테크 인턴 (배리어프리 키오스크) :crit, 2026-07, 3M
     SW파일럿 (TurtleBot3 자율주행)     :2026-08, 1M
     헤드트래커 출시 준비 (인턴 3개월차) :2026-09, 1M
+    학부연구생 (로봇팔 AI 작업 전환 연구) :2026-09, 3M
     학부연구생 (웹캠 PiPER 원격조종)   :crit, 2026-11, 1M
 ```
 
@@ -424,3 +441,14 @@ flowchart TD
 ROS 2 표준 패키지(`turtlebot3`, `DynamixelSDK` 등)와 `lerobot`은 ROBOTIS와
 HuggingFace의 공식 오픈소스입니다. 실행에 필요해서 같이 보관한 것이고, 제가
 직접 쓴 부분은 각 폴더 README에 따로 표시해 뒀습니다.
+
+---
+
+## 연락처
+
+<table>
+<tr><td><b>이름</b></td><td>이지용 (Jiyong Lee) · 계명대학교 컴퓨터공학전공</td></tr>
+<tr><td><b>이메일</b></td><td><a href="mailto:yeez0612@naver.com">yeez0612@naver.com</a></td></tr>
+<tr><td><b>전화</b></td><td>010-4803-0454</td></tr>
+<tr><td><b>GitHub</b></td><td><a href="https://github.com/kakabab12">@kakabab12</a> · 연구 기록 <a href="https://github.com/kakabab12/LAB-1309">LAB-1309</a></td></tr>
+</table>
