@@ -18,6 +18,10 @@
 [![RaspberryPi](https://img.shields.io/badge/Raspberry_Pi-A22846?style=for-the-badge&logo=raspberrypi&logoColor=white)](기술_용어집.md#raspberrypi)
 [![Arduino](https://img.shields.io/badge/Arduino_·_ESP32-00979D?style=for-the-badge&logo=arduino&logoColor=white)](기술_용어집.md#arduino)
 
+[![SmolVLA](https://img.shields.io/badge/SmolVLA_·_lerobot-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](기술_용어집.md#smolvla)
+[![MuJoCo](https://img.shields.io/badge/MuJoCo-4B5563?style=for-the-badge)](기술_용어집.md#mujoco)
+[![PiPER](https://img.shields.io/badge/AgileX_PiPER-2A6F97?style=for-the-badge)](기술_용어집.md#piper)
+
 [![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)](기술_용어집.md#flask)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](기술_용어집.md#fastapi)
 [![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](기술_용어집.md#nodejs)
