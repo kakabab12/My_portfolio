@@ -241,6 +241,7 @@ gantt
 
 `MediaPipe`(Hand/Face/Pose Landmarker) · `YOLOv8` / `YOLOv8-seg` · `OpenCV`
 `LightGBM` · `XGBoost` · `SHAP`(설명가능 AI)
+[`SmolVLA`](기술_용어집.md#smolvla)(카메라 화면과 지시문으로 로봇을 움직이는 VLA, LoRA 학습)
 
 </td></tr>
 <tr><td><b>추론 최적화</b></td><td>
@@ -253,6 +254,7 @@ gantt
 <tr><td><b>로보틱스</b></td><td>
 
 `ROS 2 Humble` · `Nav2` · `SLAM Toolbox` · `TurtleBot3` · `DynamixelSDK` · `lerobot`
+[`AgileX PiPER`](기술_용어집.md#piper)(CAN 관절 제어) · [`MuJoCo`](기술_용어집.md#mujoco)(물리 시뮬레이션)
 
 </td></tr>
 <tr><td><b>하드웨어</b></td><td>
