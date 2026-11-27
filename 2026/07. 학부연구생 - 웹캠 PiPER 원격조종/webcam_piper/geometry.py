@@ -288,14 +288,30 @@ def triangulate(Ps, pts):
     return X, err
 
 
+# 11/23 손바닥이 향한 쪽: teleop 이 --hand 에 맞춰 바꾼다 (오른손 +1, 왼손 −1). 오른손 손바닥을 아래로 펴면 (0, 0, −1)
+HAND_SIGN = 1.0
+
+
+def palm_normal(tab, sign=None):
+    """손 21점 (책상 좌표) → 손바닥이 향한 쪽 단위 벡터 (11/23). 손등이 보이면(손바닥이 아래) z < 0, 손바닥이 위면 z > 0.
+    손목·검지 뿌리·새끼 뿌리 세 점의 면 (쥐어도 거의 안 변하는 점). 11/18 연구실 기록에서 손바닥을 아래로 했을 때 z −0.8~−0.9 로 확인."""
+    sign = HAND_SIGN if sign is None else sign
+    n = np.cross(tab[INDEX_MCP] - tab[WRIST], tab[PINKY_MCP] - tab[WRIST]) * sign
+    k = float(np.linalg.norm(n))
+    return n / k if k > 1e-9 else np.array([0.0, 0.0, -1.0])
+
+
 def hand_summary(tab, tips):
-    """손 21점 (책상 좌표) → 집기점·집게 방향(yaw)·손가락 사이·손바닥 가운데 (HandMeasure 와 같은 식)."""
+    """손 21점 (책상 좌표) → 집기점·집게 방향(yaw)·손가락 사이·손바닥 가운데 (HandMeasure 와 같은 식).
+    11/23: 손바닥이 향한 쪽(normal)과 엄지 → 손가락 줄 단위 벡터(axis)도 낸다 (집게를 위로도 돌리기)."""
     thumb, other = tab[THUMB_TIP], tab[list(tips)].mean(axis=0)
     axis = other - thumb                                                        # 엄지 → 맞은편 손가락
     # 로봇 집게는 yaw 0 에서 로봇 y 축(좌우)으로 닫힌다. 엄지 → 손가락 줄과 같은 줄로 닫히게 하는 yaw (180° 마다 같음)
     yaw = math.atan2(axis[1], axis[0]) - math.pi / 2
-    return {"pinch": 0.5 * (thumb + other), "yaw": yaw, "gap": float(np.linalg.norm(axis)),
-            "palm": 0.5 * (tab[WRIST] + tab[MIDDLE_MCP])}
+    gap = float(np.linalg.norm(axis))
+    return {"pinch": 0.5 * (thumb + other), "yaw": yaw, "gap": gap,
+            "palm": 0.5 * (tab[WRIST] + tab[MIDDLE_MCP]),
+            "normal": palm_normal(tab), "axis": axis / gap if gap > 1e-9 else np.array([0.0, 1.0, 0.0])}
 
 
 class StereoHand:

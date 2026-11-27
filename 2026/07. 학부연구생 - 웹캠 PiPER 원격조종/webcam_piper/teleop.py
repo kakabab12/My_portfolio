@@ -30,6 +30,7 @@ import numpy as np
 
 from geometry import (CORNER_NAMES, CORNERS_TABLE, A4_D, A4_W, FLAT_H, GRIPS, PALM, FlatHandGate, HandMeasure, StereoHand,
                       TableCalib, backproject_height, flat_fit, palm_size, scale_for_flat)
+import geometry
 from hand import HandTracker, Median3, OneEuro, StillZone, draw_hand
 from mapping import Mapper
 from net import PORT, Link, code_version
@@ -37,7 +38,7 @@ from paper import PaperFinder
 from panel import DISP_H, robot_panel
 from piper_kin import HOME_Q, PiperKin
 from recorder import CamGrabber, Recorder, jpeg, open_camera
-from robots import make_arm
+from robots import GRIP_MAX, make_arm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BACKSPACE = (8, 127)                                       # 127 = 맥의 delete 키
@@ -110,6 +111,11 @@ def parse():
                     help="oat 의 앞 장면 벌점 (클수록 덜 흔들리고 더 늦게 따라감). 11/18 부터 0: 흔들림은 1€ 필터가 거름")
     ap.add_argument("--no-steady", action="store_true",
                     help="11/20 손떨림·지터 거르기(멈춰 있을 때 가운데 값 + 멈춤 구역)를 끔 — 11/18 처럼 1€ 필터만")
+    ap.add_argument("--start", choices=["keep", "paper"], default="keep",
+                    help="11/23 SPACE 를 누를 때: keep = 팔은 그 자세 그대로, 그때 손 자리를 지금 집게 끝으로 삼고 손이 움직인 만큼 따라감 (기본, 사용자 요청) "
+                         "/ paper = 손이 종이 + 에서 떨어진 만큼 집게도 처음 자세(종이 +)에서 떨어진 자리로 감 (11/22 까지)")
+    ap.add_argument("--down-only", action="store_true",
+                    help="11/23 손바닥 방향 따라가기를 끔: 집게는 늘 아래를 보고 돌림(yaw)만 따라감 (11/22 까지와 같음)")
     ap.add_argument("--still-mm", type=float, default=3.0,
                     help="멈춤 구역 반지름 (mm). 손이 이 안에서 떨리면 로봇 목표를 그대로 둠. 클수록 덜 떨고 움직일 때 이만큼 뒤처짐")
     ap.add_argument("--status", default=None, metavar="폴더",
@@ -132,19 +138,23 @@ class Smoother:
         # 11/18: beta 를 m·rad 단위에 맞춤. 예전 (1.5, 0.5) 는 라디안용이라 손을 빨리 움직이면 70 ms 늦고 3 cm 뒤처졌다
         # (20 fps·잡음 3 mm 흉내: 멈춤 흔들림 4.8 → 1.6 mm, 움직일 때 늦음 70 → 15 ms)
         self.pinch, self.yaw, self.gap = OneEuro(1.0, 20.0), OneEuro(1.0, 5.0), OneEuro(1.0, 20.0)
+        # 11/23 손바닥이 향한 쪽·엄지 → 손가락 줄 (단위 벡터): 방향(yaw)과 같은 거르기, 멈춤 구역도 같은 각
+        self.nrm, self.axv = OneEuro(1.0, 5.0), OneEuro(1.0, 5.0)
         # 11/20 지터·손떨림: 1€ 앞에 '멈춰 있을 때만 가운데 값'(한 장면 튐 버림), 뒤에 멈춤 구역(반지름 안 떨림은 그대로 둠).
         # 가상 손에서 멈춤 흔들림 3.4 → 1.3 mm (가장 크게 튈 때 19.5 → 4.7 mm), 늦음 +13 ms. steady=False 면 11/18 그대로
         self.steady = steady
         self.med = Median3()
         self.zone_p = StillZone(still_m if steady else 0.0)
         self.zone_y = StillZone(math.radians(still_deg) if steady else 0.0)
+        self.zone_n = StillZone(math.radians(still_deg) if steady else 0.0)
+        self.zone_a = StillZone(math.radians(still_deg) if steady else 0.0)
         self.last = None
         self.yaw_unwrapped = None
         self.lost_since = None
         self.pending = []
 
     def reset(self):
-        for f in (self.pinch, self.yaw, self.gap, self.med, self.zone_p, self.zone_y):
+        for f in (self.pinch, self.yaw, self.gap, self.med, self.zone_p, self.zone_y, self.nrm, self.axv, self.zone_n, self.zone_a):
             f.reset()
         self.last = self.yaw_unwrapped = None
         self.pending = []
@@ -187,6 +197,10 @@ class Smoother:
             p = med if slow else p
         out = {"pinch": self.zone_p(t, self.pinch(t, p)), "yaw": float(self.zone_y(t, self.yaw(t, y))),
                "gap": float(self.gap(t, m["gap"]))}
+        for key, flt, zone in (("normal", self.nrm, self.zone_n), ("axis", self.axv, self.zone_a)):
+            if m.get(key) is not None:
+                v = zone(t, flt(t, np.asarray(m[key], np.float64)))
+                out[key] = v / max(float(np.linalg.norm(v)), 1e-9)
         self.last = out
         return out
 
@@ -210,6 +224,9 @@ def main():
     mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, squeeze=squeeze_by[grip_mode],
                     yaw_gap_min=GRIP_YGM[grip_mode],
                     yaw_pref=math.radians(-60 if a.hand == "right" else 60))
+    mapper.follow_tilt = not a.down_only
+    mapper.hold_start = a.start == "keep"                        # 11/23 SPACE 때 팔은 그 자세 그대로
+    geometry.HAND_SIGN = 1.0 if a.hand == "right" else -1.0      # 11/23 손바닥이 향한 쪽 계산 (왼손이면 뒤집음)
     mapper.sync_to(arm.joints())
 
     cap, frame = open_camera(a.cam, a.width, a.height)
@@ -592,7 +609,9 @@ def main():
             if meas:
                 p = meas["pinch"]
                 lines = [f"hand x {p[0]*100:+5.1f}  y {p[1]*100:+5.1f}  z {(p[2])*100:4.1f} cm   "
-                         f"grip {meas['gap']*1000:3.0f} mm   turn {math.degrees(math.remainder(meas['yaw'] + math.pi / 2, math.pi)):+4.0f} deg"]
+                         f"grip {meas['gap']*1000:3.0f} mm   turn {math.degrees(math.remainder(meas['yaw'] + math.pi / 2, math.pi)):+4.0f} deg"
+                     + (f"   palm {math.degrees(math.acos(float(np.clip(-meas['normal'][2], -1, 1)))):3.0f} deg (0 down, 180 up)"
+                        if meas.get('normal') is not None and not a.down_only else "")]
             else:
                 lines = ["hand not found"]
             lines.append(f"{fps:4.1f} fps   SPACE follow  R rec  B start pose  TAB hand: {GRIP_NAME[grip_mode]}")
@@ -621,6 +640,9 @@ def main():
             run = mode == "run"
             hand_out = ([round(float(v), 5) for v in meas["pinch"]] + [round(meas["yaw"], 4),
                                                                        round(meas["gap"], 4)]) if (run and meas) else None
+            if hand_out is not None and meas.get("normal") is not None and not a.down_only:
+                # 11/23: 손바닥이 향한 쪽(3)과 엄지 → 손가락 줄(3). 예전 robot_server 는 앞 5개만 읽으므로 그대로 돈다
+                hand_out += [round(float(v), 4) for v in meas["normal"]] + [round(float(v), 4) for v in meas["axis"]]
             # 11/17: 기록 중이면 손 21점 원본(화면 px, MediaPipe 3D m)과 거르기 전 측정도 보낸다 → 연구실에서 다른 방식으로 다시 풀어 볼 수 있게
             raw_out = {}
             if run and rec_req and det is not None:
@@ -760,6 +782,9 @@ def main():
                 if follow:
                     if not link:
                         mapper.sync_to(arm.joints())
+                        w_arm = arm.gripper()
+                        if np.isfinite(w_arm):
+                            mapper.width = float(np.clip(w_arm, 0.0, GRIP_MAX))
                     smooth.reset()
                 else:
                     arm.hold()

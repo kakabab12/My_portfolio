@@ -1,0 +1,54 @@
+{
+  "name": "cube_to_pad",
+  "desc": "정육면체를 집어 판 위에 놓기",
+  "note": "좌표는 시뮬 로봇 좌표 (m): 밑동 (0, 0, 0.90), 책상 윗면 z = 0.90, x 앞, y 왼쪽, z 위. 사람 책상 좌표(원점 A4 가운데)는 desk_origin_robot 만큼 옮긴 것",
+  "desk_origin_robot": [
+    0.28,
+    0.0,
+    0.9
+  ],
+  "start_pos": [
+    0.28,
+    0.0,
+    1.0
+  ],
+  "cube_size": 0.045,
+  "pad_size": 0.1,
+  "region_x": [
+    0.2,
+    0.38
+  ],
+  "region_y": [
+    -0.15,
+    0.15
+  ],
+  "min_sep": 0.13,
+  "object_points": [
+    {
+      "name": "cube_top",
+      "label": "cube: centre of the top face",
+      "body": "cube",
+      "offset": [
+        0.0,
+        0.0,
+        0.0225
+      ],
+      "transfer_radius": 0.03
+    },
+    {
+      "name": "pad_center",
+      "label": "pad: centre",
+      "body": "pad",
+      "offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "transfer_radius": 0.08
+    }
+  ],
+  "grip_close_m": 0.07,
+  "record_fps": 30,
+  "policy_hz": 6,
+  "heights_note": "PiPER 시뮬은 집게를 똑바로 아래로 세우면 책상 위 11 cm 까지 닿는다 (11/27 측정, x 0.20~0.36). 그래서 시작·들어 올리는 높이를 책상 위 10 cm 안으로"
+}

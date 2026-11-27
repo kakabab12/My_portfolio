@@ -70,6 +70,10 @@ def main():
         from piper_kin import TABLE_Z, PiperKin
         p, _ = PiperKin().fk(np.radians(deg))
         print(f"[팔] 집게 끝: 밑동에서 앞 {p[0] * 100:.1f} cm, 왼쪽 {p[1] * 100:.1f} cm, 책상 위 {(p[2] - TABLE_Z) * 100:.1f} cm (가상 팔 모델 기준)")
+        from home import HOME_CLEAR
+        if p[2] - TABLE_Z < HOME_CLEAR:
+            print(f"[주의] 집게 끝이 책상에 가깝다. B 는 이 자세 그대로가 아니라 같은 방향으로 모델 책상 위 {HOME_CLEAR * 100:.0f} cm 까지 들어 올린 자세로 간다"
+                  " (11/23 책상에 박은 일). 책상에서 2~3 cm 띄운 채 저장하면 그대로 간다")
     except Exception as e:  # noqa: BLE001 — numpy 가 없는 파이썬에서도 저장은 되게
         print(f"[팔] 집게 끝 계산 못 함 ({e})")
     if a.show:
@@ -79,7 +83,7 @@ def main():
     out = {"q_rad": [round(math.radians(v), 6) for v in deg], "q_deg": [round(v, 3) for v in deg],
            "grip_m": None if grip is None else round(grip, 5), "mode_when_saved": mode,
            "saved": dt.datetime.now().isoformat(timespec="seconds"),
-           "note": "save_home.py 가 CAN 피드백을 듣고 저장. teleop B 로 이 관절 자세로 돌아감 (그리퍼는 그대로)"}
+           "note": "save_home.py 가 CAN 피드백을 듣고 저장. teleop B 로 이 관절 자세로 돌아감 (그리퍼는 11/23 부터 닫힘)"}
     with open(a.file, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     print(f"[저장] {a.file}")

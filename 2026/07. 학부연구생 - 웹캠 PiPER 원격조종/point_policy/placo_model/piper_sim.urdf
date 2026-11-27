@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<robot name="piper_sim">
+  <link name="world"/>
+  <link name="robot0_base"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="fixed_robot0_base" type="fixed"><parent link="world"/><child link="robot0_base"/><origin xyz="0.000000000 0.000000000 0.900000000" rpy="0.000000000000 -0.000000000000 0.000000000000"/></joint>
+  <link name="robot0_base_link"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="fixed_robot0_base_link" type="fixed"><parent link="robot0_base"/><child link="robot0_base_link"/><origin xyz="0.000000000 0.000000000 0.000000000" rpy="0.000000000000 -0.000000000000 0.000000000000"/></joint>
+  <link name="robot0_link1"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="robot0_joint1" type="revolute"><parent link="robot0_base_link"/><child link="robot0_link1"/><origin xyz="0.000000000 0.000000000 0.123000000" rpy="0.000000000000 0.000000000000 -1.570800569437"/><axis xyz="0.000000000 0.000000000 1.000000000"/><limit lower="-2.617990" upper="2.617990" effort="40" velocity="3.0"/></joint>
+  <link name="robot0_link2"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="robot0_joint2" type="revolute"><parent link="robot0_link1"/><child link="robot0_link2"/><origin xyz="0.000000000 0.000000000 0.000000000" rpy="1.570800326795 0.000000000008 -1.570800326795"/><axis xyz="0.000000000 0.000000000 1.000000000"/><limit lower="0.000000" upper="3.141590" effort="40" velocity="3.0"/></joint>
+  <link name="robot0_link3"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="robot0_joint3" type="revolute"><parent link="robot0_link2"/><child link="robot0_link3"/><origin xyz="0.283580000 0.028726000 0.000000000" rpy="0.000000000000 -0.000000000000 0.100950101079"/><axis xyz="0.000000000 0.000000000 1.000000000"/><limit lower="-2.696530" upper="0.000000" effort="40" velocity="3.0"/></joint>
+  <link name="robot0_link4"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="robot0_joint4" type="revolute"><parent link="robot0_link3"/><child link="robot0_link4"/><origin xyz="-0.242210000 0.068514000 0.000000000" rpy="-1.570799407481 0.000000713697 1.382599809000"/><axis xyz="0.000000000 0.000000000 1.000000000"/><limit lower="-1.745330" upper="1.745330" effort="40" velocity="3.0"/></joint>
+  <link name="robot0_link5"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="robot0_joint5" type="revolute"><parent link="robot0_link4"/><child link="robot0_link5"/><origin xyz="0.000000000 0.000000000 0.000000000" rpy="1.570800569437 -0.000000000000 0.000000000000"/><axis xyz="0.000000000 0.000000000 1.000000000"/><limit lower="-1.221730" upper="1.221730" effort="40" velocity="3.0"/></joint>
+  <link name="robot0_link6"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="robot0_joint6" type="revolute"><parent link="robot0_link5"/><child link="robot0_link6"/><origin xyz="0.000000000 0.091000000 0.001416500" rpy="1.570792084153 -0.000000000000 -3.141592653590"/><axis xyz="0.000000000 0.000000000 1.000000000"/><limit lower="-2.094400" upper="2.094400" effort="40" velocity="3.0"/></joint>
+  <link name="robot0_right_hand"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="fixed_robot0_right_hand" type="fixed"><parent link="robot0_link6"/><child link="robot0_right_hand"/><origin xyz="0.000000000 0.000000000 0.000000000" rpy="0.000000000000 -0.000000000000 3.141592653590"/></joint>
+  <link name="gripper0_right_gripper"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="fixed_gripper0_right_gripper" type="fixed"><parent link="robot0_right_hand"/><child link="gripper0_right_gripper"/><origin xyz="0.000000000 0.000000000 0.000000000" rpy="0.000000000000 0.000000000000 -1.570796326795"/></joint>
+  <link name="gripper0_eef"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="fixed_gripper0_eef" type="fixed"><parent link="gripper0_right_gripper"/><child link="gripper0_eef"/><origin xyz="0.000000000 0.000000000 0.120000000" rpy="0.000000000000 -0.000000000000 0.000000000000"/></joint>
+  <link name="gripper0_grip_site"><inertial><origin xyz="0 0 0"/><mass value="0.1"/><inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial></link>
+  <joint name="fixed_gripper0_grip_site" type="fixed"><parent link="gripper0_eef"/><child link="gripper0_grip_site"/><origin xyz="0.000000000 0.000000000 0.000000000" rpy="0.000000000000 -0.000000000000 0.000000000000"/></joint>
+</robot>

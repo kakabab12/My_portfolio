@@ -2,6 +2,7 @@
 
 모두 같은 꼴:  joints() 관절 6개 (rad)   gripper() 집게 폭 (m)
                send(q, width)  관절 목표와 집게 폭      hold() 지금 자리에 멈춤      close()
+               send_gripper(width) 그리퍼만 (11/26)      move_mit(q, dq, kp, kd) MIT 모드 (11/26, preview·agxbus 만)
 
 실물 기록 (2026-11-12, 사용자 PC 옆 PiPER): 펌웨어 S-V1.9-0 → agx-bus 는 version 'v189' 로 붙어야 명령이 먹힌다
 ('auto' 가 펌웨어를 읽어 고른다). 관절 6개 10° 왕복은 됐고, 그리퍼는 명령에 반응이 없었다 (원인 아직 모름).
@@ -25,10 +26,23 @@ class Preview:
         self.w = GRIP_MAX
         self.w_target = GRIP_MAX
         self.follow = follow
+        self._qd = np.zeros_like(self.q)
+        self._t = None
 
     def joints(self):
+        q_prev = self.q.copy()
         self.q += self.follow * (self.target - self.q)
+        now = time.monotonic()
+        if self._t is not None and now > self._t:
+            self._qd = (self.q - q_prev) / (now - self._t)              # 11/26 기록용 관절 속도 (가상 팔은 차분)
+        self._t = now
         return self.q.copy()
+
+    def joint_vel(self):
+        return self._qd.copy()
+
+    def gripper_force(self):
+        return 0.0
 
     def gripper(self):
         self.w += self.follow * (self.w_target - self.w)
@@ -40,6 +54,14 @@ class Preview:
 
     def move_joints(self, q):
         """관절만 (그리퍼는 그대로) — 처음 자세로 돌아갈 때 (11/20)."""
+        self.target = np.asarray(q, np.float64).copy()
+
+    def send_gripper(self, width):
+        """그리퍼만 (11/26 follower 가 관절을 따로 보낼 때)."""
+        self.w_target = float(np.clip(width, 0.0, GRIP_MAX))
+
+    def move_mit(self, q, dq, kp, kd):
+        """11/26 MIT 모드 흉내: 가상 팔은 힘을 계산하지 않고 목표 관절만 따라간다 (kp·kd 는 무시)."""
         self.target = np.asarray(q, np.float64).copy()
 
     def hold(self):
@@ -71,16 +93,31 @@ class AgxBusArm:
         self._w_sent = None
 
     def joints(self):
-        return np.array(self.bus.read_joints().position, np.float64)
+        j = self.bus.read_joints()
+        self._qd = np.array(j.velocity, np.float64)                      # 11/26 기록용 (tinybc obs/qvel)
+        return np.array(j.position, np.float64)
 
     def gripper(self):
         try:
-            return float(self.ee.read_gripper().width)
+            g = self.ee.read_gripper()
+            self._force = float(g.force)
+            return float(g.width)
         except Exception:  # noqa: BLE001 — 그리퍼를 못 읽어도 팔은 계속
             return float("nan")
 
+    def joint_vel(self):
+        """11/26 마지막 joints() 때 읽은 관절 속도 (rad/s). tinybc 기록의 obs/qvel 앞 6칸."""
+        return self._qd.copy() if getattr(self, "_qd", None) is not None else np.full(6, np.nan)
+
+    def gripper_force(self):
+        """11/26 마지막 gripper() 때 읽은 그리퍼 힘. tinybc 기록의 obs/qvel 7번째 칸."""
+        return getattr(self, "_force", float("nan"))
+
     def send(self, q, width):
         self.bus.move_joints([float(x) for x in q])
+        self.send_gripper(width)
+
+    def send_gripper(self, width):
         w = float(np.clip(width, 0.0, GRIP_MAX))
         if self._w_sent is None or abs(w - self._w_sent) > 0.002:   # 2 mm 넘게 바뀔 때만 보낸다
             try:
@@ -93,6 +130,13 @@ class AgxBusArm:
     def move_joints(self, q):
         """관절만 (그리퍼는 그대로) — 처음 자세로 돌아갈 때 (11/20)."""
         self.bus.move_joints([float(x) for x in q])
+
+    def move_mit(self, q, dq, kp, kd):
+        """11/26 MIT 모드 (석사형 메모): 관절마다 목표 각도·목표 속도·kp·kd 를 보내면 모터가
+        힘 = kp·(목표 − 지금) + kd·(목표 속도 − 지금 속도) 로 당긴다. 팔 안에서 길·속도를 정하지 않으므로
+        follower 가 촘촘하고 매끄러운 점을 줘야 한다. agx-bus 가 처음 부를 때 MIT 모드로 바꾼다 (자동 모드 설정).
+        실물에서 아직 해 보지 않음."""
+        self.bus.move_mit([float(x) for x in q], [float(x) for x in dq], kp=float(kp), kd=float(kd))
 
     def hold(self):
         self.bus.move_joints(self.bus.read_joints().position)
@@ -138,6 +182,9 @@ class SdkArm:
     def send(self, q, width):
         self.p.MotionCtrl_2(0x01, 0x01, self.speed, 0x00)
         self.p.JointCtrl(*[int(round(x * self.RAD2MDEG)) for x in q])
+        self.send_gripper(width)
+
+    def send_gripper(self, width):
         w = float(np.clip(width, 0.0, GRIP_MAX))
         if self._w_sent is None or abs(w - self._w_sent) > 0.002:
             self.p.GripperCtrl(int(round(w * 1e6)), int(round(self.effort * 1000)), 0x01, 0)

@@ -23,13 +23,14 @@ import time
 import cv2
 import numpy as np
 
-from home import HOME_FILE, HomeMove, load_home, path_ok
+from home import HOME_CLEAR, HOME_FILE, HomeMove, load_home, path_ok, safe_target
 from mapping import Mapper
 from net import PORT, Server, code_version, my_ips
 from panel import robot_panel
 from piper_kin import TABLE_Z, PiperKin
-from recorder import CamGrabber, Recorder, jpeg
-from robots import make_arm
+from recorder import CamGrabber, FakeCam, Recorder, jpeg
+from robots import GRIP_MAX, make_arm
+from stream import Follower, LogArm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -63,14 +64,36 @@ def parse():
                     help="집게 끝을 책상 위 이 높이(m) 아래로 내리지 않음. 실물 첫 시험은 0.10 처럼 높게 (11/16)")
     ap.add_argument("--no-interp", action="store_true",
                     help="11/20 패킷 사이 잇기를 끔 (새 손 값이 올 때마다 최고 속도로 갔다 서던 11/19 방식)")
+    ap.add_argument("--home-grip", choices=["close", "keep"], default="close",
+                    help="B 로 처음 자세에 갈 때 그리퍼: close 닫음 (11/23 기본, 사용자 요청) / keep 그대로 (11/20)")
+    ap.add_argument("--home-clear", type=float, default=HOME_CLEAR,
+                    help="11/23 B 로 갈 자세의 집게 끝을 가상 팔 모델로 책상 위 이만큼(m) 아래로는 안 둠 (저장한 자세가 더 낮으면 같은 방향으로 들어 올림)")
+    ap.add_argument("--start", choices=["keep", "paper"], default="keep",
+                    help="11/23 SPACE 를 누를 때: keep = 팔은 그 자세 그대로, 그때 손 자리를 지금 집게 끝으로 삼고 손이 움직인 만큼 따라감 (기본, 사용자 요청) "
+                         "/ paper = 손이 종이 + 에서 떨어진 만큼 집게도 처음 자세(종이 +)에서 떨어진 자리로 감 (11/22 까지)")
+    ap.add_argument("--down-only", action="store_true",
+                    help="11/23 손바닥 방향 따라가기를 끔: 집게는 늘 아래를 보고 돌림만 따라감 (11/22 까지와 같음)")
     ap.add_argument("--home-rate", type=float, default=0.6,
                     help="처음 자세로 돌아갈 때 가장 많이 도는 관절의 최고 속도 (rad/s). 11/20")
     ap.add_argument("--hz", type=float, default=100.0, help="팔에 명령 보내고 기록하는 박자 (11/17 까지 30)")
     ap.add_argument("--timeout", type=float, default=0.5, help="노트북 패킷이 이만큼(초) 안 오면 멈춤")
     ap.add_argument("--out", default=os.path.join(HERE, "data"))
     ap.add_argument("--wrist-cam", type=int, default=None, help="기록할 손목 카메라 번호 (선택)")
-    ap.add_argument("--front-cam", type=int, default=None, help="기록할 앞/위 카메라 번호 (선택)")
+    ap.add_argument("--front-cam", "--top-cam", dest="front_cam", type=int, default=None,
+                    help="기록할 앞/위 카메라 번호 (선택). 11/26 tinybc 형식에서는 'top' 카메라")
+    ap.add_argument("--fake-cams", action="store_true", help="11/26 시험용: 손목·위 카메라 대신 가짜 그림 (실물 카메라 없이 기록 길 시험)")
     ap.add_argument("--headless", action="store_true", help="창 없이 (끝낼 때 Ctrl+C)")
+    # 11/26 석사형 메모: 팔에 보내는 일만 하는 follower (줄에서 꺼내 200 Hz), 3차 중간 점, MIT 모드 (kp 5, kd 0.8).
+    # 모두 켜는 옵션이고, 안 주면 11/23 까지와 똑같다. 실물 MIT 는 아직 해 보지 않았다
+    ap.add_argument("--follower-hz", type=float, default=0.0,
+                    help="11/26 팔에 보내는 follower 박자 (예 200). 0 이면 끔 (예전처럼 --hz 박자에 바로 보냄). --mode mit 면 안 줘도 200")
+    ap.add_argument("--mode", choices=["position", "mit"], default="position",
+                    help="11/26 position = 관절 각도만 보냄 (팔 안 제어기가 길을 정함, 지금까지) / mit = 각도·속도·kp·kd 를 보내 모터가 바로 당김")
+    ap.add_argument("--kp", type=float, default=5.0, help="11/26 MIT 모드 당기는 세기 (석사형 메모 5)")
+    ap.add_argument("--kd", type=float, default=0.8, help="11/26 MIT 모드 흔들림 잡는 세기 (석사형 메모 0.8)")
+    ap.add_argument("--profile", choices=["linear", "cubic"], default="linear",
+                    help="11/26 손 값 사이 중간 점: linear 곧게 같은 빠르기 (11/20) / cubic s = 3t² − 2t³ (석사형 메모, 처음·끝 속도 0)")
+    ap.add_argument("--cmd-log", default=None, help="11/26 팔에 보낸 명령을 이 npz 로 남김 (시험·분석용)")
     ap.add_argument("--run-seconds", type=float, default=None, help=argparse.SUPPRESS)   # 시험용
     return ap.parse_args()
 
@@ -84,6 +107,11 @@ def main():
     VER = code_version()
     kin = PiperKin()
     arm = make_arm(a.robot, a.can, a.speed)
+    if a.mode == "mit":
+        if a.robot == "sdk":
+            raise SystemExit("--mode mit 은 --robot agxbus 나 preview 만 (piper_sdk 쪽은 아직 안 만듦)")
+        if a.follower_hz <= 0:
+            a.follower_hz = 200.0                       # MIT 는 팔 안에서 길을 안 짜므로 촘촘히 보내야 함
     if arm.is_real:
         print("\n[안전] 실물 팔입니다. 팔 둘레를 비우고, 전원 스위치 옆에 사람이 있어야 합니다.")
         print("       노트북에서 SPACE 를 눌러야 따라가고, 통신이 %.1f초 끊기면 멈춥니다. 속도 %d%%" % (a.timeout, a.speed))
@@ -91,10 +119,26 @@ def main():
               % (a.max_speed * 100, a.joint_rate, a.min_z * 100, a.lift * 100))
         print("       움직이는 범위: 밑동에서 앞 %.0f~%.0f cm, 좌우 ±%.0f cm, 책상 위 %.0f cm 까지 (팔 둘레를 이만큼 비울 것)"
               % (a.box_x[0] * 100, a.box_x[1] * 100, a.box_y * 100, a.max_z * 100))
+        if a.follower_hz > 0:
+            print("       follower %.0f Hz 로 보냄 (%s 모드%s), 중간 점 %s"
+                  % (a.follower_hz, a.mode, ", kp %.1f kd %.2f" % (a.kp, a.kd) if a.mode == "mit" else "", a.profile))
+        if a.mode == "mit":
+            print("       [MIT] 팔 안의 속도 제한이 없습니다. 관절 속도 %.1f rad/s 제한은 이 PC 에서만 겁니다." % a.joint_rate)
+            print("       [MIT] 실물에서 처음이면 --speed 와 상관없이 세게 움직일 수 있으니, 손을 비상정지 옆에 두세요.")
         input("       준비됐으면 Enter (취소 Ctrl+C) ")
+    if a.follower_hz > 0:                               # 11/26: Enter 뒤에 켬 (MIT 는 켜자마자 지금 자세를 붙잡기 시작)
+        arm = Follower(arm, hz=a.follower_hz, mode=a.mode, kp=a.kp, kd=a.kd, push_hz=a.hz,
+                       max_rate=max(a.joint_rate, a.home_rate), lo=kin.lo, hi=kin.hi, log=bool(a.cmd_log))
+        print("[follower] %.0f Hz, %s 모드%s, 중간 점 %s" % (a.follower_hz, a.mode,
+              ", kp %.1f kd %.2f" % (a.kp, a.kd) if a.mode == "mit" else "", a.profile))
+    elif a.cmd_log:
+        arm = LogArm(arm)
     home_q = load_home()                                # 11/20: save_home.py 로 저장한 처음 자세 (B 로 돌아감)
+    home_lift = 0.0
     if home_q is not None:
         home_q = np.clip(home_q, kin.lo, kin.hi)
+        # 11/23 오후 사용자 "B 를 누르면 로봇팔이 책상에 박고 힘이 빠지네": 저장한 자세가 모델로 책상 −0.8 cm 였다
+        home_q, home_lift = safe_target(kin, home_q, a.home_clear)
     origin_home = home_q is not None and a.x0 is None and a.y0 is None
     if origin_home:                                     # 11/20: 종이 + = 처음 자세 집게 끝
         hp, _ = kin.fk(home_q)
@@ -103,19 +147,29 @@ def main():
     a.y0 = 0.0 if a.y0 is None else a.y0
     mapper = Mapper(kin, a.x0, a.y0, a.gain, max_speed=a.max_speed, min_z=a.min_z, max_joint_rate=a.joint_rate,
                     max_yaw_rate=math.radians(a.rot_rate), max_z=a.max_z, box_x=tuple(a.box_x), box_y=a.box_y)
+    mapper.follow_tilt = not a.down_only                # 11/23 손바닥 방향 따라 집게를 옆·위로
     if origin_home:                                     # 손을 종이에 대면 (높이 PINCH_H0) 처음 자세 높이
         mapper.robot_start[2] = max(float(hp[2]), TABLE_Z + a.min_z)
     mapper.robot_start[2] += a.lift                     # 11/18: 손 높이 + lift 로 따라감
-    print("[종이 +] 손을 + 에 대면 집게 끝: 밑동에서 앞 %.1f cm, 왼쪽 %.1f cm, 책상 위 %.1f cm%s"
-          % (mapper.robot_start[0] * 100, mapper.robot_start[1] * 100, (mapper.robot_start[2] - TABLE_Z) * 100,
-             " (처음 자세 집게 끝)" if origin_home else ""))
+    mapper.hold_start = a.start == "keep"               # 11/23 사용자 "SPACE 누르면 집게가 뜨는데? 자세가 그대로여야지"
+    if mapper.hold_start:
+        print("[시작] SPACE 를 누르면 팔은 그 자세 그대로이고, 그때 손 자리가 지금 집게 끝이 됨. 그 뒤로 손이 움직인 만큼 따라감"
+              " (그리퍼는 손가락을 1 cm 넘게 움직이면 따라감. 종이 + 기준은 --start paper)")
+    else:
+        print("[종이 +] 손을 + 에 대면 집게 끝: 밑동에서 앞 %.1f cm, 왼쪽 %.1f cm, 책상 위 %.1f cm%s"
+              % (mapper.robot_start[0] * 100, mapper.robot_start[1] * 100, (mapper.robot_start[2] - TABLE_Z) * 100,
+                 " (처음 자세 집게 끝)" if origin_home else ""))
     if mapper.robot_start[0] - a.box_x[0] < 0.05:
         print("        밑동 쪽으로는 %.1f cm 만 갈 수 있음 (작업 상자 앞최소 %.0f cm)"
               % ((mapper.robot_start[0] - a.box_x[0]) * 100, a.box_x[0] * 100))
     mapper.interp = not a.no_interp                     # 11/20: 손 값 사이를 곧게 이어 끊어 가는 지터를 없앰
+    mapper.profile = a.profile                          # 11/26 석사형 메모: cubic 이면 s = 3t² − 2t³
     ik_iters = 10 if a.hz >= 60 else 40                 # 100 Hz 면 한 박자 10번이면 됨 (40번은 7~12 ms 라 박자를 못 지킴)
     mapper.yaw0 = 0.0                                   # 노트북이 집게 방향(yaw)을 그대로 보냄
     mapper.sync_to(arm.joints())
+    if home_lift > 0:
+        print("[처음 자세] 저장한 자세는 집게 끝이 책상에 너무 가까워서 (모델로 %.1f cm) 같은 방향으로 %.1f cm 들어 올린 자세로 감 (--home-clear)"
+              % ((a.home_clear - home_lift) * 100, home_lift * 100))
     if home_q is not None:
         print("[처음 자세] %s 의 관절(도) %s — 노트북 B 로 돌아감" % (os.path.basename(HOME_FILE),
                                                      ", ".join(f"{math.degrees(v):.1f}" for v in home_q)))
@@ -123,6 +177,10 @@ def main():
         print("[처음 자세] 저장된 것 없음 — 팔을 손으로 옮겨 두고 python save_home.py")
     srv = Server(a.port)
     cams = {k: CamGrabber(i) for k, i in (("wrist", a.wrist_cam), ("front", a.front_cam)) if i is not None}
+    if a.fake_cams:                                     # 11/26 시험용
+        cams = {"wrist": FakeCam("wrist"), "front": FakeCam("top")}
+    cam_cache = {}                                      # 11/26 카메라 장 번호가 같으면 JPEG 를 다시 만들지 않고 같은 bytes 를 씀 (메모리·파일)
+    q_prev_rec, t_prev_rec = None, None                 # 11/26 관절 속도를 못 읽는 팔은 차분으로
     for k, c in cams.items():
         if not c.ok:
             print(f"[카메라] {k} 카메라를 못 엶 — 사진 없이 기록")
@@ -139,6 +197,7 @@ def main():
             win = None
 
     follow, paused = False, False
+    was_blocked = False
     homing, home_prev = None, None     # 11/20 처음 자세로 가는 중 (HomeMove), 노트북 B 누른 횟수
     prev_req = None                    # 노트북이 바로 전에 보낸 follow (None = 아직 못 받음 → 껐다 켜야 움직임)
     rec_req_prev, disc_prev = False, None
@@ -177,9 +236,11 @@ def main():
         ok, low = path_ok(kin, q0, home_q)
         if not ok:
             arm.hold()
-            say(f"path to start pose goes {-low * 100:.0f} cm below the table: not moving")
+            say(f"path to start pose goes down to {low * 100:.1f} cm over the table: not moving")
             return
         homing = HomeMove(q0, home_q, max_rate=a.home_rate)
+        if a.home_grip == "close":                      # 11/23 사용자: B 로 처음 자세를 잡으면 그리퍼도 닫히게
+            mapper.width = 0.0
         say(f"going to start pose ({homing.T:.1f} s, SPACE stops)")
 
     def stop_home(reason):
@@ -208,6 +269,8 @@ def main():
                     rec.extra["laptop_calib"] = m["cal"]          # 에피소드마다 ep_XXX.json 으로 (11/17)
                 h = m.get("hand")
                 hand = {"pinch": np.array(h[:3], float), "yaw": float(h[3]), "gap": float(h[4])} if h else None
+                if hand is not None and len(h) >= 11:            # 11/23 손바닥이 향한 쪽, 엄지 → 손가락 줄
+                    hand["normal"], hand["axis"] = np.array(h[5:8], float), np.array(h[8:11], float)
                 mapper.follow_grip = bool(m.get("grip", 1))
                 mapper.follow_yaw = bool(m.get("yawf", 1))
                 mapper.squeeze = float(np.clip(m.get("sq", 0.025), 0.0, 0.05))
@@ -228,8 +291,11 @@ def main():
                         say("paused on robot PC (press SPACE there)")
                     else:
                         mapper.sync_to(arm.joints())
+                        w_arm = arm.gripper()                    # 11/23 그리퍼도 지금 폭에서 시작 (hold_start 면 손가락을 움직이기 전까지 그대로)
+                        if np.isfinite(w_arm):
+                            mapper.width = float(np.clip(w_arm, 0.0, GRIP_MAX))
                         follow = True
-                        say("follow started")
+                        say("follow started (arm stays as it is)" if mapper.hold_start else "follow started")
                 elif not req and prev_req:
                     if follow:
                         follow = False
@@ -264,23 +330,41 @@ def main():
             fresh = age < 0.25
             if homing is not None:
                 q_home, done = homing.step(dt)
-                arm.move_joints(q_home)
+                if a.home_grip == "close":
+                    arm.send(q_home, 0.0)                       # 관절과 함께 그리퍼 닫기 (2 mm 넘게 바뀔 때만 명령이 감)
+                else:
+                    arm.move_joints(q_home)
                 if done:
                     homing = None
                     mapper.sync_to(home_q)
                     say("at start pose (SPACE to follow)")
             q_cmd, width = mapper.step(hand if (follow and fresh) else None, dt, follow, ik_iters)
+            if mapper.blocked and not was_blocked:        # 11/23 팔 마디가 책상에 닿을 자세: 그 박자는 안 움직임
+                say("arm would touch the table: holding (turn the palm back down)")
+            was_blocked = mapper.blocked
             if follow:
                 arm.send(q_cmd, width)
             q_now = arm.joints()
             w_now = arm.gripper()
 
             if rec.on:
-                imgs = {k: c.latest() for k, c in cams.items()}
+                imgs = {}
+                for k, c in cams.items():                       # 11/26 로봇 카메라: tinybc 로 바꿀 때 다시 압축하므로 품질 95
+                    f, _, n = c.latest_with_time()
+                    if k not in cam_cache or cam_cache[k][0] != n:
+                        cam_cache[k] = (n, jpeg(f, 640, quality=95))
+                    imgs[k] = cam_cache[k][1]
+                qd = arm.joint_vel() if hasattr(arm, "joint_vel") else None
+                if qd is None or not np.all(np.isfinite(qd)):
+                    qd = ((q_now - q_prev_rec) / max(t - t_prev_rec, 1e-3)) if q_prev_rec is not None else np.zeros(6)
+                q_prev_rec, t_prev_rec = q_now.copy(), t
+                g_force = arm.gripper_force() if hasattr(arm, "gripper_force") else float("nan")
                 lh = last.get("hand") if last else None
                 rec.add(t=t, seq=int(last["seq"]) if last else -1, q=q_now, grip=w_now, q_cmd=mapper.q_cmd.copy(),
                         grip_cmd=mapper.width, hand=(np.array(lh[:3], float) if lh else np.full(3, np.nan)),
                         hand_yaw=(float(lh[3]) if lh else np.nan), hand_gap=(float(lh[4]) if lh else np.nan),
+                        hand_normal=(np.array(lh[5:8], float) if lh and len(lh) >= 11 else np.full(3, np.nan)),
+                        blocked=mapper.blocked,
                         target=mapper.cur.copy(), tracked=lh is not None and fresh, follow=follow, link_age=age,
                         lm2d=(np.array(last["l2"], float).reshape(21, 2) if last and last.get("l2") else np.full((21, 2), np.nan)),
                         lm3d=(np.array(last["l3"], float).reshape(21, 3) if last and last.get("l3") else np.full((21, 3), np.nan)),
@@ -290,7 +374,8 @@ def main():
                         src=(int(last.get("src", -1)) if last else -1),
                         lm2d_b=(np.array(last["l2b"], float).reshape(21, 2) if last and last.get("l2b") else np.full((21, 2), np.nan)),
                         tri3d=(np.array(last["t3"], float).reshape(21, 3) if last and last.get("t3") else np.full((21, 3), np.nan)),
-                        **{f"{k}_jpg": jpeg(v, 640) for k, v in imgs.items()})
+                        qvel=np.asarray(qd, np.float64), grip_force=float(g_force),   # 11/26 tinybc obs/qvel
+                        **{f"{k}_jpg": v for k, v in imgs.items()})
 
             srv.reply(q=[round(float(v), 5) for v in q_now], w=(round(float(w_now), 4) if np.isfinite(w_now) else None),
                       tgt=[round(float(v), 4) for v in mapper.cur], follow=int(follow), rec=int(rec.on),
@@ -335,6 +420,12 @@ def main():
             if r:
                 print(f"[기록] {r[0]} ({r[1]} 장면)")
         arm.hold()
+        if hasattr(arm, "report"):
+            print(arm.report())
+        if a.cmd_log and hasattr(arm, "save_log"):
+            p = arm.save_log(a.cmd_log)
+            if p:
+                print(f"[명령 기록] {p}")
         arm.close()
         for c in cams.values():
             c.close()

@@ -16,7 +16,7 @@ import time
 
 import numpy as np
 
-from home import load_home
+from home import load_home, safe_target
 from net import PORT, Link
 from piper_kin import TABLE_Z, PiperKin
 
@@ -36,6 +36,8 @@ def main():
     ap.add_argument("--port", type=int, default=PORT, help="가상 팔로 미리 돌려 볼 때 다른 포트")
     a = ap.parse_args()
     kin, home = PiperKin(), load_home()
+    if home is not None:
+        home, _ = safe_target(kin, np.clip(home, kin.lo, kin.hi))      # 11/23 robot_server 와 같은 들어 올린 자세
     link = Link(f"127.0.0.1:{a.port}")
     log, T0 = [], time.monotonic()
     state = {"q": None, "w": None, "home_n": 0}

@@ -10,6 +10,7 @@
 6~8 은 11/16 검토에서 더함: 엉뚱한 첫 장면, MediaPipe 손 3D 모양 오차, 손 3D 거울상 판별.
 """
 import math
+import time
 
 import cv2
 import numpy as np
@@ -510,10 +511,291 @@ def check_steady():
     check("13 패킷 사이를 고르게 잇고 마지막 값에 닿음", r_new < 1.6 and r_new < r_old * 0.6 and e_new < 1.0)
 
 
+def check_palm_tilt():
+    """11/23 손바닥 방향 → 집게 방향. 손등이 보이면(손바닥 아래) 집게 아래, 손바닥이 위면 집게도 위로 (관절이 닿는 데까지)."""
+    print("== 14. 손바닥 방향 따라 집게 돌리기 (가상 팔)")
+    import geometry
+    from mapping import Mapper, approach_from_palm, min_height_for
+    from piper_kin import PiperKin, TABLE_Z, grip_orientation
+    kin = PiperKin()
+
+    def rot_x(a):                                   # 손을 앞 축(x)으로 돌림 = 손목을 뒤집음
+        c, s_ = math.cos(a), math.sin(a)
+        return np.array([[1, 0, 0], [0, c, -s_], [0, s_, c]])
+
+    flat = hand_model("flat")
+    n_down = geometry.palm_normal(flat)
+    n_up = geometry.palm_normal((rot_x(math.pi) @ flat.T).T)
+    print(f"  펴서 엎은 오른손 손바닥 쪽 {np.round(n_down, 2)}, 뒤집은 손 {np.round(n_up, 2)}")
+    check("14a 손등이 보이면 손바닥 쪽이 아래, 뒤집으면 위", n_down[2] < -0.95 and n_up[2] > 0.95)
+    check("14b 손바닥이 20° 안으로 기울면 집게는 똑바로 아래", approach_from_palm(rot_x(math.radians(15)) @ np.array([0, 0, -1.0]))[2] < -0.999)
+
+    def run(tilt_deg, h, steps=400, down_only=False):
+        mp = Mapper(kin, max_speed=0.3, max_joint_rate=3.0, max_yaw_rate=math.radians(120))
+        mp.follow_tilt = not down_only
+        mp.sync_to(np.array([0.0, 0.9, -0.9, 0.0, 0.9, 0.0]))
+        R = rot_x(math.radians(tilt_deg))
+        meas = {"pinch": np.array([0.0, 0.0, PINCH_H0 + h]), "yaw": 0.0, "gap": 0.08,
+                "normal": R @ np.array([0, 0, -1.0]), "axis": R @ np.array([0, 1.0, 0])}
+        low = 9.0
+        for _ in range(steps):
+            q, _w = mp.step(meas, 0.01, True, ik_iters=10)
+            pts = np.asarray(kin.link_points(q))[1:-1]
+            low = min(low, float(pts[:, 2].min()) - TABLE_Z)
+        p, m = kin.fk(mp.q_cmd)
+        tilt = math.degrees(math.acos(float(np.clip(-m[2, 2], -1, 1))))     # 0 아래, 180 위
+        jaw_ok = p[2] >= min_height_for(m, TABLE_Z, 0.0) - 0.01
+        return tilt, (p[2] - TABLE_Z) * 100, low * 100, jaw_ok, mp
+
+    t0, z0, l0, j0, mp0 = run(0, 0.05)
+    _, m_old = kin.fk(mp0.q_cmd)
+    want = grip_orientation(0.0)
+    err = min(math.degrees(math.acos(float(np.clip((np.trace(m_old @ (want @ F).T) - 1) / 2, -1, 1))))
+              for F in (np.eye(3), np.diag([-1.0, -1.0, 1.0])))
+    print(f"  손바닥 아래: 집게 {t0:.0f}° (예전 방식과 차 {err:.1f}°), 집게 끝 높이 {z0:.1f} cm")
+    check("14c 손바닥이 아래면 예전처럼 똑바로 아래", t0 < 3 and err < 3)
+    rows = []
+    for tilt_h, h in ((90, 0.05), (90, 0.15), (180, 0.05), (180, 0.20)):
+        t_, z_, l_, j_, mp_ = run(tilt_h, h)
+        rows.append((tilt_h, h, t_, z_, l_, j_, mp_.blocked))
+        print(f"  손바닥 {tilt_h:3d}° (0 아래, 180 위), 손 높이 +{h*100:.0f} cm → 집게 {t_:3.0f}°, 집게 끝 {z_:4.1f} cm, "
+              f"가장 낮은 팔 마디 {l_:+5.1f} cm, 집게 몸통·손가락 책상 위 {'예' if j_ else '아니오'}{' (멈춤 있었음)' if mp_.blocked else ''}")
+    # PiPER 는 손목 꺾기 ±70° 라 책상 가까이에서 집게가 옆으로 세워지는 데 한계가 있다 (11/23 관절 6만 개 뽑아 봄: 높이 16 cm 아래 70~120°)
+    check("14d 손바닥을 옆으로 세우면 집게도 옆으로 (45° 넘게)", rows[0][2] > 45 and rows[1][2] > 45)
+    check("14e 손바닥을 위로 뒤집으면 옆으로 세울 때보다 더 위로", max(r[2] for r in rows[2:]) > max(rows[0][2], rows[1][2]))
+    check("14f 어느 쪽으로 돌려도 팔 마디와 집게가 책상에 닿지 않음", all(r[4] > 0.5 and r[5] for r in rows))
+    td, _, _, _, _ = run(180, 0.05, down_only=True)
+    check("14g --down-only 면 손바닥을 뒤집어도 집게는 아래", td < 3)
+    # 돌리는 도중 반 바퀴 휙 돌지 않음: 손을 0 → 180° 천천히 뒤집는 동안 한 박자 집게 회전이 작다
+    mp = Mapper(kin, max_speed=0.3, max_joint_rate=3.0, max_yaw_rate=math.radians(120))
+    mp.sync_to(np.array([0.0, 0.9, -0.9, 0.0, 0.9, 0.0]))
+    prev, worst = None, 0.0
+    for k in range(600):
+        R = rot_x(math.radians(180 * min(k / 400, 1.0)))
+        meas = {"pinch": np.array([0.0, 0.0, PINCH_H0 + 0.15]), "yaw": 0.0, "gap": 0.08,
+                "normal": R @ np.array([0, 0, -1.0]), "axis": R @ np.array([0, 1.0, 0])}
+        q, _ = mp.step(meas, 0.01, True, ik_iters=10)
+        _, m = kin.fk(q)
+        if prev is not None:
+            worst = max(worst, math.degrees(math.acos(float(np.clip((np.trace(m @ prev.T) - 1) / 2, -1, 1)))))
+        prev = m
+    print(f"  손을 4초에 걸쳐 뒤집는 동안 한 박자(10 ms) 집게 회전 최대 {worst:.1f}°")
+    check("14h 뒤집는 동안 집게가 휙 돌지 않음 (한 박자 3° 안)", worst < 3.0)
+
+
+def check_hold_start():
+    """11/23 오후 사용자: "스페이스바 누르고 시작하면 집게가 뜨는데? 자세가 그대로여야지". hold_start 면 SPACE 순간 팔이 그대로."""
+    print("== 15. SPACE 때 자세 그대로 (hold_start, 가상 팔)")
+    from mapping import Mapper, rot_angle
+    from piper_kin import PiperKin, TABLE_Z
+    kin = PiperKin()
+    qh = np.radians([-2.82, 92.996, -26.67, 4.49, 43.984, -7.491])       # 11/23 사용자가 고친 처음 자세 (모델로는 끝이 책상 −0.8 cm, 16° 기울어짐)
+    hp, hm = kin.fk(qh)
+
+    def rot_x(a):
+        c, s_ = math.cos(a), math.sin(a)
+        return np.array([[1, 0, 0], [0, c, -s_], [0, s_, c]])
+
+    def rot_z(a):
+        c, s_ = math.cos(a), math.sin(a)
+        return np.array([[c, -s_, 0], [s_, c, 0], [0, 0, 1]])
+
+    def mk(hold):
+        mp = Mapper(kin, float(hp[0]), float(hp[1]), 1.0, max_speed=1.0, min_z=0.006, max_joint_rate=3.0,
+                    max_yaw_rate=math.radians(180), max_z=0.30, box_x=(0.12, 0.50), box_y=0.40)
+        mp.robot_start[2] = max(float(hp[2]), TABLE_Z + 0.006)
+        mp.hold_start, mp.interp = hold, True
+        mp.sync_to(qh.copy())
+        mp.width = 0.0
+        return mp
+
+    def meas(pinch, R, gap):
+        return {"pinch": np.asarray(pinch, float), "yaw": 0.0, "gap": gap,
+                "normal": R @ np.array([0, 0, -1.0]), "axis": R @ np.array([0, 1.0, 0])}
+
+    def go(mp, f, n):
+        for k in range(n):
+            mp.step(f(k), 0.01, True, ik_iters=10)
+        p, m = kin.fk(mp.q_cmd)
+        return p, m
+
+    P0, R0, G0 = np.array([0.0, 0.03, PINCH_H0 + 0.05]), rot_z(math.radians(30)) @ rot_x(math.radians(15)), 0.08
+    worst = (0.0, 0.0, 0.0)
+    for P, R in ((np.array([0, 0, PINCH_H0]), np.eye(3)), (P0, R0), (np.array([0.02, -0.02, PINCH_H0 + 0.02]), rot_x(math.radians(35)))):
+        mp = mk(True)
+        p, m = go(mp, lambda k: meas(P, R, G0), 200)
+        worst = max(worst, (float(np.linalg.norm(p - hp)), math.degrees(rot_angle(m, hm)), mp.width))
+    print(f"  손이 + 에서 벗어나 있고 손바닥이 기울고 손이 펴져 있어도: 2초 뒤 집게 끝 {worst[0]*1000:.1f} mm, 방향 {worst[1]:.1f}°, 그리퍼 {worst[2]*100:.1f} cm")
+    check("15a SPACE 뒤 손이 어디 있든 팔은 그대로 (1 mm·0.5°·그리퍼 그대로)", worst[0] < 0.001 and worst[1] < 0.5 and worst[2] == 0.0)
+    mp = mk(False)
+    p, m = go(mp, lambda k: meas([0, 0, PINCH_H0], np.eye(3), G0), 200)
+    print(f"  예전(--start paper): 손 + 위 편 손에서 집게 끝 {np.linalg.norm(p - hp)*1000:.0f} mm 뜸, 방향 {math.degrees(rot_angle(m, hm)):.0f}° 돎, 그리퍼 {mp.width*100:.1f} cm")
+    check("15b --start paper 는 예전처럼 종이 + 기준 (이 자세에서는 움직임)", np.linalg.norm(p - hp) > 0.005)
+    mp = mk(True)
+    p, m = go(mp, lambda k: meas(P0 + np.array([0.10, 0.0, 0.05]) * min(k / 150, 1.0), R0, G0), 400)
+    print(f"  SPACE 뒤 손을 앞 10·위 5 cm: 집게 끝 {np.round((p - hp) * 100, 1)} cm")
+    check("15c 그 뒤로는 손이 움직인 만큼 (5 mm 안)", np.linalg.norm((p - hp) - [0.10, 0.0, 0.05]) < 0.005)
+    mp = mk(True)
+    p, m = go(mp, lambda k: meas(P0 + np.array([0, 0, -0.03]) * min(k / 100, 1.0), R0, G0), 300)
+    check("15d 손을 처음보다 낮게 내려도 집게 끝은 처음 높이 아래로 안 감", p[2] > hp[2] - 0.002)
+    mp = mk(True)
+    go(mp, lambda k: meas(P0, R0, G0 - 0.005), 100)
+    w_small = mp.width
+    go(mp, lambda k: meas(P0, R0, G0 - 0.04), 100)
+    print(f"  손가락 0.5 cm 움직임 → 그리퍼 {w_small*100:.1f} cm, 4 cm 오므림 → {mp.width*100:.1f} cm")
+    check("15e 그리퍼는 손가락이 1 cm 넘게 움직이면 따라감", w_small == 0.0 and mp.width > 0.01)
+    mp = mk(True)
+    for _ in range(50):
+        mp.step(None, 0.01, True, ik_iters=10)
+    p, m = go(mp, lambda k: meas([0.05, -0.04, PINCH_H0 + 0.08], rot_x(math.radians(25)), 0.07), 200)
+    check("15f 손을 늦게 찾아도 (0.5초 뒤) 팔은 그대로", np.linalg.norm(p - hp) < 0.001 and math.degrees(rot_angle(m, hm)) < 0.5)
+
+
+def check_safe_home():
+    """11/23 오후 사용자: "B 를 누르면 로봇팔이 책상에 박고 힘이 빠지네". B 로 갈 자세를 책상 위 3 cm (모델) 까지 들어 올림."""
+    print("== 16. B 로 갈 자세가 책상에 박히지 않게 (가상 팔)")
+    from home import HOME_CLEAR, path_ok, safe_target
+    from mapping import rot_angle
+    from piper_kin import PiperKin, TABLE_Z
+    kin = PiperKin()
+    q_saved = np.radians([-2.82, 92.996, -26.67, 4.49, 43.984, -7.491])     # 11/23 13:15 저장 (모델로 끝 −0.8 cm)
+    q_crash = np.radians([-1.13, 86.64, -27.94, 1.12, 42.69, -2.13])       # 실물이 책상에 닿아 힘이 빠진 자세 (대기)
+    q_t, lift = safe_target(kin, q_saved)
+    p0, m0 = kin.fk(q_saved)
+    p1, m1 = kin.fk(q_t)
+    print(f"  저장한 자세 끝 {(p0[2] - TABLE_Z) * 100:.1f} cm → B 목표 {(p1[2] - TABLE_Z) * 100:.1f} cm (들어 올림 {lift * 100:.1f} cm), "
+          f"앞뒤·옆 차 {np.linalg.norm(p1[:2] - p0[:2]) * 1000:.1f} mm, 방향 차 {math.degrees(rot_angle(m0, m1)):.2f}°")
+    check("16a 집게 끝이 낮게 저장된 자세는 같은 방향으로 책상 위 3 cm 까지 들어 올림",
+          abs(p1[2] - TABLE_Z - HOME_CLEAR) < 0.001 and np.linalg.norm(p1[:2] - p0[:2]) < 0.002 and rot_angle(m0, m1) < math.radians(1))
+    ok_old, low_old = path_ok(kin, q_crash, q_saved)
+    ok_new, low_new = path_ok(kin, q_crash, q_t)
+    print(f"  힘이 빠진 자세에서 B: 저장한 자세로는 {low_old * 100:.1f} cm 까지 내려감 ({'감' if ok_old else '안 감'}), 들어 올린 자세로는 {low_new * 100:.1f} cm ({'감' if ok_new else '안 감'})")
+    check("16b 책상 아래로 가는 길은 안 가고, 들어 올린 자세로는 감", (not ok_old) and ok_new)
+    q_hi = np.radians([0.0, 60.0, -60.0, 0.0, 60.0, 0.0])
+    q_same, lift0 = safe_target(kin, q_hi)
+    check("16c 이미 충분히 높게 저장한 자세는 그대로", lift0 == 0.0 and np.allclose(q_same, q_hi))
+
+
+def check_follower():
+    """11/26 석사형 메모: follower 가 줄에서 꺼내 200 Hz 로 보냄, 3차 중간 점, MIT 모드."""
+    print("== 17. follower (줄에서 꺼내 보내기), 3차 중간 점, MIT (가상 팔)")
+    from mapping import cubic_s
+    from stream import Follower
+
+    class FakeArm:
+        is_real = False
+
+        def __init__(self):
+            self.q = np.zeros(6)
+            self.calls = []
+
+        def joints(self):
+            return self.q.copy()
+
+        def gripper(self):
+            return 0.05
+
+        def move_joints(self, q):
+            self.calls.append(("pos", np.asarray(q).copy(), None))
+
+        def move_mit(self, q, dq, kp, kd):
+            self.calls.append(("mit", np.asarray(q).copy(), np.asarray(dq).copy(), kp, kd))
+
+        def send_gripper(self, w):
+            pass
+
+        def close(self):
+            pass
+
+    eps = 1e-3
+    d0 = (cubic_s(eps) - cubic_s(0.0)) / eps
+    d1 = (cubic_s(1.0) - cubic_s(1.0 - eps)) / eps
+    check("17a 3차 s(t)=3t²−2t³: s(0)=0, s(1)=1, 처음·끝 속도 거의 0, 가운데가 가장 빠름 (1.5배)",
+          cubic_s(0) == 0 and cubic_s(1) == 1 and d0 < 0.01 and d1 < 0.01
+          and abs((cubic_s(0.5 + eps) - cubic_s(0.5 - eps)) / (2 * eps) - 1.5) < 1e-3)
+
+    arm = FakeArm()
+    f = Follower(arm, hz=200, mode="mit", kp=5.0, kd=0.8, push_hz=100, max_rate=3.0, start=False)
+    q1 = np.full(6, 0.01)                         # 10 ms 동안 0.01 rad = 1 rad/s
+    f.push(q1)
+    f.tick(0.000)
+    f.tick(0.005)
+    a1, a2 = arm.calls[0], arm.calls[1]
+    check("17b 100 Hz 목표 하나를 200 Hz 점 두 개로 나눔 (반, 끝)", np.allclose(a1[1], 0.005) and np.allclose(a2[1], 0.01))
+    check("17c MIT 로 보낼 때 목표 속도 = 1 rad/s, kp 5, kd 0.8", np.allclose(a1[2], 1.0) and a1[3] == 5.0 and a1[4] == 0.8)
+    f.tick(0.010)
+    a3 = arm.calls[2]
+    check("17d 다음 목표가 안 오면 마지막 점을 속도 0 으로 (그 자리, 앞질러 가지 않음)",
+          np.allclose(a3[1], 0.01) and np.allclose(a3[2], 0.0))
+
+    for k in range(10):                           # 다음 목표들이 한꺼번에 몰려 옴 (UDP 가 몰려 온 것처럼)
+        f.push(np.full(6, 0.01 + 0.002 * (k + 1)))
+    qlen = len(f.q)
+    check("17e 몰려 와도 줄은 20 ms 어치(4점)까지만, 넘친 옛 점은 버림 (늦음이 쌓이지 않음)", qlen == 4 and f.n_drop == 16)
+    sent = []
+    for k in range(4):
+        f.tick(0.015 + 0.005 * k)
+        sent.append(arm.calls[-1][1][0])
+    steps = np.diff([0.01] + sent)
+    check("17f 남은 점은 순서대로, 한 점에 관절 0.015 rad(3 rad/s × 5 ms) 넘게 안 바뀜",
+          np.all(steps > 0) and np.all(steps <= 0.015 + 1e-9) and abs(sent[-1] - 0.03) < 1e-9)
+
+    f.push(np.full(6, 0.03 + 0.5))                # 한 번에 0.5 rad 튄 목표 (있어서는 안 되지만)
+    f.tick(0.040)
+    jump = arm.calls[-1][1][0] - 0.03
+    check("17g 튄 목표도 한 박자에 0.015 rad 만 감 (MIT 는 팔 안에서 안 잘라 주므로 여기서 자름)", abs(jump - 0.015) < 1e-9 and f.n_clip >= 1)
+
+    arm.q = np.full(6, 0.2)
+    f.hold()
+    f.tick(0.045)
+    check("17h hold(): 줄을 비우고 지금 실제 자세 쪽으로 속도 0 (한 박자 0.015 rad 씩)",
+          len(f.q) == 0 and np.allclose(arm.calls[-1][2], 0.0, atol=3.01) and arm.calls[-1][1][0] > 0.045)
+
+    arm2 = FakeArm()
+    f2 = Follower(arm2, hz=200, mode="position", push_hz=100, start=False)
+    f2.push(np.full(6, 0.004))
+    f2.tick(0.0)
+    check("17i position 모드는 move_joints 로 보냄 (MIT 아님)", arm2.calls[0][0] == "pos")
+
+    arm3 = FakeArm()
+    f3 = Follower(arm3, hz=200, mode="mit", push_hz=100)       # 진짜 쓰레드로 0.5초
+    t0 = time.perf_counter()
+    while time.perf_counter() - t0 < 0.5:
+        f3.push(np.full(6, 0.001 * (time.perf_counter() - t0)))
+        time.sleep(0.01)
+    f3.close()
+    n = len(arm3.calls)
+    print(f"  쓰레드 0.5초: 보낸 명령 {n}개 (200 Hz 면 100), {f3.report()}")
+    check("17j 쓰레드가 실제로 200 Hz 가까이 보냄 (0.5초에 80개 넘게)", n > 80)
+
+    mp = Mapper(PiperKin(), 0.30, 0.0, 1.0, max_speed=1.0, max_joint_rate=3.0)
+    mp.interp, mp.profile = True, "cubic"
+    mp.hold_start = False
+    mp.sync_to(mp.q_cmd)
+    hand = {"pinch": np.array([0.0, 0.0, PINCH_H0]), "yaw": -1.047, "gap": 0.07}
+    for _ in range(300):                          # 출발 자리에 다 올 때까지 (속도 제한에 걸린 구간을 빼고 재려고)
+        mp.step(hand, 0.01, True, ik_iters=10)
+    start = mp.cur.copy()
+    hand2 = {"pinch": np.array([0.02, 0.0, PINCH_H0]), "yaw": -1.047, "gap": 0.07}
+    mp._pkt_dt, mp._since = 0.04, 0.04            # 패킷 간격 40 ms 로 맞춰 둠 (새 패킷에서 0.8·0.04 + 0.2·0.04)
+    xs = []
+    for _ in range(6):
+        mp.step(hand2, 0.01, True, ik_iters=10)
+        xs.append(mp.cur[0] - start[0])
+    dx = np.diff([0.0] + xs)
+    print(f"  mapper cubic: 10 ms 마다 앞으로 {', '.join(f'{v * 1000:.1f}' for v in dx)} mm (40 ms 동안 2 cm)")
+    check("17k mapper --profile cubic: 손 값 사이를 느리게 시작 → 빨라짐 → 느리게 끝 (s = 3t² − 2t³)",
+          dx[0] < dx[1] and dx[1] > dx[3] and abs(xs[3] - 0.02) < 1e-3 and abs(dx[4]) < 1e-4)
+
+
 if __name__ == "__main__":
     main()
     check_hard_cases()
     check_finger_shape()
     check_auto_calib()
     check_steady()
+    check_palm_tilt()
+    check_hold_start()
+    check_safe_home()
+    check_follower()
     raise SystemExit(0 if verdict() else 1)

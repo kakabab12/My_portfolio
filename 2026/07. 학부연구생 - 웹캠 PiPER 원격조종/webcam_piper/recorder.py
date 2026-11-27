@@ -152,3 +152,33 @@ class CamGrabber:
         if self.thread.is_alive():
             self.thread.join(timeout=1.0)
         self.cap.release()
+
+
+class FakeCam:
+    """시험용 가짜 로봇 카메라 (11/26, robot_server --fake-cams). 초당 fps 장, 640x480, 장 번호가 찍힌 그림.
+    CamGrabber 와 같은 꼴 (ok, latest, latest_with_time, close). 실물 카메라 없이 기록·tinybc 변환 길을 시험할 때만."""
+
+    def __init__(self, name, width=640, height=480, fps=30.0):
+        self.ok = True
+        self.name, self.w, self.h, self.fps = name, width, height, fps
+        self.t0 = time.monotonic()
+        self.n, self.frame, self.t = -1, None, None
+
+    def latest_with_time(self):
+        now = time.monotonic()
+        n = int((now - self.t0) * self.fps)
+        if n != self.n:
+            img = np.zeros((self.h, self.w, 3), np.uint8)
+            img[:, :, 0] = np.linspace(0, 255, self.w, dtype=np.uint8)[None, :]          # 파랑: 가로로 밝아짐
+            img[:, :, 1] = np.linspace(0, 255, self.h, dtype=np.uint8)[:, None]          # 초록: 세로로 밝아짐
+            x = int((n * 7) % (self.w - 80))
+            img[200:280, x:x + 80, 2] = 255                                               # 빨간 네모가 옆으로 감
+            cv2.putText(img, f"{self.name} {n}", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
+            self.n, self.frame, self.t = n, img, now
+        return self.frame, self.t, self.n
+
+    def latest(self):
+        return self.latest_with_time()[0]
+
+    def close(self):
+        pass
